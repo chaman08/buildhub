@@ -1,10 +1,11 @@
 
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Menu, X, User } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { Menu, X } from 'lucide-react';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const location = useLocation();
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -21,16 +22,28 @@ const Header = () => {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
-            <Link to="/search" className="text-gray-700 hover:text-primary transition-colors">
+            <Link 
+              to="/search" 
+              className={`text-gray-700 hover:text-primary transition-colors ${location.pathname === '/search' ? 'text-primary font-medium' : ''}`}
+            >
               Find Contractors
             </Link>
-            <Link to="/post-project" className="text-gray-700 hover:text-primary transition-colors">
+            <Link 
+              to="/post-project" 
+              className={`text-gray-700 hover:text-primary transition-colors ${location.pathname === '/post-project' ? 'text-primary font-medium' : ''}`}
+            >
               Post Project
             </Link>
-            <Link to="/tenders" className="text-gray-700 hover:text-primary transition-colors">
+            <Link 
+              to="/tenders" 
+              className={`text-gray-700 hover:text-primary transition-colors ${location.pathname === '/tenders' ? 'text-primary font-medium' : ''}`}
+            >
               Tenders
             </Link>
-            <Link to="/about" className="text-gray-700 hover:text-primary transition-colors">
+            <Link 
+              to="/about" 
+              className={`text-gray-700 hover:text-primary transition-colors ${location.pathname === '/about' ? 'text-primary font-medium' : ''}`}
+            >
               About
             </Link>
           </nav>
@@ -61,16 +74,28 @@ const Header = () => {
         <div className="md:hidden bg-white border-t animate-slide-in">
           <div className="container-custom py-4">
             <nav className="flex flex-col space-y-4">
-              <Link to="/search" className="text-gray-700 hover:text-primary py-2 transition-colors">
+              <Link 
+                to="/search" 
+                className={`text-gray-700 hover:text-primary py-2 transition-colors ${location.pathname === '/search' ? 'text-primary font-medium' : ''}`}
+              >
                 Find Contractors
               </Link>
-              <Link to="/post-project" className="text-gray-700 hover:text-primary py-2 transition-colors">
+              <Link 
+                to="/post-project" 
+                className={`text-gray-700 hover:text-primary py-2 transition-colors ${location.pathname === '/post-project' ? 'text-primary font-medium' : ''}`}
+              >
                 Post Project
               </Link>
-              <Link to="/tenders" className="text-gray-700 hover:text-primary py-2 transition-colors">
+              <Link 
+                to="/tenders" 
+                className={`text-gray-700 hover:text-primary py-2 transition-colors ${location.pathname === '/tenders' ? 'text-primary font-medium' : ''}`}
+              >
                 Tenders
               </Link>
-              <Link to="/about" className="text-gray-700 hover:text-primary py-2 transition-colors">
+              <Link 
+                to="/about" 
+                className={`text-gray-700 hover:text-primary py-2 transition-colors ${location.pathname === '/about' ? 'text-primary font-medium' : ''}`}
+              >
                 About
               </Link>
               <div className="flex flex-col space-y-2 pt-2 border-t">
