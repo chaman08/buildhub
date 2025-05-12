@@ -1,7 +1,14 @@
 
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { 
+  getAuth, 
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
+  PhoneAuthProvider,
+  signInWithPhoneNumber,
+  RecaptchaVerifier
+} from "firebase/auth";
 
 // Your web app's Firebase configuration
 // Replace with your actual Firebase config
@@ -17,4 +24,15 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+
+// Setup RecaptchaVerifier with invisible mode
+export const setupRecaptcha = (containerId: string) => {
+  return new RecaptchaVerifier(auth, containerId, {
+    size: 'invisible',
+    callback: () => {
+      // reCAPTCHA solved, allow signInWithPhoneNumber.
+    }
+  });
+};
+
 export default app;

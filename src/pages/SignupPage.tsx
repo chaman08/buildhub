@@ -1,8 +1,29 @@
 
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { 
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
+  PhoneAuthProvider,
+  signInWithPhoneNumber
+} from "firebase/auth";
+import { auth, setupRecaptcha } from "../lib/firebase";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { 
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot
+} from "@/components/ui/input-otp";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useToast } from "@/hooks/use-toast";
 
 const SignupPage = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const recaptchaVerifierRef = useRef<any>(null);
+  const [confirmationResult, setConfirmationResult] = useState<any>(null);
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -11,6 +32,15 @@ const SignupPage = () => {
     confirmPassword: '',
     userType: 'customer', // 'customer' or 'contractor'
   });
+
+  // Verification states
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [verifyingPhone, setVerifyingPhone] = useState(false);
+  const [verifyingEmail, setVerifyingEmail] = useState(false);
+  const [phoneOtp, setPhoneOtp] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
+
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -23,15 +53,135 @@ const SignupPage = () => {
   };
 
   const validateForm = () => {
+    if (!termsAccepted) {
+      setError('Please accept the terms and conditions');
+      return false;
+    }
+    
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       return false;
     }
+    
     if (formData.password.length < 6) {
       setError('Password must be at least 6 characters');
       return false;
     }
+    
+    if (!phoneVerified) {
+      setError('Please verify your phone number');
+      return false;
+    }
+    
+    if (!emailVerified) {
+      setError('Please verify your email address');
+      return false;
+    }
+    
     return true;
+  };
+
+  // Function to send OTP to phone
+  const handlePhoneVerification = async () => {
+    if (!formData.phone || formData.phone.length < 10) {
+      setError('Please enter a valid phone number');
+      return;
+    }
+
+    setVerifyingPhone(true);
+    setError('');
+
+    try {
+      // Set up the invisible reCAPTCHA
+      if (!recaptchaVerifierRef.current) {
+        recaptchaVerifierRef.current = setupRecaptcha('recaptcha-container');
+      }
+
+      // Format phone number with country code if missing
+      const phoneNumberWithCode = formData.phone.startsWith('+') 
+        ? formData.phone 
+        : `+1${formData.phone}`; // Default to US code, adjust as needed
+
+      // Send OTP
+      const confirmationResult = await signInWithPhoneNumber(
+        auth, 
+        phoneNumberWithCode, 
+        recaptchaVerifierRef.current
+      );
+      
+      setConfirmationResult(confirmationResult);
+      toast({
+        title: "Verification code sent",
+        description: `Please enter the 6-digit code sent to ${formData.phone}`,
+      });
+    } catch (err: any) {
+      console.error('Phone verification error:', err);
+      setError(`Phone verification failed: ${err.message}`);
+      // Reset reCAPTCHA if error
+      recaptchaVerifierRef.current = null;
+    } finally {
+      setVerifyingPhone(false);
+    }
+  };
+
+  // Function to verify phone OTP
+  const verifyPhoneOtp = async () => {
+    if (!phoneOtp || phoneOtp.length !== 6 || !confirmationResult) {
+      setError('Please enter a valid verification code');
+      return;
+    }
+
+    setVerifyingPhone(true);
+    setError('');
+
+    try {
+      await confirmationResult.confirm(phoneOtp);
+      setPhoneVerified(true);
+      toast({
+        title: "Phone verified!",
+        description: "Your phone number has been verified successfully.",
+      });
+    } catch (err: any) {
+      console.error('OTP verification error:', err);
+      setError(`OTP verification failed: ${err.message}`);
+    } finally {
+      setVerifyingPhone(false);
+    }
+  };
+
+  // Function to send email verification
+  const handleEmailVerification = async () => {
+    if (!formData.email || !formData.email.includes('@')) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
+    if (!formData.password || formData.password.length < 6) {
+      setError('Please enter a valid password (min 6 characters)');
+      return;
+    }
+
+    setVerifyingEmail(true);
+    setError('');
+
+    try {
+      // Create user account
+      const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+      
+      // Send verification email
+      await sendEmailVerification(userCredential.user);
+      
+      setEmailVerified(true);
+      toast({
+        title: "Verification email sent!",
+        description: "Please check your inbox and click the verification link",
+      });
+    } catch (err: any) {
+      console.error('Email verification error:', err);
+      setError(`Email verification failed: ${err.message}`);
+    } finally {
+      setVerifyingEmail(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -45,19 +195,22 @@ const SignupPage = () => {
     setError('');
 
     try {
-      // In a real app, you would call your registration API here
-      console.log('Signing up with:', formData);
+      // Account already created during email verification
+      // We can add user details to Firestore/database here
       
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      toast({
+        title: "Account created successfully!",
+        description: "Redirecting to dashboard...",
+      });
       
-      // For demo purposes, let's simulate signup success
+      // Redirect based on user type
+      setTimeout(() => {
+        navigate('/');
+      }, 2000);
+    } catch (err: any) {
+      setError(`Failed to create account: ${err.message}`);
+    } finally {
       setLoading(false);
-      // Redirect to home page or dashboard in a real app
-      alert('Account created successfully! Redirecting to dashboard...');
-    } catch (err) {
-      setLoading(false);
-      setError('Failed to create account. Please try again.');
     }
   };
 
@@ -105,7 +258,7 @@ const SignupPage = () => {
                 Full Name
               </label>
               <div className="mt-1">
-                <input
+                <Input
                   id="name"
                   name="name"
                   type="text"
@@ -113,47 +266,106 @@ const SignupPage = () => {
                   required
                   value={formData.name}
                   onChange={handleChange}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary"
                 />
               </div>
             </div>
 
-            {/* Email */}
-            <div>
+            {/* Email Section */}
+            <div className="space-y-2">
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                 Email address
               </label>
-              <div className="mt-1">
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary"
-                />
+              <div className="flex space-x-2">
+                <div className="flex-1">
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    value={formData.email}
+                    onChange={handleChange}
+                    disabled={emailVerified}
+                    className={emailVerified ? "bg-green-50 border-green-500" : ""}
+                  />
+                </div>
+                <Button 
+                  type="button"
+                  onClick={handleEmailVerification}
+                  disabled={emailVerified || verifyingEmail}
+                  variant={emailVerified ? "outline" : "default"}
+                  className={emailVerified ? "border-green-500 text-green-600" : ""}
+                >
+                  {verifyingEmail ? "Sending..." : emailVerified ? "Verified ✓" : "Verify Email"}
+                </Button>
               </div>
+              {emailVerified && (
+                <p className="text-sm text-green-600">Email verified successfully!</p>
+              )}
             </div>
 
-            {/* Phone */}
-            <div>
+            {/* Phone Section */}
+            <div className="space-y-2">
               <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
                 Phone Number
               </label>
-              <div className="mt-1">
-                <input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  autoComplete="tel"
-                  required
-                  value={formData.phone}
-                  onChange={handleChange}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary"
-                />
+              <div className="flex space-x-2">
+                <div className="flex-1">
+                  <Input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    autoComplete="tel"
+                    required
+                    value={formData.phone}
+                    onChange={handleChange}
+                    placeholder="e.g. +1234567890"
+                    disabled={phoneVerified}
+                    className={phoneVerified ? "bg-green-50 border-green-500" : ""}
+                  />
+                </div>
+                <Button 
+                  type="button" 
+                  onClick={handlePhoneVerification}
+                  disabled={phoneVerified || verifyingPhone || !formData.phone}
+                  variant={phoneVerified ? "outline" : "default"}
+                  className={phoneVerified ? "border-green-500 text-green-600" : ""}
+                >
+                  {verifyingPhone ? "Sending..." : phoneVerified ? "Verified ✓" : "Send OTP"}
+                </Button>
               </div>
+
+              {confirmationResult && !phoneVerified && (
+                <div className="mt-4 space-y-2">
+                  <label htmlFor="otp" className="block text-sm font-medium text-gray-700">
+                    Enter verification code
+                  </label>
+                  <div className="flex space-x-2">
+                    <InputOTP 
+                      maxLength={6} 
+                      value={phoneOtp} 
+                      onChange={(value) => setPhoneOtp(value)}
+                    >
+                      <InputOTPGroup>
+                        <InputOTPSlot index={0} />
+                        <InputOTPSlot index={1} />
+                        <InputOTPSlot index={2} />
+                        <InputOTPSlot index={3} />
+                        <InputOTPSlot index={4} />
+                        <InputOTPSlot index={5} />
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
+                  <Button 
+                    type="button" 
+                    onClick={verifyPhoneOtp} 
+                    disabled={phoneOtp.length !== 6 || verifyingPhone}
+                    className="mt-2"
+                  >
+                    {verifyingPhone ? "Verifying..." : "Verify OTP"}
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* Password */}
@@ -162,7 +374,7 @@ const SignupPage = () => {
                 Password
               </label>
               <div className="mt-1">
-                <input
+                <Input
                   id="password"
                   name="password"
                   type="password"
@@ -170,7 +382,6 @@ const SignupPage = () => {
                   required
                   value={formData.password}
                   onChange={handleChange}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary"
                 />
               </div>
             </div>
@@ -181,7 +392,7 @@ const SignupPage = () => {
                 Confirm Password
               </label>
               <div className="mt-1">
-                <input
+                <Input
                   id="confirmPassword"
                   name="confirmPassword"
                   type="password"
@@ -189,20 +400,35 @@ const SignupPage = () => {
                   required
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary"
                 />
               </div>
             </div>
 
+            {/* Terms and Conditions */}
+            <div className="flex items-center">
+              <Checkbox 
+                id="terms" 
+                checked={termsAccepted}
+                onCheckedChange={(checked) => setTermsAccepted(checked === true)}
+              />
+              <label htmlFor="terms" className="ml-2 block text-sm text-gray-700">
+                I accept the <Link to="#" className="text-primary">Terms and Conditions</Link>
+              </label>
+            </div>
+
+            {/* Submit Button */}
             <div>
-              <button
+              <Button
                 type="submit"
-                disabled={loading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50"
+                disabled={loading || !emailVerified || !phoneVerified || !termsAccepted}
+                className="w-full"
               >
                 {loading ? 'Creating account...' : 'Create account'}
-              </button>
+              </Button>
             </div>
+
+            {/* Hidden element for reCAPTCHA */}
+            <div id="recaptcha-container"></div>
           </form>
 
           <div className="mt-6">
