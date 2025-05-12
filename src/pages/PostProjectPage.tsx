@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
 import { Toggle } from "@/components/ui/toggle";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import {
   Form,
   FormControl,
@@ -28,7 +29,18 @@ import {
 } from "@/components/ui/form";
 import { toast } from "@/hooks/use-toast";
 
-// Project form schema
+// Firebase imports
+import { auth } from "@/lib/firebase";
+import { 
+  RecaptchaVerifier, 
+  signInWithPhoneNumber,
+  sendEmailVerification,
+  createUserWithEmailAndPassword,
+  PhoneAuthProvider,
+  signInWithCredential
+} from "firebase/auth";
+
+// Project form schema with contact info
 const projectFormSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters").max(100, "Title cannot exceed 100 characters"),
   projectType: z.string({
@@ -48,6 +60,7 @@ const projectFormSchema = z.object({
   contactPreference: z.enum(["whatsapp", "email", "phone"], {
     required_error: "Please select a contact preference",
   }),
+  contactInfo: z.string().optional(),
 });
 
 type ProjectFormValues = z.infer<typeof projectFormSchema>;
@@ -62,17 +75,129 @@ const defaultValues: Partial<ProjectFormValues> = {
   timeline: "flexible",
   visibility: "public",
   contactPreference: "email",
+  contactInfo: "",
 };
 
 const PostProjectPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [files, setFiles] = useState<FileList | null>(null);
   const [fileError, setFileError] = useState("");
+  const [showContactInfo, setShowContactInfo] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
+  const [verificationId, setVerificationId] = useState("");
+  const [isVerified, setIsVerified] = useState(false);
+  const [verificationLoading, setVerificationLoading] = useState(false);
 
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectFormSchema),
     defaultValues,
   });
+
+  // Get values from form to determine UI state
+  const contactPreference = form.watch("contactPreference");
+  const contactInfo = form.watch("contactInfo");
+
+  // Set up reCAPTCHA verifier for phone authentication
+  const setupRecaptcha = () => {
+    if (!(window as any).recaptchaVerifier) {
+      (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        'size': 'normal',
+        'callback': () => {
+          // reCAPTCHA solved, continue with verification
+        }
+      });
+    }
+  };
+
+  // Send verification based on contact preference
+  const sendVerification = async () => {
+    setVerificationLoading(true);
+    const contact = form.getValues("contactInfo");
+    
+    if (!contact) {
+      toast({
+        title: "Contact information required",
+        description: "Please enter your contact information first.",
+        variant: "destructive",
+      });
+      setVerificationLoading(false);
+      return;
+    }
+
+    try {
+      if (contactPreference === "phone" || contactPreference === "whatsapp") {
+        setupRecaptcha();
+        
+        const phoneNumber = contact.startsWith('+') ? contact : `+${contact}`;
+        const appVerifier = (window as any).recaptchaVerifier;
+        
+        const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, appVerifier);
+        setVerificationId(confirmationResult.verificationId);
+        setVerificationSent(true);
+        
+        toast({
+          title: "Verification code sent",
+          description: `We've sent a verification code to your ${contactPreference === "whatsapp" ? "WhatsApp" : "phone"}`,
+        });
+      } 
+      else if (contactPreference === "email") {
+        // For email, create a temporary user to send verification
+        const tempPassword = Math.random().toString(36).slice(-8);
+        const userCredential = await createUserWithEmailAndPassword(auth, contact, tempPassword);
+        
+        await sendEmailVerification(userCredential.user);
+        setVerificationSent(true);
+        
+        toast({
+          title: "Verification email sent",
+          description: "We've sent a verification link to your email. Please check your inbox.",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Verification failed",
+        description: error.message || "Could not send verification. Please try again.",
+        variant: "destructive",
+      });
+      
+      // Reset reCAPTCHA on failure
+      if ((window as any).recaptchaVerifier) {
+        (window as any).recaptchaVerifier.clear();
+        (window as any).recaptchaVerifier = null;
+      }
+    }
+    
+    setVerificationLoading(false);
+  };
+
+  // Verify the code entered by user
+  const verifyCode = async () => {
+    setVerificationLoading(true);
+    
+    try {
+      if (contactPreference === "phone" || contactPreference === "whatsapp") {
+        // Verify phone number with the verification code
+        const credential = PhoneAuthProvider.credential(verificationId, verificationCode);
+        await signInWithCredential(auth, credential);
+        
+        setIsVerified(true);
+        toast({
+          title: "Verification successful",
+          description: "Your contact information has been verified.",
+        });
+      }
+      // For email verification we rely on the email link click
+    } catch (error: any) {
+      toast({
+        title: "Verification failed",
+        description: error.message || "Invalid verification code. Please try again.",
+        variant: "destructive",
+      });
+    }
+    
+    setVerificationLoading(false);
+  };
 
   function onSubmit(data: ProjectFormValues) {
     setIsSubmitting(true);
@@ -85,6 +210,17 @@ const PostProjectPage = () => {
     } else {
       setFileError("");
     }
+
+    // Check if contact verification is required but not completed
+    if (data.contactInfo && !isVerified) {
+      toast({
+        title: "Contact verification required",
+        description: "Please verify your contact information before submitting.",
+        variant: "destructive",
+      });
+      setIsSubmitting(false);
+      return;
+    }
     
     // Simulate form submission
     setTimeout(() => {
@@ -96,6 +232,10 @@ const PostProjectPage = () => {
       setIsSubmitting(false);
       form.reset();
       setFiles(null);
+      setVerificationSent(false);
+      setVerificationCode("");
+      setIsVerified(false);
+      setShowContactInfo(false);
     }, 1500);
   }
 
@@ -104,6 +244,15 @@ const PostProjectPage = () => {
       setFiles(e.target.files);
       setFileError("");
     }
+  }
+
+  // Handle contact preference selection
+  function handleContactPreferenceChange(value: string) {
+    form.setValue("contactPreference", value as "whatsapp" | "email" | "phone");
+    setShowContactInfo(true);
+    setVerificationSent(false);
+    setIsVerified(false);
+    form.setValue("contactInfo", "");
   }
 
   return (
@@ -425,12 +574,12 @@ const PostProjectPage = () => {
                       <div className="flex items-center">
                         <FormControl>
                           <RadioGroup
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
+                            onValueChange={(value) => handleContactPreferenceChange(value)}
+                            value={field.value}
                             className="flex flex-wrap gap-3"
                           >
                             <div className="flex flex-col items-center space-y-1">
-                              <div className="border rounded-md p-3 hover:bg-gray-50 cursor-pointer transition-colors">
+                              <div className={`border rounded-md p-3 hover:bg-gray-50 cursor-pointer transition-colors ${field.value === "whatsapp" ? "ring-2 ring-primary" : ""}`}>
                                 <RadioGroupItem value="whatsapp" id="whatsapp" className="sr-only" />
                                 <label htmlFor="whatsapp" className="cursor-pointer flex flex-col items-center">
                                   <Phone className="h-5 w-5 text-green-500" />
@@ -439,7 +588,7 @@ const PostProjectPage = () => {
                               </div>
                             </div>
                             <div className="flex flex-col items-center space-y-1">
-                              <div className="border rounded-md p-3 hover:bg-gray-50 cursor-pointer transition-colors">
+                              <div className={`border rounded-md p-3 hover:bg-gray-50 cursor-pointer transition-colors ${field.value === "email" ? "ring-2 ring-primary" : ""}`}>
                                 <RadioGroupItem value="email" id="email" className="sr-only" />
                                 <label htmlFor="email" className="cursor-pointer flex flex-col items-center">
                                   <Mail className="h-5 w-5 text-blue-500" />
@@ -448,7 +597,7 @@ const PostProjectPage = () => {
                               </div>
                             </div>
                             <div className="flex flex-col items-center space-y-1">
-                              <div className="border rounded-md p-3 hover:bg-gray-50 cursor-pointer transition-colors">
+                              <div className={`border rounded-md p-3 hover:bg-gray-50 cursor-pointer transition-colors ${field.value === "phone" ? "ring-2 ring-primary" : ""}`}>
                                 <RadioGroupItem value="phone" id="phone" className="sr-only" />
                                 <label htmlFor="phone" className="cursor-pointer flex flex-col items-center">
                                   <Phone className="h-5 w-5 text-primary" />
@@ -466,6 +615,124 @@ const PostProjectPage = () => {
                     </FormItem>
                   )}
                 />
+
+                {/* Contact Information Input - Shows after selecting preference */}
+                {showContactInfo && (
+                  <div className="space-y-4 p-4 border rounded-md bg-gray-50 animate-in fade-in-50 duration-300">
+                    <h3 className="font-medium">
+                      {contactPreference === "whatsapp" 
+                        ? "Enter WhatsApp Number" 
+                        : contactPreference === "email" 
+                          ? "Enter Email Address" 
+                          : "Enter Phone Number"}
+                    </h3>
+                    
+                    <FormField
+                      control={form.control}
+                      name="contactInfo"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Input 
+                              placeholder={
+                                contactPreference === "whatsapp" 
+                                  ? "WhatsApp number with country code (e.g. +1234567890)" 
+                                  : contactPreference === "email" 
+                                    ? "Email address" 
+                                    : "Phone number with country code (e.g. +1234567890)"
+                              }
+                              {...field}
+                              disabled={isVerified}
+                              type={contactPreference === "email" ? "email" : "tel"}
+                              className={isVerified ? "bg-green-50 border-green-200" : ""}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Verification Button */}
+                    {contactInfo && !verificationSent && !isVerified && (
+                      <div className="flex flex-col gap-3">
+                        <div id="recaptcha-container" className="flex justify-center"></div>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          onClick={sendVerification}
+                          disabled={verificationLoading}
+                          className="w-full"
+                        >
+                          {verificationLoading ? (
+                            <>
+                              <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+                              Sending...
+                            </>
+                          ) : (
+                            "Verify Contact Info"
+                          )}
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Verification Code Input */}
+                    {verificationSent && !isVerified && contactPreference !== "email" && (
+                      <div className="space-y-4">
+                        <p className="text-sm text-gray-600">
+                          Enter the 6-digit verification code sent to your {contactPreference === "whatsapp" ? "WhatsApp" : "phone"}
+                        </p>
+                        <div className="flex flex-col gap-2">
+                          <div className="flex justify-center">
+                            <InputOTP
+                              maxLength={6}
+                              value={verificationCode}
+                              onChange={setVerificationCode}
+                              render={({ slots }) => (
+                                <InputOTPGroup>
+                                  {slots.map((slot, index) => (
+                                    <InputOTPSlot key={index} {...slot} index={index} />
+                                  ))}
+                                </InputOTPGroup>
+                              )}
+                            />
+                          </div>
+                          <Button 
+                            type="button"
+                            onClick={verifyCode}
+                            disabled={verificationCode.length < 6 || verificationLoading}
+                            className="mt-2"
+                          >
+                            {verificationLoading ? (
+                              <>
+                                <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+                                Verifying...
+                              </>
+                            ) : (
+                              "Submit Code"
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Email Verification Message */}
+                    {verificationSent && !isVerified && contactPreference === "email" && (
+                      <div className="p-3 bg-blue-50 rounded-md text-sm">
+                        <p>We've sent a verification link to your email.</p>
+                        <p className="mt-1">Please check your inbox and click the link to verify your email address.</p>
+                        <p className="mt-2 font-medium">After verification, please return to this page to complete your submission.</p>
+                      </div>
+                    )}
+
+                    {/* Verified Success Message */}
+                    {isVerified && (
+                      <div className="flex items-center gap-2 text-green-600">
+                        <CheckCircle2 className="h-5 w-5" />
+                        <span className="font-medium">Contact information verified!</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
               
               <CardFooter className="flex justify-end">
