@@ -10,6 +10,7 @@ import SearchPage from "./pages/SearchPage";
 import ContractorProfilePage from "./pages/ContractorProfilePage";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
+import PostProjectPage from "./pages/PostProjectPage";
 import Layout from "./components/layout/Layout";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/" element={<Layout><HomePage /></Layout>} />
           <Route path="/search" element={<Layout><SearchPage /></Layout>} />
           <Route path="/contractors/:id" element={<Layout><ContractorProfilePage /></Layout>} />
+          <Route path="/post-project" element={<Layout><PostProjectPage /></Layout>} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
