@@ -88,6 +88,10 @@ const SignupPage = () => {
       return;
     }
 
+    if (!recaptchaVerifierRef.current) {
+      recaptchaVerifierRef.current = setupRecaptcha('recaptcha-container');
+    }
+
     setVerifyingPhone(true);
     setError('');
 
@@ -100,7 +104,7 @@ const SignupPage = () => {
       // Format phone number with country code if missing
       const phoneNumberWithCode = formData.phone.startsWith('+') 
         ? formData.phone 
-        : `+1${formData.phone}`; // Default to US code, adjust as needed
+        : `+91${formData.phone}`; // Default to US code, adjust as needed
 
       // Send OTP
       const confirmationResult = await signInWithPhoneNumber(

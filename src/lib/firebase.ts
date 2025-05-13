@@ -1,6 +1,7 @@
 
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
 import { 
   getAuth, 
   createUserWithEmailAndPassword,
@@ -13,16 +14,18 @@ import {
 // Your web app's Firebase configuration
 // Replace with your actual Firebase config
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyATTpaFdWlxF7iNGzF5S5KBDDavKw1vOOE",
+  authDomain: "buildhub-9fe45.firebaseapp.com",
+  projectId: "buildhub-9fe45",
+  storageBucket: "buildhub-9fe45.firebasestorage.app",
+  messagingSenderId: "419992680674",
+  appId: "1:419992680674:web:2058290ea706a398db46bb",
+  measurementId: "G-RX6P3ZXZ1Z"
 };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 export const auth = getAuth(app);
 
 // Setup RecaptchaVerifier with invisible mode
