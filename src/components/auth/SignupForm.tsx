@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,6 +42,16 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Ensure userType is valid before proceeding
+    if (!userType || (userType !== 'customer' && userType !== 'contractor')) {
+      toast({
+        title: "Invalid User Type",
+        description: "Please select a valid account type",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     if (formData.password !== formData.confirmPassword) {
       toast({
         title: "Password Mismatch",
@@ -66,7 +75,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
     try {
       const userData = {
         fullName: formData.fullName,
-        userType,
+        userType, // Now TypeScript knows this is 'customer' | 'contractor'
         mobile: formData.mobile,
         city: formData.city,
         ...(userType === 'contractor' && {
