@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Mail } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -18,8 +19,9 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToSignup }) =>
     password: ''
   });
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   
-  const { login } = useAuth();
+  const { login, signInWithGoogle } = useAuth();
   const { toast } = useToast();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -48,40 +50,84 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToSignup }) =>
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    
+    try {
+      await signInWithGoogle();
+      toast({
+        title: "Google Sign-in Successful",
+        description: "Welcome!"
+      });
+      onSuccess();
+    } catch (error: any) {
+      toast({
+        title: "Google Sign-in Failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
         <CardTitle className="text-center">Sign In</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="email">Email Address</Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              required
-            />
-          </div>
-          
-          <div>
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              value={formData.password}
-              onChange={handleInputChange}
-              required
-            />
-          </div>
-          
-          <Button type="submit" disabled={loading} className="w-full">
-            {loading ? 'Signing In...' : 'Sign In'}
+        <div className="space-y-4">
+          <Button 
+            onClick={handleGoogleSignIn} 
+            disabled={googleLoading}
+            variant="outline"
+            className="w-full"
+          >
+            <Mail className="h-4 w-4 mr-2" />
+            {googleLoading ? 'Signing in...' : 'Continue with Google'}
           </Button>
+          
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">
+                Or continue with email
+              </span>
+            </div>
+          </div>
+          
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="email">Email Address</Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                value={formData.password}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
+            
+            <Button type="submit" disabled={loading} className="w-full">
+              {loading ? 'Signing In...' : 'Sign In'}
+            </Button>
+          </form>
           
           <div className="text-center text-sm text-gray-600">
             Don't have an account?{' '}
@@ -93,7 +139,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToSignup }) =>
               Sign up here
             </button>
           </div>
-        </form>
+        </div>
       </CardContent>
     </Card>
   );

@@ -4,9 +4,14 @@ import {
   User, 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
   signOut,
   sendEmailVerification,
-  onAuthStateChanged
+  onAuthStateChanged,
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+  ConfirmationResult
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
@@ -37,9 +42,13 @@ interface AuthContextType {
   loading: boolean;
   signup: (email: string, password: string, userData: Partial<UserProfile>) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   sendEmailVerification: () => Promise<void>;
   refreshUserProfile: () => Promise<void>;
+  setupRecaptcha: (elementId: string) => RecaptchaVerifier;
+  sendPhoneOTP: (phoneNumber: string, recaptchaVerifier: RecaptchaVerifier) => Promise<ConfirmationResult>;
+  verifyPhoneOTP: (confirmationResult: ConfirmationResult, otp: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -85,6 +94,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await signInWithEmailAndPassword(auth, email, password);
   };
 
+  const signInWithGoogle = async () => {
+    const provider = new GoogleAuthProvider();
+    const result = await signInWithPopup(auth, provider);
+    
+    // Check if user profile exists, if not create one
+    const userDoc = await getDoc(doc(db, 'users', result.user.uid));
+    
+    if (!userDoc.exists()) {
+      // New Google user - redirect to complete profile
+      const profileData: UserProfile = {
+        uid: result.user.uid,
+        email: result.user.email!,
+        fullName: result.user.displayName || '',
+        userType: 'customer', // Default, can be changed later
+        mobile: '',
+        isEmailVerified: result.user.emailVerified,
+        isPhoneVerified: false,
+        isDocumentVerified: false
+      };
+      
+      await setDoc(doc(db, 'users', result.user.uid), profileData);
+      setUserProfile(profileData);
+    }
+  };
+
   const logout = async () => {
     await signOut(auth);
     setUserProfile(null);
@@ -98,10 +132,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshUserProfile = async () => {
     if (currentUser) {
+      await currentUser.reload();
       const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
       if (userDoc.exists()) {
-        setUserProfile(userDoc.data() as UserProfile);
+        const profile = userDoc.data() as UserProfile;
+        profile.isEmailVerified = currentUser.emailVerified;
+        setUserProfile(profile);
+        
+        // Update Firestore if email verification status changed
+        if (profile.isEmailVerified !== currentUser.emailVerified) {
+          await setDoc(doc(db, 'users', currentUser.uid), { ...profile, isEmailVerified: currentUser.emailVerified }, { merge: true });
+        }
       }
+    }
+  };
+
+  const setupRecaptcha = (elementId: string): RecaptchaVerifier => {
+    return new RecaptchaVerifier(auth, elementId, {
+      size: 'invisible',
+      callback: () => {
+        // reCAPTCHA solved
+      }
+    });
+  };
+
+  const sendPhoneOTP = async (phoneNumber: string, recaptchaVerifier: RecaptchaVerifier): Promise<ConfirmationResult> => {
+    return await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
+  };
+
+  const verifyPhoneOTP = async (confirmationResult: ConfirmationResult, otp: string): Promise<void> => {
+    await confirmationResult.confirm(otp);
+    
+    // Update user profile to mark phone as verified
+    if (currentUser) {
+      await setDoc(doc(db, 'users', currentUser.uid), {
+        isPhoneVerified: true
+      }, { merge: true });
+      
+      await refreshUserProfile();
     }
   };
 
@@ -139,9 +207,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loading,
     signup,
     login,
+    signInWithGoogle,
     logout,
     sendEmailVerification: sendEmailVerificationHandler,
-    refreshUserProfile
+    refreshUserProfile,
+    setupRecaptcha,
+    sendPhoneOTP,
+    verifyPhoneOTP
   };
 
   return (

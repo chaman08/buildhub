@@ -1,9 +1,11 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { User, Building2, Upload } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { User, Building2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -14,6 +16,7 @@ interface SignupFormProps {
 const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
   const [step, setStep] = useState(1);
   const [userType, setUserType] = useState<'customer' | 'contractor' | ''>('');
+  const [countryCode, setCountryCode] = useState('+91');
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -29,6 +32,19 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
   
   const { signup } = useAuth();
   const { toast } = useToast();
+
+  const countryCodes = [
+    { code: '+91', country: 'India' },
+    { code: '+1', country: 'USA' },
+    { code: '+44', country: 'UK' },
+    { code: '+86', country: 'China' },
+    { code: '+81', country: 'Japan' },
+    { code: '+33', country: 'France' },
+    { code: '+49', country: 'Germany' },
+    { code: '+61', country: 'Australia' },
+    { code: '+971', country: 'UAE' },
+    { code: '+65', country: 'Singapore' }
+  ];
 
   const serviceCategories = [
     'Civil Construction', 'Electrical', 'Plumbing', 'Painting', 'Carpentry',
@@ -73,10 +89,11 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
     setLoading(true);
     
     try {
+      const fullMobile = `${countryCode}${formData.mobile}`;
       const userData = {
         fullName: formData.fullName,
         userType, // Now TypeScript knows this is 'customer' | 'contractor'
-        mobile: formData.mobile,
+        mobile: fullMobile,
         city: formData.city,
         ...(userType === 'contractor' && {
           companyName: formData.companyName,
@@ -89,7 +106,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
       
       toast({
         title: "Account Created!",
-        description: "Please check your email for verification link"
+        description: "Please complete email and phone verification"
       });
       
       onSuccess();
@@ -175,15 +192,30 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
           
           <div>
             <Label htmlFor="mobile">Mobile Number</Label>
-            <Input
-              id="mobile"
-              name="mobile"
-              type="tel"
-              placeholder="+91 97545 27943"
-              value={formData.mobile}
-              onChange={handleInputChange}
-              required
-            />
+            <div className="flex space-x-2">
+              <Select value={countryCode} onValueChange={setCountryCode}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {countryCodes.map((country) => (
+                    <SelectItem key={country.code} value={country.code}>
+                      {country.code} {country.country}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                id="mobile"
+                name="mobile"
+                type="tel"
+                placeholder="97545 27943"
+                value={formData.mobile}
+                onChange={handleInputChange}
+                className="flex-1"
+                required
+              />
+            </div>
           </div>
           
           <div>
@@ -225,19 +257,16 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
             <>
               <div>
                 <Label htmlFor="serviceCategory">Service Category</Label>
-                <select
-                  id="serviceCategory"
-                  name="serviceCategory"
-                  value={formData.serviceCategory}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Select a category</option>
-                  {serviceCategories.map((category) => (
-                    <option key={category} value={category}>{category}</option>
-                  ))}
-                </select>
+                <Select value={formData.serviceCategory} onValueChange={(value) => setFormData({ ...formData, serviceCategory: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {serviceCategories.map((category) => (
+                      <SelectItem key={category} value={category}>{category}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               
               <div>

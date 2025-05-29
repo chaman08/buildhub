@@ -1,21 +1,44 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Mail, Phone, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { RecaptchaVerifier, ConfirmationResult } from 'firebase/auth';
 
 const VerificationPage: React.FC = () => {
-  const [otp, setOtp] = useState('');
+  const [emailOtp, setEmailOtp] = useState('');
+  const [phoneOtp, setPhoneOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [phoneVerified, setPhoneVerified] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [recaptchaVerifier, setRecaptchaVerifier] = useState<RecaptchaVerifier | null>(null);
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   
-  const { currentUser, userProfile, sendEmailVerification, refreshUserProfile } = useAuth();
+  const { 
+    currentUser, 
+    userProfile, 
+    sendEmailVerification, 
+    refreshUserProfile,
+    setupRecaptcha,
+    sendPhoneOTP,
+    verifyPhoneOTP
+  } = useAuth();
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Setup reCAPTCHA
+    if (!recaptchaVerifier) {
+      const verifier = setupRecaptcha('recaptcha-container');
+      setRecaptchaVerifier(verifier);
+    }
+    
+    return () => {
+      recaptchaVerifier?.clear();
+    };
+  }, []);
 
   const handleResendEmail = async () => {
     try {
@@ -33,41 +56,60 @@ const VerificationPage: React.FC = () => {
     }
   };
 
-  const handleSendOTP = async () => {
-    // In a real implementation, you would integrate with Firebase phone auth
-    // For now, we'll simulate sending an OTP
-    toast({
-      title: "OTP Sent",
-      description: `OTP sent to ${userProfile?.mobile}`
-    });
-  };
+  const handleSendPhoneOTP = async () => {
+    if (!userProfile?.mobile || !recaptchaVerifier) {
+      toast({
+        title: "Error",
+        description: "Phone number or reCAPTCHA not ready",
+        variant: "destructive"
+      });
+      return;
+    }
 
-  const handleVerifyOTP = async () => {
     setLoading(true);
     try {
-      // In a real implementation, you would verify the OTP with Firebase
-      // For demo purposes, we'll accept "123456" as valid OTP
-      if (otp === '123456') {
-        await updateDoc(doc(db, 'users', currentUser!.uid), {
-          isPhoneVerified: true
-        });
-        setPhoneVerified(true);
-        await refreshUserProfile();
-        toast({
-          title: "Phone Verified",
-          description: "Your phone number has been verified successfully"
-        });
-      } else {
-        toast({
-          title: "Invalid OTP",
-          description: "Please enter the correct OTP",
-          variant: "destructive"
-        });
-      }
+      const result = await sendPhoneOTP(userProfile.mobile, recaptchaVerifier);
+      setConfirmationResult(result);
+      setOtpSent(true);
+      toast({
+        title: "OTP Sent",
+        description: `OTP sent to ${userProfile.mobile}`
+      });
     } catch (error: any) {
+      console.error('Phone OTP error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send OTP. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyPhoneOTP = async () => {
+    if (!confirmationResult || phoneOtp.length !== 6) {
+      toast({
+        title: "Invalid OTP",
+        description: "Please enter a valid 6-digit OTP",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await verifyPhoneOTP(confirmationResult, phoneOtp);
+      setPhoneVerified(true);
+      toast({
+        title: "Phone Verified",
+        description: "Your phone number has been verified successfully"
+      });
+    } catch (error: any) {
+      console.error('Phone verification error:', error);
       toast({
         title: "Verification Failed",
-        description: error.message,
+        description: "Invalid OTP. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -76,7 +118,6 @@ const VerificationPage: React.FC = () => {
   };
 
   const handleRefreshEmail = async () => {
-    await currentUser?.reload();
     await refreshUserProfile();
   };
 
@@ -159,28 +200,52 @@ const VerificationPage: React.FC = () => {
                   <p className="text-gray-600">
                     Verify your phone number: <strong>{userProfile.mobile}</strong>
                   </p>
-                  <Button onClick={handleSendOTP} variant="outline">
-                    Send OTP
-                  </Button>
                   
-                  <div className="flex space-x-2">
-                    <Input
-                      placeholder="Enter 6-digit OTP"
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value)}
-                      maxLength={6}
-                    />
+                  {!otpSent ? (
                     <Button 
-                      onClick={handleVerifyOTP} 
-                      disabled={loading || otp.length !== 6}
+                      onClick={handleSendPhoneOTP} 
+                      disabled={loading}
+                      variant="outline"
                     >
-                      {loading ? 'Verifying...' : 'Verify'}
+                      {loading ? 'Sending...' : 'Send OTP'}
                     </Button>
-                  </div>
-                  
-                  <p className="text-xs text-gray-500">
-                    Demo: Use OTP "123456" for testing
-                  </p>
+                  ) : (
+                    <div className="space-y-4">
+                      <p className="text-sm text-gray-600">
+                        Enter the 6-digit OTP sent to your phone:
+                      </p>
+                      <div className="flex space-x-2 items-center">
+                        <InputOTP
+                          maxLength={6}
+                          value={phoneOtp}
+                          onChange={setPhoneOtp}
+                        >
+                          <InputOTPGroup>
+                            <InputOTPSlot index={0} />
+                            <InputOTPSlot index={1} />
+                            <InputOTPSlot index={2} />
+                            <InputOTPSlot index={3} />
+                            <InputOTPSlot index={4} />
+                            <InputOTPSlot index={5} />
+                          </InputOTPGroup>
+                        </InputOTP>
+                        <Button 
+                          onClick={handleVerifyPhoneOTP} 
+                          disabled={loading || phoneOtp.length !== 6}
+                        >
+                          {loading ? 'Verifying...' : 'Verify'}
+                        </Button>
+                      </div>
+                      <Button 
+                        onClick={handleSendPhoneOTP} 
+                        variant="outline" 
+                        size="sm"
+                        disabled={loading}
+                      >
+                        Resend OTP
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -204,6 +269,9 @@ const VerificationPage: React.FC = () => {
             </Card>
           )}
         </div>
+        
+        {/* reCAPTCHA container */}
+        <div id="recaptcha-container"></div>
       </div>
     </div>
   );
