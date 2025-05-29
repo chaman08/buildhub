@@ -29,7 +29,7 @@ const Contact = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Here you would typically send the form data to your backend
+    // Here you would typically send the form data to Firebase
     console.log("Form submitted:", formData);
     setIsSubmitted(true);
     
@@ -164,7 +164,7 @@ const Contact = () => {
                     </div>
                     <div>
                       <h4 className="font-semibold text-gray-900">Phone</h4>
-                      <p className="text-gray-600">+91 98765 43210</p>
+                      <p className="text-gray-600">+91 97545 27943</p>
                       <p className="text-sm text-gray-500">WhatsApp available</p>
                     </div>
                   </div>

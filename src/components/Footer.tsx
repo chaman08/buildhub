@@ -1,4 +1,3 @@
-
 const Footer = () => {
   const currentYear = new Date().getFullYear();
 
@@ -60,7 +59,7 @@ const Footer = () => {
               </div>
               <div className="flex items-center space-x-2">
                 <span>📱</span>
-                <span>+91 98765 43210</span>
+                <span>+91 97545 27943</span>
               </div>
               <div className="flex items-center space-x-2">
                 <span>📍</span>
