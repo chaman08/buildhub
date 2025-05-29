@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Menu, User, LogIn, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,10 +9,12 @@ import {
 } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { LogOut } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
   const { currentUser, userProfile, logout } = useAuth();
+  const navigate = useNavigate();
 
   const navigation = [
     { name: "Home", href: "/" },
@@ -27,6 +30,10 @@ const Header = () => {
     } catch (error) {
       console.error("Logout error:", error);
     }
+  };
+
+  const handleAuthNavigation = () => {
+    navigate('/auth');
   };
 
   const getVerificationStatus = () => {
@@ -109,14 +116,14 @@ const Header = () => {
                 <Button 
                   variant="ghost" 
                   className="text-gray-600 hover:text-blue-600 hover:bg-blue-50"
-                  onClick={() => window.location.href = '/auth'}
+                  onClick={handleAuthNavigation}
                 >
                   <LogIn className="h-4 w-4 mr-2" />
                   Sign In
                 </Button>
                 <Button 
                   className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-200"
-                  onClick={() => window.location.href = '/auth'}
+                  onClick={handleAuthNavigation}
                 >
                   <User className="h-4 w-4 mr-2" />
                   Get Started
@@ -170,14 +177,14 @@ const Header = () => {
                       <Button 
                         variant="ghost" 
                         className="w-full justify-start text-gray-600 hover:text-blue-600 hover:bg-blue-50"
-                        onClick={() => window.location.href = '/auth'}
+                        onClick={handleAuthNavigation}
                       >
                         <LogIn className="h-4 w-4 mr-2" />
                         Sign In
                       </Button>
                       <Button 
                         className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
-                        onClick={() => window.location.href = '/auth'}
+                        onClick={handleAuthNavigation}
                       >
                         <User className="h-4 w-4 mr-2" />
                         Get Started

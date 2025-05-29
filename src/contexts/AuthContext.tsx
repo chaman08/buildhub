@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
   User, 
@@ -98,17 +97,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
     
-    // Check if user profile exists, if not create one
+    // Check if user profile exists, if not create a basic one
     const userDoc = await getDoc(doc(db, 'users', result.user.uid));
     
     if (!userDoc.exists()) {
-      // New Google user - redirect to complete profile
+      // New Google user - create incomplete profile that needs completion
       const profileData: UserProfile = {
         uid: result.user.uid,
         email: result.user.email!,
         fullName: result.user.displayName || '',
-        userType: 'customer', // Default, can be changed later
-        mobile: '',
+        userType: 'customer', // Default, user will be prompted to complete
+        mobile: '', // Empty, needs to be filled
         isEmailVerified: result.user.emailVerified,
         isPhoneVerified: false,
         isDocumentVerified: false
@@ -116,6 +115,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       await setDoc(doc(db, 'users', result.user.uid), profileData);
       setUserProfile(profileData);
+    } else {
+      // Existing user - update email verification status
+      const profile = userDoc.data() as UserProfile;
+      profile.isEmailVerified = result.user.emailVerified;
+      setUserProfile(profile);
+      
+      if (profile.isEmailVerified !== result.user.emailVerified) {
+        await setDoc(doc(db, 'users', result.user.uid), { ...profile, isEmailVerified: result.user.emailVerified }, { merge: true });
+      }
     }
   };
 
