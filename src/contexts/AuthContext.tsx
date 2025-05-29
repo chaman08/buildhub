@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
   User, 
@@ -17,7 +18,7 @@ import { auth, db } from '@/lib/firebase';
 
 export interface UserProfile {
   uid: string;
-  email: string;
+  email?: string;
   fullName: string;
   userType: 'customer' | 'contractor';
   mobile: string;
@@ -40,14 +41,17 @@ interface AuthContextType {
   userProfile: UserProfile | null;
   loading: boolean;
   signup: (email: string, password: string, userData: Partial<UserProfile>) => Promise<void>;
+  signupWithPhone: (phoneNumber: string, userData: Partial<UserProfile>) => Promise<ConfirmationResult>;
   login: (email: string, password: string) => Promise<void>;
+  loginWithPhone: (phoneNumber: string) => Promise<ConfirmationResult>;
   signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   sendEmailVerification: () => Promise<void>;
   refreshUserProfile: () => Promise<void>;
   setupRecaptcha: (elementId: string) => RecaptchaVerifier;
   sendPhoneOTP: (phoneNumber: string, recaptchaVerifier: RecaptchaVerifier) => Promise<ConfirmationResult>;
-  verifyPhoneOTP: (confirmationResult: ConfirmationResult, otp: string) => Promise<void>;
+  verifyPhoneOTP: (confirmationResult: ConfirmationResult, otp: string, userData?: Partial<UserProfile>) => Promise<void>;
+  isVerificationComplete: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -89,8 +93,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUserProfile(profileData);
   };
 
+  const signupWithPhone = async (phoneNumber: string, userData: Partial<UserProfile>): Promise<ConfirmationResult> => {
+    const recaptchaVerifier = setupRecaptcha('recaptcha-container');
+    return await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
+  };
+
   const login = async (email: string, password: string) => {
     await signInWithEmailAndPassword(auth, email, password);
+  };
+
+  const loginWithPhone = async (phoneNumber: string): Promise<ConfirmationResult> => {
+    const recaptchaVerifier = setupRecaptcha('recaptcha-container');
+    return await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
   };
 
   const signInWithGoogle = async () => {
@@ -168,17 +182,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
   };
 
-  const verifyPhoneOTP = async (confirmationResult: ConfirmationResult, otp: string): Promise<void> => {
-    await confirmationResult.confirm(otp);
+  const verifyPhoneOTP = async (confirmationResult: ConfirmationResult, otp: string, userData?: Partial<UserProfile>): Promise<void> => {
+    const result = await confirmationResult.confirm(otp);
     
-    // Update user profile to mark phone as verified
-    if (currentUser) {
+    // If this is a new phone signup, create user profile
+    if (userData && result.user) {
+      const profileData: UserProfile = {
+        uid: result.user.uid,
+        fullName: userData.fullName!,
+        userType: userData.userType!,
+        mobile: result.user.phoneNumber!,
+        city: userData.city,
+        isEmailVerified: false,
+        isPhoneVerified: true,
+        isDocumentVerified: false,
+        ...userData
+      };
+      
+      await setDoc(doc(db, 'users', result.user.uid), profileData);
+      setUserProfile(profileData);
+    } else if (currentUser) {
+      // Update existing user profile to mark phone as verified
       await setDoc(doc(db, 'users', currentUser.uid), {
         isPhoneVerified: true
       }, { merge: true });
       
       await refreshUserProfile();
     }
+  };
+
+  const isVerificationComplete = (): boolean => {
+    if (!userProfile) return false;
+    return userProfile.isEmailVerified || userProfile.isPhoneVerified;
   };
 
   useEffect(() => {
@@ -214,14 +249,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     userProfile,
     loading,
     signup,
+    signupWithPhone,
     login,
+    loginWithPhone,
     signInWithGoogle,
     logout,
     sendEmailVerification: sendEmailVerificationHandler,
     refreshUserProfile,
     setupRecaptcha,
     sendPhoneOTP,
-    verifyPhoneOTP
+    verifyPhoneOTP,
+    isVerificationComplete
   };
 
   return (

@@ -5,9 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { User, Building2 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { User, Building2, Mail, Phone } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import PhoneAuthForm from './PhoneAuthForm';
 
 interface SignupFormProps {
   onSuccess: () => void;
@@ -106,7 +108,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
       
       toast({
         title: "Account Created!",
-        description: "Please complete email and phone verification"
+        description: "Please verify your email or phone number to continue"
       });
       
       onSuccess();
@@ -164,135 +166,154 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="fullName">
-              {userType === 'contractor' ? 'Full Name / Company Name' : 'Full Name'}
-            </Label>
-            <Input
-              id="fullName"
-              name="fullName"
-              value={formData.fullName}
-              onChange={handleInputChange}
-              required
-            />
-          </div>
+        <Tabs defaultValue="email" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="email" className="flex items-center">
+              <Mail className="h-4 w-4 mr-1" />
+              Email
+            </TabsTrigger>
+            <TabsTrigger value="phone" className="flex items-center">
+              <Phone className="h-4 w-4 mr-1" />
+              Phone
+            </TabsTrigger>
+          </TabsList>
           
-          <div>
-            <Label htmlFor="email">Email Address</Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              required
-            />
-          </div>
-          
-          <div>
-            <Label htmlFor="mobile">Mobile Number</Label>
-            <div className="flex space-x-2">
-              <Select value={countryCode} onValueChange={setCountryCode}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {countryCodes.map((country) => (
-                    <SelectItem key={country.code} value={country.code}>
-                      {country.code} {country.country}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Input
-                id="mobile"
-                name="mobile"
-                type="tel"
-                placeholder="97545 27943"
-                value={formData.mobile}
-                onChange={handleInputChange}
-                className="flex-1"
-                required
-              />
-            </div>
-          </div>
-          
-          <div>
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              value={formData.password}
-              onChange={handleInputChange}
-              required
-            />
-          </div>
-          
-          <div>
-            <Label htmlFor="confirmPassword">Confirm Password</Label>
-            <Input
-              id="confirmPassword"
-              name="confirmPassword"
-              type="password"
-              value={formData.confirmPassword}
-              onChange={handleInputChange}
-              required
-            />
-          </div>
-          
-          <div>
-            <Label htmlFor="city">City</Label>
-            <Input
-              id="city"
-              name="city"
-              value={formData.city}
-              onChange={handleInputChange}
-              required
-            />
-          </div>
-          
-          {userType === 'contractor' && (
-            <>
+          <TabsContent value="email" className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <Label htmlFor="serviceCategory">Service Category</Label>
-                <Select value={formData.serviceCategory} onValueChange={(value) => setFormData({ ...formData, serviceCategory: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {serviceCategories.map((category) => (
-                      <SelectItem key={category} value={category}>{category}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <Label htmlFor="experience">Years of Experience</Label>
+                <Label htmlFor="fullName">
+                  {userType === 'contractor' ? 'Full Name / Company Name' : 'Full Name'}
+                </Label>
                 <Input
-                  id="experience"
-                  name="experience"
-                  type="number"
-                  min="0"
-                  value={formData.experience}
+                  id="fullName"
+                  name="fullName"
+                  value={formData.fullName}
                   onChange={handleInputChange}
                   required
                 />
               </div>
-            </>
-          )}
+              
+              <div>
+                <Label htmlFor="email">Email Address</Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="mobile">Mobile Number</Label>
+                <div className="flex space-x-2">
+                  <Select value={countryCode} onValueChange={setCountryCode}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {countryCodes.map((country) => (
+                        <SelectItem key={country.code} value={country.code}>
+                          {country.code} {country.country}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    id="mobile"
+                    name="mobile"
+                    type="tel"
+                    placeholder="97545 27943"
+                    value={formData.mobile}
+                    onChange={handleInputChange}
+                    className="flex-1"
+                    required
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  value={formData.confirmPassword}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="city">City</Label>
+                <Input
+                  id="city"
+                  name="city"
+                  value={formData.city}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              
+              {userType === 'contractor' && (
+                <>
+                  <div>
+                    <Label htmlFor="serviceCategory">Service Category</Label>
+                    <Select value={formData.serviceCategory} onValueChange={(value) => setFormData({ ...formData, serviceCategory: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {serviceCategories.map((category) => (
+                          <SelectItem key={category} value={category}>{category}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="experience">Years of Experience</Label>
+                    <Input
+                      id="experience"
+                      name="experience"
+                      type="number"
+                      min="0"
+                      value={formData.experience}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                </>
+              )}
+              
+              <div className="flex space-x-2">
+                <Button type="button" variant="outline" onClick={() => setStep(1)}>
+                  Back
+                </Button>
+                <Button type="submit" disabled={loading} className="flex-1">
+                  {loading ? 'Creating Account...' : 'Create Account'}
+                </Button>
+              </div>
+            </form>
+          </TabsContent>
           
-          <div className="flex space-x-2">
-            <Button type="button" variant="outline" onClick={() => setStep(1)}>
-              Back
-            </Button>
-            <Button type="submit" disabled={loading} className="flex-1">
-              {loading ? 'Creating Account...' : 'Create Account'}
-            </Button>
-          </div>
-        </form>
+          <TabsContent value="phone">
+            <PhoneAuthForm onSuccess={onSuccess} isLogin={false} />
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );

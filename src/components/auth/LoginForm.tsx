@@ -4,9 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Mail } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Mail, Phone } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import PhoneAuthForm from './PhoneAuthForm';
 
 interface LoginFormProps {
   onSuccess: () => void;
@@ -94,40 +96,59 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToSignup }) =>
             </div>
             <div className="relative flex justify-center text-xs uppercase">
               <span className="bg-background px-2 text-muted-foreground">
-                Or continue with email
+                Or continue with
               </span>
             </div>
           </div>
-          
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="email">Email Address</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                required
-              />
-            </div>
+
+          <Tabs defaultValue="email" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="email" className="flex items-center">
+                <Mail className="h-4 w-4 mr-1" />
+                Email
+              </TabsTrigger>
+              <TabsTrigger value="phone" className="flex items-center">
+                <Phone className="h-4 w-4 mr-1" />
+                Phone
+              </TabsTrigger>
+            </TabsList>
             
-            <div>
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleInputChange}
-                required
-              />
-            </div>
+            <TabsContent value="email" className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <Label htmlFor="email">Email Address</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    name="password"
+                    type="password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+                
+                <Button type="submit" disabled={loading} className="w-full">
+                  {loading ? 'Signing In...' : 'Sign In'}
+                </Button>
+              </form>
+            </TabsContent>
             
-            <Button type="submit" disabled={loading} className="w-full">
-              {loading ? 'Signing In...' : 'Sign In'}
-            </Button>
-          </form>
+            <TabsContent value="phone">
+              <PhoneAuthForm onSuccess={onSuccess} isLogin={true} />
+            </TabsContent>
+          </Tabs>
           
           <div className="text-center text-sm text-gray-600">
             Don't have an account?{' '}

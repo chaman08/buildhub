@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Mail, Phone, CheckCircle, AlertCircle } from 'lucide-react';
+import { Mail, Phone, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { RecaptchaVerifier, ConfirmationResult } from 'firebase/auth';
@@ -24,7 +24,8 @@ const VerificationPage: React.FC = () => {
     refreshUserProfile,
     setupRecaptcha,
     sendPhoneOTP,
-    verifyPhoneOTP
+    verifyPhoneOTP,
+    isVerificationComplete
   } = useAuth();
   const { toast } = useToast();
 
@@ -125,7 +126,7 @@ const VerificationPage: React.FC = () => {
 
   const isEmailVerified = userProfile.isEmailVerified;
   const isPhoneVerified = userProfile.isPhoneVerified || phoneVerified;
-  const isFullyVerified = isEmailVerified && isPhoneVerified;
+  const hasMinimumVerification = isVerificationComplete();
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
@@ -133,49 +134,71 @@ const VerificationPage: React.FC = () => {
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-4">Verify Your Account</h1>
           <p className="text-gray-600">
-            Please complete the verification steps below to access all features
+            {hasMinimumVerification 
+              ? "Great! You can now access the platform. Complete both verifications for full security."
+              : "Please verify at least one contact method to access the platform"
+            }
           </p>
         </div>
 
-        <div className="space-y-6">
-          {/* Email Verification */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Mail className="h-5 w-5 mr-2" />
-                Email Verification
-                {isEmailVerified ? (
-                  <CheckCircle className="h-5 w-5 ml-auto text-green-600" />
-                ) : (
-                  <AlertCircle className="h-5 w-5 ml-auto text-orange-600" />
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isEmailVerified ? (
-                <div className="text-green-600">
-                  ✓ Your email address has been verified
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <p className="text-gray-600">
-                    We've sent a verification email to <strong>{userProfile.email}</strong>
+        {/* Minimum verification info card */}
+        {hasMinimumVerification && !isEmailVerified && !isPhoneVerified && (
+          <Card className="mb-6 bg-blue-50 border-blue-200">
+            <CardContent className="pt-6">
+              <div className="flex items-start space-x-3">
+                <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+                <div>
+                  <h3 className="font-semibold text-blue-900">Account Access Granted</h3>
+                  <p className="text-blue-700 text-sm">
+                    You can now use the platform! For enhanced security, we recommend completing both email and phone verification.
                   </p>
-                  <p className="text-sm text-gray-500">
-                    Please check your inbox and click the verification link.
-                  </p>
-                  <div className="flex space-x-2">
-                    <Button onClick={handleResendEmail} variant="outline">
-                      Resend Email
-                    </Button>
-                    <Button onClick={handleRefreshEmail} variant="outline">
-                      I've Verified
-                    </Button>
-                  </div>
                 </div>
-              )}
+              </div>
             </CardContent>
           </Card>
+        )}
+
+        <div className="space-y-6">
+          {/* Email Verification */}
+          {userProfile.email && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Mail className="h-5 w-5 mr-2" />
+                  Email Verification
+                  {isEmailVerified ? (
+                    <CheckCircle className="h-5 w-5 ml-auto text-green-600" />
+                  ) : (
+                    <AlertCircle className="h-5 w-5 ml-auto text-orange-600" />
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isEmailVerified ? (
+                  <div className="text-green-600">
+                    ✓ Your email address has been verified
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <p className="text-gray-600">
+                      We've sent a verification email to <strong>{userProfile.email}</strong>
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Please check your inbox and click the verification link.
+                    </p>
+                    <div className="flex space-x-2">
+                      <Button onClick={handleResendEmail} variant="outline">
+                        Resend Email
+                      </Button>
+                      <Button onClick={handleRefreshEmail} variant="outline">
+                        I've Verified
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Phone Verification */}
           <Card>
@@ -251,16 +274,19 @@ const VerificationPage: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* Verification Status */}
-          {isFullyVerified && (
+          {/* Continue to platform button */}
+          {hasMinimumVerification && (
             <Card className="bg-green-50 border-green-200">
               <CardContent className="text-center py-6">
                 <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-green-900 mb-2">
-                  Account Fully Verified!
+                  Ready to Continue!
                 </h3>
                 <p className="text-green-700 mb-4">
-                  You can now access all features of the platform
+                  {isEmailVerified && isPhoneVerified 
+                    ? "Both verifications complete! You have full access to all features."
+                    : "You have sufficient verification to access the platform."
+                  }
                 </p>
                 <Button onClick={() => window.location.href = '/'}>
                   Continue to Dashboard

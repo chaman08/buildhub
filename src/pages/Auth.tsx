@@ -10,7 +10,7 @@ import Header from '@/components/Header';
 const Auth: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
   const navigate = useNavigate();
-  const { currentUser, userProfile } = useAuth();
+  const { currentUser, userProfile, isVerificationComplete } = useAuth();
 
   useEffect(() => {
     if (currentUser && userProfile) {
@@ -20,14 +20,14 @@ const Auth: React.FC = () => {
         return;
       }
       
-      // Check if user needs verification
-      if (!userProfile.isEmailVerified || !userProfile.isPhoneVerified) {
-        navigate('/verify');
-      } else {
+      // Check if user has at least one verification (email OR phone)
+      if (isVerificationComplete()) {
         navigate('/');
+      } else {
+        navigate('/verify');
       }
     }
-  }, [currentUser, userProfile, navigate]);
+  }, [currentUser, userProfile, navigate, isVerificationComplete]);
 
   const handleAuthSuccess = () => {
     // Navigation will be handled by the useEffect above
@@ -69,6 +69,9 @@ const Auth: React.FC = () => {
           )}
         </div>
       </div>
+      
+      {/* reCAPTCHA container for phone auth */}
+      <div id="recaptcha-container"></div>
     </div>
   );
 };
