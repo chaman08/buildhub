@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Menu, User, LogIn } from "lucide-react";
+import { Menu, User, LogIn, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -13,33 +13,38 @@ const Header = () => {
 
   const navigation = [
     { name: "Home", href: "#" },
-    { name: "Browse Contractors", href: "#contractors" },
+    { name: "Find Contractors", href: "#contractors" },
     { name: "How It Works", href: "#how-it-works" },
     { name: "Pricing", href: "#pricing" },
     { name: "Contact", href: "#contact" },
   ];
 
   return (
-    <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
+    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <div className="flex items-center">
-            <div className="text-2xl font-bold text-orange-600">
-              NirmaanBazaar
+          <div className="flex items-center space-x-3">
+            <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl">
+              <Building2 className="h-5 w-5 text-white" />
             </div>
-            <div className="hidden sm:block ml-2 text-sm text-gray-500">
-              🇮🇳 Building India Together
+            <div>
+              <div className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                BuildConnect
+              </div>
+              <div className="text-xs text-gray-500 font-medium">
+                Professional Network
+              </div>
             </div>
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex space-x-8">
+          <nav className="hidden md:flex space-x-1">
             {navigation.map((item) => (
               <a
                 key={item.name}
                 href={item.href}
-                className="text-gray-700 hover:text-orange-600 px-3 py-2 text-sm font-medium transition-colors"
+                className="text-gray-600 hover:text-blue-600 px-4 py-2 text-sm font-medium transition-colors rounded-lg hover:bg-blue-50"
               >
                 {item.name}
               </a>
@@ -47,21 +52,21 @@ const Header = () => {
           </nav>
 
           {/* Desktop Auth Buttons */}
-          <div className="hidden md:flex items-center space-x-4">
-            <Button variant="outline" className="flex items-center gap-2">
-              <LogIn className="h-4 w-4" />
-              Login
+          <div className="hidden md:flex items-center space-x-3">
+            <Button variant="ghost" className="text-gray-600 hover:text-blue-600 hover:bg-blue-50">
+              <LogIn className="h-4 w-4 mr-2" />
+              Sign In
             </Button>
-            <Button className="bg-orange-600 hover:bg-orange-700 flex items-center gap-2">
-              <User className="h-4 w-4" />
-              Sign Up
+            <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-200">
+              <User className="h-4 w-4 mr-2" />
+              Get Started
             </Button>
           </div>
 
           {/* Mobile Menu Button */}
           <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="md:hidden">
+              <Button variant="ghost" size="icon" className="md:hidden">
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
@@ -71,20 +76,20 @@ const Header = () => {
                   <a
                     key={item.name}
                     href={item.href}
-                    className="text-gray-700 hover:text-orange-600 px-3 py-2 text-sm font-medium"
+                    className="text-gray-600 hover:text-blue-600 px-3 py-2 text-sm font-medium rounded-lg hover:bg-blue-50 transition-colors"
                     onClick={() => setIsOpen(false)}
                   >
                     {item.name}
                   </a>
                 ))}
-                <div className="pt-4 border-t border-gray-200 space-y-2">
-                  <Button variant="outline" className="w-full flex items-center gap-2">
-                    <LogIn className="h-4 w-4" />
-                    Login
+                <div className="pt-4 border-t border-gray-200 space-y-3">
+                  <Button variant="ghost" className="w-full justify-start text-gray-600 hover:text-blue-600 hover:bg-blue-50">
+                    <LogIn className="h-4 w-4 mr-2" />
+                    Sign In
                   </Button>
-                  <Button className="w-full bg-orange-600 hover:bg-orange-700 flex items-center gap-2">
-                    <User className="h-4 w-4" />
-                    Sign Up
+                  <Button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white">
+                    <User className="h-4 w-4 mr-2" />
+                    Get Started
                   </Button>
                 </div>
               </div>
