@@ -1,6 +1,5 @@
-
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Shield, Users, MapPin } from "lucide-react";
+import { ArrowRight, Shield, Users, MapPin, Building2 } from "lucide-react";
 
 const HeroSection = () => {
   return (
