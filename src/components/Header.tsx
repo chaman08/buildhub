@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Menu, User, LogIn, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,9 +6,12 @@ import {
   SheetContent,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { useAuth } from "@/contexts/AuthContext";
+import { LogOut } from "lucide-react";
 
 const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const { currentUser, userProfile, logout } = useAuth();
 
   const navigation = [
     { name: "Home", href: "/" },
@@ -18,6 +20,33 @@ const Header = () => {
     { name: "About", href: "/about" },
     { name: "Contact", href: "/contact" },
   ];
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
+
+  const getVerificationStatus = () => {
+    if (!userProfile) return null;
+    
+    const needsVerification = !userProfile.isEmailVerified || !userProfile.isPhoneVerified;
+    if (needsVerification) {
+      return (
+        <a href="/verify" className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
+          Verify Account
+        </a>
+      );
+    }
+    
+    if (userProfile.userType === 'contractor' && userProfile.verificationBadge) {
+      return <span className="text-xs text-green-600">✅ Verified</span>;
+    }
+    
+    return null;
+  };
 
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-sm">
@@ -51,16 +80,49 @@ const Header = () => {
             ))}
           </nav>
 
-          {/* Desktop Auth Buttons */}
+          {/* Desktop Auth Section */}
           <div className="hidden md:flex items-center space-x-3">
-            <Button variant="ghost" className="text-gray-600 hover:text-blue-600 hover:bg-blue-50">
-              <LogIn className="h-4 w-4 mr-2" />
-              Sign In
-            </Button>
-            <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-200">
-              <User className="h-4 w-4 mr-2" />
-              Get Started
-            </Button>
+            {currentUser ? (
+              <div className="flex items-center space-x-3">
+                <div className="text-right">
+                  <div className="text-sm font-medium text-gray-900">
+                    {userProfile?.fullName}
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs text-gray-500 capitalize">
+                      {userProfile?.userType}
+                    </span>
+                    {getVerificationStatus()}
+                  </div>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={handleLogout}
+                  className="text-gray-600 hover:text-red-600"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <>
+                <Button 
+                  variant="ghost" 
+                  className="text-gray-600 hover:text-blue-600 hover:bg-blue-50"
+                  onClick={() => window.location.href = '/auth'}
+                >
+                  <LogIn className="h-4 w-4 mr-2" />
+                  Sign In
+                </Button>
+                <Button 
+                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-200"
+                  onClick={() => window.location.href = '/auth'}
+                >
+                  <User className="h-4 w-4 mr-2" />
+                  Get Started
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -83,14 +145,45 @@ const Header = () => {
                   </a>
                 ))}
                 <div className="pt-4 border-t border-gray-200 space-y-3">
-                  <Button variant="ghost" className="w-full justify-start text-gray-600 hover:text-blue-600 hover:bg-blue-50">
-                    <LogIn className="h-4 w-4 mr-2" />
-                    Sign In
-                  </Button>
-                  <Button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white">
-                    <User className="h-4 w-4 mr-2" />
-                    Get Started
-                  </Button>
+                  {currentUser ? (
+                    <div className="space-y-3">
+                      <div className="px-3 py-2">
+                        <div className="font-medium text-gray-900">
+                          {userProfile?.fullName}
+                        </div>
+                        <div className="text-sm text-gray-500 capitalize">
+                          {userProfile?.userType}
+                        </div>
+                        {getVerificationStatus()}
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={handleLogout}
+                      >
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Sign Out
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <Button 
+                        variant="ghost" 
+                        className="w-full justify-start text-gray-600 hover:text-blue-600 hover:bg-blue-50"
+                        onClick={() => window.location.href = '/auth'}
+                      >
+                        <LogIn className="h-4 w-4 mr-2" />
+                        Sign In
+                      </Button>
+                      <Button 
+                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
+                        onClick={() => window.location.href = '/auth'}
+                      >
+                        <User className="h-4 w-4 mr-2" />
+                        Get Started
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
             </SheetContent>
