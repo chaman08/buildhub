@@ -14,6 +14,9 @@ const PersonalizedGreeting: React.FC = () => {
     if (userProfile?.fullName) {
       return userProfile.fullName.split(' ')[0]; // Get first name
     }
+    if (currentUser?.displayName) {
+      return currentUser.displayName.split(' ')[0];
+    }
     if (currentUser?.email) {
       return currentUser.email.split('@')[0]; // Get email username
     }
@@ -25,7 +28,8 @@ const PersonalizedGreeting: React.FC = () => {
 
   const isProfileIncomplete = () => {
     if (!userProfile) return true;
-    return !userProfile.fullName || !userProfile.mobile || !userProfile.city;
+    // Check for essential fields only
+    return !userProfile.fullName || !userProfile.mobile || !userProfile.userType;
   };
 
   const isVerificationIncomplete = () => {
@@ -41,6 +45,9 @@ const PersonalizedGreeting: React.FC = () => {
   };
 
   if (!currentUser) return null;
+
+  // If profile is complete and verified, just show a simple greeting
+  const showCompletionPrompts = isProfileIncomplete() || isVerificationIncomplete();
 
   return (
     <div className="pt-20 pb-8 bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50">
@@ -70,7 +77,7 @@ const PersonalizedGreeting: React.FC = () => {
                   </div>
                 )}
                 
-                {isVerificationIncomplete() && (
+                {!isProfileIncomplete() && isVerificationIncomplete() && (
                   <div className="flex items-center space-x-2 text-amber-600 bg-amber-100 px-3 py-2 rounded-lg">
                     <AlertCircle className="h-4 w-4" />
                     <span className="text-sm font-medium">Verification Pending</span>
@@ -80,7 +87,7 @@ const PersonalizedGreeting: React.FC = () => {
                 {!isProfileIncomplete() && !isVerificationIncomplete() && (
                   <div className="flex items-center space-x-2 text-green-600 bg-green-100 px-3 py-2 rounded-lg">
                     <CheckCircle className="h-4 w-4" />
-                    <span className="text-sm font-medium">Profile Complete</span>
+                    <span className="text-sm font-medium">All Set!</span>
                   </div>
                 )}
 
@@ -93,14 +100,14 @@ const PersonalizedGreeting: React.FC = () => {
               </div>
             </div>
 
-            {(isProfileIncomplete() || isVerificationIncomplete()) && (
+            {showCompletionPrompts && (
               <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <h3 className="font-medium text-blue-900 mb-2">Complete your profile to get started:</h3>
+                <h3 className="font-medium text-blue-900 mb-2">Complete your setup to get started:</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                   {isProfileIncomplete() && (
                     <div className="flex items-center space-x-2">
                       <AlertCircle className="h-4 w-4 text-blue-600" />
-                      <span>Add personal details (name, mobile, city)</span>
+                      <span>Add personal details</span>
                       <Button 
                         variant="outline" 
                         size="sm"
@@ -111,7 +118,7 @@ const PersonalizedGreeting: React.FC = () => {
                     </div>
                   )}
                   
-                  {isVerificationIncomplete() && (
+                  {!isProfileIncomplete() && isVerificationIncomplete() && (
                     <div className="flex items-center space-x-2">
                       <AlertCircle className="h-4 w-4 text-blue-600" />
                       <span>Verify your email or phone number</span>

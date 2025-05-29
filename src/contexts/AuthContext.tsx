@@ -36,6 +36,8 @@ export interface UserProfile {
   verificationBadge?: boolean;
   // Customer specific fields
   projectsPosted?: number;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 interface AuthContextType {
@@ -71,6 +73,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const createUserProfile = async (user: User, additionalData: Partial<UserProfile> = {}) => {
+    const userRef = doc(db, 'users', user.uid);
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) {
+      const now = new Date();
+      const profileData: UserProfile = {
+        uid: user.uid,
+        email: user.email || '',
+        fullName: additionalData.fullName || user.displayName || '',
+        userType: additionalData.userType || 'customer',
+        mobile: additionalData.mobile || '',
+        city: additionalData.city || '',
+        occupation: additionalData.occupation || '',
+        profilePicture: additionalData.profilePicture || user.photoURL || '',
+        isEmailVerified: user.emailVerified,
+        isPhoneVerified: additionalData.isPhoneVerified || false,
+        isDocumentVerified: false,
+        createdAt: now,
+        updatedAt: now,
+        ...additionalData
+      };
+      
+      await setDoc(userRef, profileData);
+      return profileData;
+    }
+    
+    return userDoc.data() as UserProfile;
+  };
+
   const signup = async (email: string, password: string, userData: Partial<UserProfile>) => {
     const { user } = await createUserWithEmailAndPassword(auth, email, password);
     
@@ -78,20 +110,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await sendEmailVerification(user);
     
     // Create user profile in Firestore
-    const profileData: UserProfile = {
-      uid: user.uid,
-      email: user.email!,
-      fullName: userData.fullName!,
-      userType: userData.userType!,
-      mobile: userData.mobile!,
-      city: userData.city,
+    const profileData = await createUserProfile(user, {
+      ...userData,
       isEmailVerified: false,
-      isPhoneVerified: false,
-      isDocumentVerified: false,
-      ...userData
-    };
+      isPhoneVerified: false
+    });
     
-    await setDoc(doc(db, 'users', user.uid), profileData);
     setUserProfile(profileData);
   };
 
@@ -113,34 +137,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
     
-    // Check if user profile exists, if not create a basic one
-    const userDoc = await getDoc(doc(db, 'users', result.user.uid));
+    // Create or update user profile
+    const profileData = await createUserProfile(result.user, {
+      isEmailVerified: result.user.emailVerified,
+      isPhoneVerified: false
+    });
     
-    if (!userDoc.exists()) {
-      // New Google user - create incomplete profile that needs completion
-      const profileData: UserProfile = {
-        uid: result.user.uid,
-        email: result.user.email!,
-        fullName: result.user.displayName || '',
-        userType: 'customer', // Default, user will be prompted to complete
-        mobile: '', // Empty, needs to be filled
-        isEmailVerified: result.user.emailVerified,
-        isPhoneVerified: false,
-        isDocumentVerified: false
-      };
-      
-      await setDoc(doc(db, 'users', result.user.uid), profileData);
-      setUserProfile(profileData);
-    } else {
-      // Existing user - update email verification status
-      const profile = userDoc.data() as UserProfile;
-      profile.isEmailVerified = result.user.emailVerified;
-      setUserProfile(profile);
-      
-      if (profile.isEmailVerified !== result.user.emailVerified) {
-        await setDoc(doc(db, 'users', result.user.uid), { ...profile, isEmailVerified: result.user.emailVerified }, { merge: true });
-      }
-    }
+    setUserProfile(profileData);
   };
 
   const logout = async () => {
@@ -160,13 +163,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
       if (userDoc.exists()) {
         const profile = userDoc.data() as UserProfile;
-        profile.isEmailVerified = currentUser.emailVerified;
-        setUserProfile(profile);
         
-        // Update Firestore if email verification status changed
+        // Update email verification status if it changed
         if (profile.isEmailVerified !== currentUser.emailVerified) {
-          await setDoc(doc(db, 'users', currentUser.uid), { ...profile, isEmailVerified: currentUser.emailVerified }, { merge: true });
+          profile.isEmailVerified = currentUser.emailVerified;
+          profile.updatedAt = new Date();
+          
+          await setDoc(doc(db, 'users', currentUser.uid), {
+            isEmailVerified: currentUser.emailVerified,
+            updatedAt: profile.updatedAt
+          }, { merge: true });
         }
+        
+        setUserProfile(profile);
       }
     }
   };
@@ -187,26 +196,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const verifyPhoneOTP = async (confirmationResult: ConfirmationResult, otp: string, userData?: Partial<UserProfile>): Promise<void> => {
     const result = await confirmationResult.confirm(otp);
     
-    // If this is a new phone signup, create user profile
     if (userData && result.user) {
-      const profileData: UserProfile = {
-        uid: result.user.uid,
-        fullName: userData.fullName!,
-        userType: userData.userType!,
-        mobile: result.user.phoneNumber!,
-        city: userData.city,
+      // New phone signup - create user profile
+      const profileData = await createUserProfile(result.user, {
+        ...userData,
+        mobile: result.user.phoneNumber || '',
         isEmailVerified: false,
-        isPhoneVerified: true,
-        isDocumentVerified: false,
-        ...userData
-      };
+        isPhoneVerified: true
+      });
       
-      await setDoc(doc(db, 'users', result.user.uid), profileData);
       setUserProfile(profileData);
     } else if (currentUser) {
       // Update existing user profile to mark phone as verified
+      const now = new Date();
       await setDoc(doc(db, 'users', currentUser.uid), {
-        isPhoneVerified: true
+        isPhoneVerified: true,
+        updatedAt: now
       }, { merge: true });
       
       await refreshUserProfile();
@@ -227,14 +232,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         if (userDoc.exists()) {
           const profile = userDoc.data() as UserProfile;
-          // Update email verification status
-          profile.isEmailVerified = user.emailVerified;
-          setUserProfile(profile);
           
-          // Update Firestore if email verification status changed
+          // Update email verification status if changed
           if (profile.isEmailVerified !== user.emailVerified) {
-            await setDoc(doc(db, 'users', user.uid), { ...profile, isEmailVerified: user.emailVerified }, { merge: true });
+            profile.isEmailVerified = user.emailVerified;
+            profile.updatedAt = new Date();
+            
+            await setDoc(doc(db, 'users', user.uid), {
+              isEmailVerified: user.emailVerified,
+              updatedAt: profile.updatedAt
+            }, { merge: true });
           }
+          
+          setUserProfile(profile);
+        } else {
+          // Create profile for existing user (migration case)
+          const profileData = await createUserProfile(user);
+          setUserProfile(profileData);
         }
       } else {
         setUserProfile(null);
