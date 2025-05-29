@@ -8,11 +8,16 @@ import Testimonials from "@/components/Testimonials";
 import FAQ from "@/components/FAQ";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
+import { useAuth } from "@/contexts/AuthContext";
+import PersonalizedGreeting from "@/components/PersonalizedGreeting";
 
 const Index = () => {
+  const { currentUser } = useAuth();
+
   return (
     <div className="min-h-screen bg-white">
       <Header />
+      {currentUser && <PersonalizedGreeting />}
       <HeroSection />
       <HowItWorks />
       <WhyChooseUs />

@@ -36,6 +36,10 @@ const Header = () => {
     navigate('/auth');
   };
 
+  const handleDashboardNavigation = () => {
+    navigate('/dashboard');
+  };
+
   const getVerificationStatus = () => {
     if (!userProfile) return null;
     
@@ -93,7 +97,7 @@ const Header = () => {
               <div className="flex items-center space-x-3">
                 <div className="text-right">
                   <div className="text-sm font-medium text-gray-900">
-                    {userProfile?.fullName}
+                    {userProfile?.fullName || 'Welcome'}
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className="text-xs text-gray-500 capitalize">
@@ -102,6 +106,14 @@ const Header = () => {
                     {getVerificationStatus()}
                   </div>
                 </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={handleDashboardNavigation}
+                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                >
+                  Dashboard
+                </Button>
                 <Button 
                   variant="ghost" 
                   size="sm"
@@ -156,13 +168,20 @@ const Header = () => {
                     <div className="space-y-3">
                       <div className="px-3 py-2">
                         <div className="font-medium text-gray-900">
-                          {userProfile?.fullName}
+                          {userProfile?.fullName || 'Welcome'}
                         </div>
                         <div className="text-sm text-gray-500 capitalize">
                           {userProfile?.userType}
                         </div>
                         {getVerificationStatus()}
                       </div>
+                      <Button 
+                        variant="ghost" 
+                        className="w-full justify-start text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        onClick={handleDashboardNavigation}
+                      >
+                        Dashboard
+                      </Button>
                       <Button 
                         variant="ghost" 
                         className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
