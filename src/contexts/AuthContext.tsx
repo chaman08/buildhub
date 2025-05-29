@@ -23,6 +23,8 @@ export interface UserProfile {
   userType: 'customer' | 'contractor';
   mobile: string;
   city?: string;
+  occupation?: string;
+  profilePicture?: string;
   isEmailVerified: boolean;
   isPhoneVerified: boolean;
   isDocumentVerified?: boolean;

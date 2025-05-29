@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Menu, User, LogIn, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Sheet,
   SheetContent,
@@ -43,7 +44,7 @@ const Header = () => {
   const getVerificationStatus = () => {
     if (!userProfile) return null;
     
-    const needsVerification = !userProfile.isEmailVerified || !userProfile.isPhoneVerified;
+    const needsVerification = !userProfile.isEmailVerified && !userProfile.isPhoneVerified;
     if (needsVerification) {
       return (
         <a href="/verify" className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
@@ -57,6 +58,10 @@ const Header = () => {
     }
     
     return null;
+  };
+
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
   return (
@@ -95,6 +100,12 @@ const Header = () => {
           <div className="hidden md:flex items-center space-x-3">
             {currentUser ? (
               <div className="flex items-center space-x-3">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={userProfile?.profilePicture} />
+                  <AvatarFallback className="text-sm">
+                    {userProfile?.fullName ? getInitials(userProfile.fullName) : 'U'}
+                  </AvatarFallback>
+                </Avatar>
                 <div className="text-right">
                   <div className="text-sm font-medium text-gray-900">
                     {userProfile?.fullName || 'Welcome'}
@@ -166,14 +177,22 @@ const Header = () => {
                 <div className="pt-4 border-t border-gray-200 space-y-3">
                   {currentUser ? (
                     <div className="space-y-3">
-                      <div className="px-3 py-2">
-                        <div className="font-medium text-gray-900">
-                          {userProfile?.fullName || 'Welcome'}
+                      <div className="px-3 py-2 flex items-center space-x-3">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={userProfile?.profilePicture} />
+                          <AvatarFallback>
+                            {userProfile?.fullName ? getInitials(userProfile.fullName) : 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-medium text-gray-900">
+                            {userProfile?.fullName || 'Welcome'}
+                          </div>
+                          <div className="text-sm text-gray-500 capitalize">
+                            {userProfile?.userType}
+                          </div>
+                          {getVerificationStatus()}
                         </div>
-                        <div className="text-sm text-gray-500 capitalize">
-                          {userProfile?.userType}
-                        </div>
-                        {getVerificationStatus()}
                       </div>
                       <Button 
                         variant="ghost" 
