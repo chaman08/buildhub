@@ -1,48 +1,91 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Eye, Edit, Trash2, MapPin, Calendar, DollarSign } from 'lucide-react';
 import PostProjectDialog from './PostProjectDialog';
 
+interface Project {
+  id: string;
+  title: string;
+  description: string;
+  category: string[];
+  budget: number;
+  budgetMax?: number;
+  location: string;
+  startDate: string;
+  postedBy: string;
+  status: 'open' | 'in_progress' | 'completed' | 'closed';
+  createdAt: any;
+  expectedDuration?: string;
+}
+
 const ProjectsSection: React.FC = () => {
+  const { currentUser } = useAuth();
   const [showPostDialog, setShowPostDialog] = useState(false);
-  
-  // Mock data - will be replaced with real data from Firestore
-  const projects = [
-    {
-      id: '1',
-      title: 'Residential House Construction',
-      type: 'Residential',
-      location: 'Mumbai, Maharashtra',
-      budget: '₹15,00,000',
-      status: 'Open',
-      bidsCount: 5,
-      postedDate: '2024-01-15',
-      description: 'Need to construct a 2BHK house...'
-    },
-    {
-      id: '2',
-      title: 'Office Interior Renovation',
-      type: 'Commercial',
-      location: 'Pune, Maharashtra',
-      budget: '₹8,00,000',
-      status: 'In Progress',
-      bidsCount: 8,
-      postedDate: '2024-01-10',
-      description: 'Complete interior renovation of office space...'
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (currentUser) {
+      fetchUserProjects();
     }
-  ];
+  }, [currentUser]);
+
+  const fetchUserProjects = async () => {
+    if (!currentUser) return;
+
+    try {
+      const projectsQuery = query(
+        collection(db, 'projects'),
+        where('postedBy', '==', currentUser.uid),
+        orderBy('createdAt', 'desc')
+      );
+      
+      const snapshot = await getDocs(projectsQuery);
+      const projectData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Project[];
+      
+      setProjects(projectData);
+    } catch (error) {
+      console.error('Error fetching user projects:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatBudget = (amount: number, maxAmount?: number) => {
+    const formatAmount = (amt: number) => {
+      if (amt >= 10000000) return `₹${(amt / 10000000).toFixed(1)} Cr`;
+      if (amt >= 100000) return `₹${(amt / 100000).toFixed(1)} L`;
+      return `₹${amt.toLocaleString('en-IN')}`;
+    };
+
+    if (maxAmount && maxAmount !== amount) {
+      return `${formatAmount(amount)} - ${formatAmount(maxAmount)}`;
+    }
+    return formatAmount(amount);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Open': return 'bg-green-100 text-green-800';
-      case 'In Progress': return 'bg-blue-100 text-blue-800';
-      case 'Closed': return 'bg-gray-100 text-gray-800';
+      case 'open': return 'bg-green-100 text-green-800';
+      case 'in_progress': return 'bg-blue-100 text-blue-800';
+      case 'completed': return 'bg-purple-100 text-purple-800';
+      case 'closed': return 'bg-gray-100 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
+
+  if (loading) {
+    return <div>Loading your projects...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -79,9 +122,20 @@ const ProjectsSection: React.FC = () => {
                   <div>
                     <CardTitle className="text-lg">{project.title}</CardTitle>
                     <div className="flex items-center gap-2 mt-2">
-                      <Badge variant="outline">{project.type}</Badge>
+                      <div className="flex flex-wrap gap-1">
+                        {project.category.slice(0, 2).map((cat) => (
+                          <Badge key={cat} variant="outline" className="text-xs">
+                            {cat}
+                          </Badge>
+                        ))}
+                        {project.category.length > 2 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{project.category.length - 2}
+                          </Badge>
+                        )}
+                      </div>
                       <Badge className={getStatusColor(project.status)}>
-                        {project.status}
+                        {project.status.replace('_', ' ')}
                       </Badge>
                     </div>
                   </div>
@@ -97,22 +151,24 @@ const ProjectsSection: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-2 text-sm text-gray-500">
                     <DollarSign className="h-4 w-4" />
-                    Budget: {project.budget}
+                    Budget: {formatBudget(project.budget, project.budgetMax)}
                   </div>
                   <div className="flex items-center gap-2 text-sm text-gray-500">
                     <Calendar className="h-4 w-4" />
-                    Posted: {new Date(project.postedDate).toLocaleDateString()}
+                    Start: {new Date(project.startDate).toLocaleDateString('en-IN')}
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between pt-4 border-t">
                   <span className="text-sm font-medium text-blue-600">
-                    {project.bidsCount} bids received
+                    View bids received
                   </span>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm">
-                      <Eye className="h-4 w-4 mr-1" />
-                      View
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={`/project/${project.id}`}>
+                        <Eye className="h-4 w-4 mr-1" />
+                        View
+                      </a>
                     </Button>
                     <Button variant="outline" size="sm">
                       <Edit className="h-4 w-4 mr-1" />
@@ -132,6 +188,7 @@ const ProjectsSection: React.FC = () => {
       <PostProjectDialog 
         open={showPostDialog}
         onOpenChange={setShowPostDialog}
+        onProjectPosted={fetchUserProjects}
       />
     </div>
   );

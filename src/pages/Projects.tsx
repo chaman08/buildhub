@@ -5,12 +5,12 @@ import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import Header from '@/components/Header';
+import ProjectCard from '@/components/ProjectCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, MapPin, Calendar, DollarSign, Eye } from 'lucide-react';
+import { Search } from 'lucide-react';
 
 interface Project {
   id: string;
@@ -18,6 +18,7 @@ interface Project {
   description: string;
   category: string[];
   budget: number;
+  budgetMax?: number;
   location: string;
   startDate: string;
   postedBy: string;
@@ -34,6 +35,7 @@ const Projects = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedBudget, setSelectedBudget] = useState('');
+  const [savedProjects, setSavedProjects] = useState<Set<string>>(new Set());
 
   const categories = ['Civil Work', 'Electrical', 'Plumbing', 'Interior Design', 'Architecture', 'Landscaping'];
   const budgetRanges = [
@@ -46,6 +48,7 @@ const Projects = () => {
 
   useEffect(() => {
     fetchProjects();
+    loadSavedProjects();
   }, []);
 
   useEffect(() => {
@@ -74,6 +77,24 @@ const Projects = () => {
     }
   };
 
+  const loadSavedProjects = () => {
+    const saved = localStorage.getItem('savedProjects');
+    if (saved) {
+      setSavedProjects(new Set(JSON.parse(saved)));
+    }
+  };
+
+  const handleSaveProject = (projectId: string) => {
+    const newSaved = new Set(savedProjects);
+    if (newSaved.has(projectId)) {
+      newSaved.delete(projectId);
+    } else {
+      newSaved.add(projectId);
+    }
+    setSavedProjects(newSaved);
+    localStorage.setItem('savedProjects', JSON.stringify(Array.from(newSaved)));
+  };
+
   const filterProjects = () => {
     let filtered = projects;
 
@@ -99,21 +120,6 @@ const Projects = () => {
     }
 
     setFilteredProjects(filtered);
-  };
-
-  const formatBudget = (amount: number) => {
-    if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)} Cr`;
-    if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)} L`;
-    if (amount >= 1000) return `₹${(amount / 1000).toFixed(1)} K`;
-    return `₹${amount}`;
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
-    });
   };
 
   if (loading) {
@@ -196,62 +202,12 @@ const Projects = () => {
         {/* Projects Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {filteredProjects.map((project) => (
-            <Card key={project.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-xl">{project.title}</CardTitle>
-                  <Badge variant="outline" className="text-green-600 border-green-600">
-                    {project.status}
-                  </Badge>
-                </div>
-              </CardHeader>
-              
-              <CardContent className="space-y-4">
-                <p className="text-gray-600 line-clamp-3">{project.description}</p>
-                
-                <div className="flex flex-wrap gap-2">
-                  {project.category.map((cat) => (
-                    <Badge key={cat} variant="secondary">
-                      {cat}
-                    </Badge>
-                  ))}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-green-600" />
-                    <span className="font-semibold text-green-600">
-                      {formatBudget(project.budget)}
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-gray-500" />
-                    <span>{project.location}</span>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-gray-500" />
-                    <span>Start: {formatDate(project.startDate)}</span>
-                  </div>
-                  
-                  {project.expectedDuration && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-500">Duration: {project.expectedDuration}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex gap-2 pt-4 border-t">
-                  <Button asChild className="flex-1">
-                    <Link to={`/project/${project.id}`}>
-                      <Eye className="h-4 w-4 mr-2" />
-                      View & Bid
-                    </Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <ProjectCard
+              key={project.id}
+              project={project}
+              onSaveProject={handleSaveProject}
+              isSaved={savedProjects.has(project.id)}
+            />
           ))}
         </div>
 
