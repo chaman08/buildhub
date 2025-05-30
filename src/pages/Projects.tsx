@@ -162,7 +162,6 @@ const Projects = () => {
                   <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Categories</SelectItem>
                   {categories.map((category) => (
                     <SelectItem key={category} value={category}>
                       {category}
@@ -176,7 +175,6 @@ const Projects = () => {
                   <SelectValue placeholder="Budget Range" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Budgets</SelectItem>
                   {budgetRanges.map((range) => (
                     <SelectItem key={range.value} value={range.value}>
                       {range.label}
