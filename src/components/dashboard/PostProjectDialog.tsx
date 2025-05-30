@@ -11,20 +11,26 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { CalendarIcon, Upload } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface PostProjectDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onProjectPosted?: () => void;
 }
 
-const PostProjectDialog: React.FC<PostProjectDialogProps> = ({ open, onOpenChange }) => {
+const PostProjectDialog: React.FC<PostProjectDialogProps> = ({ open, onOpenChange, onProjectPosted }) => {
   const { toast } = useToast();
+  const { currentUser } = useAuth();
   const [formData, setFormData] = useState({
     title: '',
     type: '',
     description: '',
     location: '',
     budget: '',
+    budgetMax: '',
     startDate: undefined as Date | undefined,
     completionTime: '',
     services: [] as string[]
@@ -53,9 +59,32 @@ const PostProjectDialog: React.FC<PostProjectDialogProps> = ({ open, onOpenChang
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!currentUser) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to post a project.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
-      // TODO: Save project to Firestore
-      console.log('Project data:', formData);
+      const budgetAmount = parseInt(formData.budget);
+      const budgetMaxAmount = formData.budgetMax ? parseInt(formData.budgetMax) : budgetAmount;
+
+      await addDoc(collection(db, 'projects'), {
+        title: formData.title,
+        description: formData.description,
+        category: formData.services,
+        budget: budgetAmount,
+        budgetMax: budgetMaxAmount,
+        location: formData.location,
+        startDate: formData.startDate ? formData.startDate.toISOString() : '',
+        expectedDuration: formData.completionTime,
+        postedBy: currentUser.uid,
+        status: 'open',
+        createdAt: serverTimestamp()
+      });
       
       toast({
         title: "Project Posted Successfully",
@@ -64,6 +93,11 @@ const PostProjectDialog: React.FC<PostProjectDialogProps> = ({ open, onOpenChang
       
       onOpenChange(false);
       
+      // Call the callback to refresh the projects list
+      if (onProjectPosted) {
+        onProjectPosted();
+      }
+      
       // Reset form
       setFormData({
         title: '',
@@ -71,11 +105,13 @@ const PostProjectDialog: React.FC<PostProjectDialogProps> = ({ open, onOpenChang
         description: '',
         location: '',
         budget: '',
+        budgetMax: '',
         startDate: undefined,
         completionTime: '',
         services: []
       });
     } catch (error: any) {
+      console.error('Error posting project:', error);
       toast({
         title: "Error Posting Project",
         description: error.message,
@@ -132,13 +168,25 @@ const PostProjectDialog: React.FC<PostProjectDialogProps> = ({ open, onOpenChang
             </div>
 
             <div>
-              <Label htmlFor="budget">Estimated Budget *</Label>
+              <Label htmlFor="budget">Minimum Budget *</Label>
               <Input
                 id="budget"
+                type="number"
                 value={formData.budget}
                 onChange={(e) => setFormData({...formData, budget: e.target.value})}
-                placeholder="₹5,00,000"
+                placeholder="500000"
                 required
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="budgetMax">Maximum Budget (Optional)</Label>
+              <Input
+                id="budgetMax"
+                type="number"
+                value={formData.budgetMax}
+                onChange={(e) => setFormData({...formData, budgetMax: e.target.value})}
+                placeholder="800000"
               />
             </div>
 
