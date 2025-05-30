@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,6 +13,9 @@ import Auth from "./pages/Auth";
 import VerificationPage from "./components/auth/VerificationPage";
 import Dashboard from "./pages/Dashboard";
 import { ProfilePage } from "./pages/ProfilePage";
+import Contractors from "./pages/Contractors";
+import ContractorProfile from "./pages/ContractorProfile";
+import Projects from "./pages/Projects";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +34,9 @@ const App = () => (
             <Route path="/verify" element={<VerificationPage />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/contractors" element={<Contractors />} />
+            <Route path="/contractor/:uid" element={<ContractorProfile />} />
+            <Route path="/projects" element={<Projects />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
