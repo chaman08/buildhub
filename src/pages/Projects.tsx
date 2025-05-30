@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
@@ -106,13 +105,13 @@ const Projects = () => {
       );
     }
 
-    if (selectedCategory) {
+    if (selectedCategory && selectedCategory !== 'all') {
       filtered = filtered.filter(project =>
         project.category.includes(selectedCategory)
       );
     }
 
-    if (selectedBudget) {
+    if (selectedBudget && selectedBudget !== 'all') {
       const [min, max] = selectedBudget.split('-').map(Number);
       filtered = filtered.filter(project =>
         project.budget >= min && project.budget <= max
@@ -162,6 +161,7 @@ const Projects = () => {
                   <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
                   {categories.map((category) => (
                     <SelectItem key={category} value={category}>
                       {category}
@@ -175,6 +175,7 @@ const Projects = () => {
                   <SelectValue placeholder="Budget Range" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="all">All Budgets</SelectItem>
                   {budgetRanges.map((range) => (
                     <SelectItem key={range.value} value={range.value}>
                       {range.label}
