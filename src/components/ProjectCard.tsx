@@ -31,10 +31,11 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onSaveProject, isSav
 
   const formatBudget = (amount: number, maxAmount?: number) => {
     const formatAmount = (amt: number) => {
+      if (!amt || isNaN(amt)) return '₹0';
       if (amt >= 10000000) return `₹${(amt / 10000000).toFixed(1)} Cr`;
       if (amt >= 100000) return `₹${(amt / 100000).toFixed(1)} L`;
       if (amt >= 1000) return `₹${(amt / 1000).toFixed(1)} K`;
-      return `₹${amt}`;
+      return `₹${amt.toLocaleString('en-IN')}`;
     };
 
     if (maxAmount && maxAmount !== amount) {
@@ -44,24 +45,34 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onSaveProject, isSav
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
-    });
+    if (!dateString) return 'Date TBD';
+    try {
+      return new Date(dateString).toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      });
+    } catch {
+      return 'Date TBD';
+    }
   };
 
   const getTimeAgo = (timestamp: any) => {
     if (!timestamp) return 'Recently posted';
     
-    const now = new Date();
-    const posted = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    const diffInMs = now.getTime() - posted.getTime();
-    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-    
-    if (diffInDays === 0) return 'Posted today';
-    if (diffInDays === 1) return 'Posted 1 day ago';
-    return `Posted ${diffInDays} days ago`;
+    try {
+      const now = new Date();
+      const posted = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+      const diffInMs = now.getTime() - posted.getTime();
+      const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+      
+      if (diffInDays === 0) return 'Posted today';
+      if (diffInDays === 1) return 'Posted 1 day ago';
+      if (diffInDays > 30) return 'Posted over a month ago';
+      return `Posted ${diffInDays} days ago`;
+    } catch {
+      return 'Recently posted';
+    }
   };
 
   const handleSaveProject = () => {
@@ -75,9 +86,9 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onSaveProject, isSav
       <Card className="hover:shadow-lg transition-shadow">
         <CardHeader>
           <div className="flex justify-between items-start">
-            <CardTitle className="text-xl line-clamp-2">{project.title}</CardTitle>
+            <CardTitle className="text-xl line-clamp-2">{project.title || 'Untitled Project'}</CardTitle>
             <Badge variant="outline" className="text-green-600 border-green-600">
-              {project.status}
+              {project.status || 'open'}
             </Badge>
           </div>
           <div className="flex items-center gap-2 text-sm text-gray-500">
@@ -87,14 +98,18 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onSaveProject, isSav
         </CardHeader>
         
         <CardContent className="space-y-4">
-          <p className="text-gray-600 line-clamp-3">{project.description}</p>
+          <p className="text-gray-600 line-clamp-3">{project.description || 'No description available'}</p>
           
           <div className="flex flex-wrap gap-2">
-            {project.category.map((cat) => (
-              <Badge key={cat} variant="secondary">
-                {cat}
-              </Badge>
-            ))}
+            {project.category && project.category.length > 0 ? (
+              project.category.map((cat) => (
+                <Badge key={cat} variant="secondary">
+                  {cat}
+                </Badge>
+              ))
+            ) : (
+              <Badge variant="secondary">General</Badge>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
@@ -107,7 +122,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onSaveProject, isSav
             
             <div className="flex items-center gap-2">
               <MapPin className="h-4 w-4 text-gray-500" />
-              <span>{project.location}</span>
+              <span>{project.location || 'Location TBD'}</span>
             </div>
             
             <div className="flex items-center gap-2">

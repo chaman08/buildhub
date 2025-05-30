@@ -25,6 +25,7 @@ interface Contractor {
   reviewsCount?: number;
   mobile: string;
   email: string;
+  bio?: string;
 }
 
 const Contractors = () => {
@@ -47,15 +48,27 @@ const Contractors = () => {
 
   const fetchContractors = async () => {
     try {
+      console.log('Fetching contractors from Firestore...');
+      
+      // First try to get all users to debug
+      const allUsersSnapshot = await getDocs(collection(db, 'users'));
+      console.log('Total users in collection:', allUsersSnapshot.size);
+      
       const contractorQuery = query(
         collection(db, 'users'),
         where('userType', '==', 'contractor')
       );
       const snapshot = await getDocs(contractorQuery);
-      const contractorData = snapshot.docs.map(doc => ({
-        uid: doc.id,
-        ...doc.data()
-      })) as Contractor[];
+      console.log('Contractors fetched:', snapshot.size);
+      
+      const contractorData = snapshot.docs.map(doc => {
+        const data = doc.data();
+        console.log('Contractor data:', { uid: doc.id, ...data });
+        return {
+          uid: doc.id,
+          ...data
+        };
+      }) as Contractor[];
       
       setContractors(contractorData);
     } catch (error) {
@@ -75,13 +88,13 @@ const Contractors = () => {
       );
     }
 
-    if (selectedCategory) {
+    if (selectedCategory && selectedCategory !== 'all') {
       filtered = filtered.filter(contractor =>
         contractor.serviceCategory === selectedCategory
       );
     }
 
-    if (selectedCity) {
+    if (selectedCity && selectedCity !== 'all') {
       filtered = filtered.filter(contractor =>
         contractor.city === selectedCity
       );
@@ -110,7 +123,7 @@ const Contractors = () => {
       <div className="pt-20 px-4 max-w-7xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Find Contractors</h1>
-          <p className="text-gray-600">Connect with verified construction professionals</p>
+          <p className="text-gray-600">Connect with verified construction professionals ({contractors.length} contractors available)</p>
         </div>
 
         {/* Search and Filters */}
@@ -132,7 +145,7 @@ const Contractors = () => {
                   <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Categories</SelectItem>
+                  <SelectItem value="all">All Categories</SelectItem>
                   {categories.map((category) => (
                     <SelectItem key={category} value={category}>
                       {category}
@@ -146,7 +159,7 @@ const Contractors = () => {
                   <SelectValue placeholder="All Cities" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Cities</SelectItem>
+                  <SelectItem value="all">All Cities</SelectItem>
                   {uniqueCities.map((city) => (
                     <SelectItem key={city} value={city}>
                       {city}
@@ -168,6 +181,20 @@ const Contractors = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Debug Info */}
+        {contractors.length === 0 && !loading && (
+          <Card className="mb-6 border-orange-200 bg-orange-50">
+            <CardContent className="p-4">
+              <p className="text-orange-800">
+                <strong>Debug:</strong> No contractors found in database. Please check:
+                <br />• Firestore collection "users" exists
+                <br />• Documents have userType: "contractor"
+                <br />• Console logs for any errors
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Contractors Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -219,6 +246,10 @@ const Contractors = () => {
                   </div>
                 )}
 
+                {contractor.bio && (
+                  <p className="text-sm text-gray-600 line-clamp-2">{contractor.bio}</p>
+                )}
+
                 <div className="flex gap-2 pt-4 border-t">
                   <Button asChild size="sm" className="flex-1">
                     <Link to={`/contractor/${contractor.uid}`}>
@@ -237,7 +268,7 @@ const Contractors = () => {
           ))}
         </div>
 
-        {filteredContractors.length === 0 && (
+        {filteredContractors.length === 0 && contractors.length > 0 && (
           <Card className="mt-8">
             <CardContent className="flex flex-col items-center justify-center py-12">
               <div className="text-center space-y-4">

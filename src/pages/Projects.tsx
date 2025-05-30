@@ -56,19 +56,34 @@ const Projects = () => {
 
   const fetchProjects = async () => {
     try {
+      console.log('Fetching projects from Firestore...');
+      
+      // First try to get all projects to debug
+      const allProjectsSnapshot = await getDocs(collection(db, 'projects'));
+      console.log('Total projects in collection:', allProjectsSnapshot.size);
+      
       const projectsQuery = query(
         collection(db, 'projects'),
-        where('status', '==', 'open'),
         orderBy('createdAt', 'desc')
       );
       
       const snapshot = await getDocs(projectsQuery);
-      const projectData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Project[];
+      console.log('Projects fetched:', snapshot.size);
       
-      setProjects(projectData);
+      const projectData = snapshot.docs.map(doc => {
+        const data = doc.data();
+        console.log('Project data:', { id: doc.id, ...data });
+        return {
+          id: doc.id,
+          ...data
+        };
+      }) as Project[];
+      
+      // Filter only open projects on frontend to avoid Firestore index issues
+      const openProjects = projectData.filter(project => project.status === 'open');
+      console.log('Open projects:', openProjects.length);
+      
+      setProjects(openProjects);
     } catch (error) {
       console.error('Error fetching projects:', error);
     } finally {
@@ -107,7 +122,7 @@ const Projects = () => {
 
     if (selectedCategory && selectedCategory !== 'all') {
       filtered = filtered.filter(project =>
-        project.category.includes(selectedCategory)
+        project.category && project.category.includes(selectedCategory)
       );
     }
 
@@ -139,7 +154,7 @@ const Projects = () => {
       <div className="pt-20 px-4 max-w-7xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Available Projects</h1>
-          <p className="text-gray-600">Browse and bid on construction projects</p>
+          <p className="text-gray-600">Browse and bid on construction projects ({projects.length} projects available)</p>
         </div>
 
         {/* Search and Filters */}
@@ -198,6 +213,20 @@ const Projects = () => {
           </CardContent>
         </Card>
 
+        {/* Debug Info */}
+        {projects.length === 0 && !loading && (
+          <Card className="mb-6 border-orange-200 bg-orange-50">
+            <CardContent className="p-4">
+              <p className="text-orange-800">
+                <strong>Debug:</strong> No projects found in database. Please check:
+                <br />• Firestore collection "projects" exists
+                <br />• Documents have the correct structure
+                <br />• Console logs for any errors
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Projects Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {filteredProjects.map((project) => (
@@ -210,7 +239,7 @@ const Projects = () => {
           ))}
         </div>
 
-        {filteredProjects.length === 0 && (
+        {filteredProjects.length === 0 && projects.length > 0 && (
           <Card className="mt-8">
             <CardContent className="flex flex-col items-center justify-center py-12">
               <div className="text-center space-y-4">
