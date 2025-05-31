@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,7 +31,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onSaveProject, isSav
   const formatBudget = (amount: number, maxAmount?: number) => {
     const formatAmount = (amt: number) => {
       // Handle undefined, null, or invalid numbers
-      if (!amt || isNaN(amt) || amt === undefined || amt === null) {
+      if (!amt || isNaN(amt)) {
         console.log('Invalid amount detected:', amt);
         return '₹0';
       }
@@ -47,7 +46,6 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onSaveProject, isSav
       
       if (numAmt >= 10000000) return `₹${(numAmt / 10000000).toFixed(1)} Cr`;
       if (numAmt >= 100000) return `₹${(numAmt / 100000).toFixed(1)} L`;
-      if (numAmt >= 1000) return `₹${(numAmt / 1000).toFixed(1)} K`;
       return `₹${numAmt.toLocaleString('en-IN')}`;
     };
 

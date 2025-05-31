@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -103,6 +102,11 @@ const BidFormModal: React.FC<BidFormModalProps> = ({ open, onOpenChange, project
   };
 
   const formatBudget = (amount: number) => {
+    if (!amount || isNaN(amount)) {
+      console.log('Invalid amount detected:', amount);
+      return '₹0';
+    }
+    
     if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)} Cr`;
     if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)} L`;
     return `₹${amount.toLocaleString('en-IN')}`;
