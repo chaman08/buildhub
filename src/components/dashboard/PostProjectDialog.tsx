@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -35,6 +34,7 @@ const PostProjectDialog: React.FC<PostProjectDialogProps> = ({ open, onOpenChang
     completionTime: '',
     services: [] as string[]
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const projectTypes = [
     'Residential',
@@ -59,6 +59,8 @@ const PostProjectDialog: React.FC<PostProjectDialogProps> = ({ open, onOpenChang
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (isSubmitting) return; // Prevent multiple submissions
+    
     if (!currentUser) {
       toast({
         title: "Authentication Required",
@@ -68,11 +70,13 @@ const PostProjectDialog: React.FC<PostProjectDialogProps> = ({ open, onOpenChang
       return;
     }
 
+    setIsSubmitting(true);
     try {
       const budgetAmount = parseInt(formData.budget);
       const budgetMaxAmount = formData.budgetMax ? parseInt(formData.budgetMax) : budgetAmount;
 
-      await addDoc(collection(db, 'projects'), {
+      // Ensure postedBy is stored as a string
+      const projectData = {
         title: formData.title,
         description: formData.description,
         category: formData.services,
@@ -81,22 +85,18 @@ const PostProjectDialog: React.FC<PostProjectDialogProps> = ({ open, onOpenChang
         location: formData.location,
         startDate: formData.startDate ? formData.startDate.toISOString() : '',
         expectedDuration: formData.completionTime,
-        postedBy: currentUser.uid,
+        postedBy: currentUser.uid.toString(), // Ensure it's a string
         status: 'open',
         createdAt: serverTimestamp()
-      });
+      };
+
+      console.log('Posting project with data:', projectData);
+      await addDoc(collection(db, 'projects'), projectData);
       
       toast({
         title: "Project Posted Successfully",
         description: "Your project has been posted and contractors can now bid on it."
       });
-      
-      onOpenChange(false);
-      
-      // Call the callback to refresh the projects list
-      if (onProjectPosted) {
-        onProjectPosted();
-      }
       
       // Reset form
       setFormData({
@@ -110,6 +110,12 @@ const PostProjectDialog: React.FC<PostProjectDialogProps> = ({ open, onOpenChang
         completionTime: '',
         services: []
       });
+
+      // Close dialog and refresh projects list
+      onOpenChange(false);
+      if (onProjectPosted) {
+        onProjectPosted();
+      }
     } catch (error: any) {
       console.error('Error posting project:', error);
       toast({
@@ -117,6 +123,8 @@ const PostProjectDialog: React.FC<PostProjectDialogProps> = ({ open, onOpenChang
         description: error.message,
         variant: "destructive"
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -269,10 +277,20 @@ const PostProjectDialog: React.FC<PostProjectDialogProps> = ({ open, onOpenChang
           </div>
 
           <div className="flex gap-4">
-            <Button type="submit" className="flex-1">
-              Post Project
+            <Button 
+              type="submit" 
+              className="flex-1"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Posting Project...' : 'Post Project'}
             </Button>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => onOpenChange(false)} 
+              className="flex-1"
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
           </div>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -8,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Eye, Edit, Trash2, MapPin, Calendar, DollarSign } from 'lucide-react';
 import PostProjectDialog from './PostProjectDialog';
+import { toast } from '@/components/ui/use-toast';
 
 interface Project {
   id: string;
@@ -40,6 +40,9 @@ const ProjectsSection: React.FC = () => {
     if (!currentUser) return;
 
     try {
+      setLoading(true);
+      console.log('Fetching projects for user:', currentUser.uid);
+      
       const projectsQuery = query(
         collection(db, 'projects'),
         where('postedBy', '==', currentUser.uid),
@@ -47,14 +50,27 @@ const ProjectsSection: React.FC = () => {
       );
       
       const snapshot = await getDocs(projectsQuery);
-      const projectData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Project[];
+      console.log('Projects found:', snapshot.size);
+      
+      const projectData = snapshot.docs.map(doc => {
+        const data = doc.data();
+        const projectData = {
+          id: doc.id,
+          ...data,
+          postedBy: data.postedBy || currentUser.uid
+        };
+        console.log('Project data:', projectData);
+        return projectData;
+      }) as Project[];
       
       setProjects(projectData);
     } catch (error) {
       console.error('Error fetching user projects:', error);
+      toast({
+        title: "Error Loading Projects",
+        description: "Failed to load your projects. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
