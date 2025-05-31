@@ -31,11 +31,24 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onSaveProject, isSav
 
   const formatBudget = (amount: number, maxAmount?: number) => {
     const formatAmount = (amt: number) => {
-      if (!amt || isNaN(amt)) return '₹0';
-      if (amt >= 10000000) return `₹${(amt / 10000000).toFixed(1)} Cr`;
-      if (amt >= 100000) return `₹${(amt / 100000).toFixed(1)} L`;
-      if (amt >= 1000) return `₹${(amt / 1000).toFixed(1)} K`;
-      return `₹${amt.toLocaleString('en-IN')}`;
+      // Handle undefined, null, or invalid numbers
+      if (!amt || isNaN(amt) || amt === undefined || amt === null) {
+        console.log('Invalid amount detected:', amt);
+        return '₹0';
+      }
+      
+      // Convert to number if it's a string
+      const numAmt = typeof amt === 'string' ? parseFloat(amt) : amt;
+      
+      if (isNaN(numAmt)) {
+        console.log('Failed to parse amount:', amt);
+        return '₹0';
+      }
+      
+      if (numAmt >= 10000000) return `₹${(numAmt / 10000000).toFixed(1)} Cr`;
+      if (numAmt >= 100000) return `₹${(numAmt / 100000).toFixed(1)} L`;
+      if (numAmt >= 1000) return `₹${(numAmt / 1000).toFixed(1)} K`;
+      return `₹${numAmt.toLocaleString('en-IN')}`;
     };
 
     if (maxAmount && maxAmount !== amount) {
