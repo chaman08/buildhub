@@ -1,18 +1,17 @@
+
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Upload } from 'lucide-react';
-import { format } from 'date-fns';
-import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { X } from 'lucide-react';
+import { toast } from '@/components/ui/use-toast';
 
 interface PostProjectDialogProps {
   open: boolean;
@@ -20,277 +19,247 @@ interface PostProjectDialogProps {
   onProjectPosted?: () => void;
 }
 
-const PostProjectDialog: React.FC<PostProjectDialogProps> = ({ open, onOpenChange, onProjectPosted }) => {
-  const { toast } = useToast();
+const PostProjectDialog: React.FC<PostProjectDialogProps> = ({
+  open,
+  onOpenChange,
+  onProjectPosted
+}) => {
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
-    type: '',
     description: '',
     location: '',
     budget: '',
     budgetMax: '',
-    startDate: undefined as Date | undefined,
-    completionTime: '',
-    services: [] as string[]
+    startDate: '',
+    expectedDuration: ''
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
-  const projectTypes = [
-    'Residential',
-    'Commercial',
-    'Government',
-    'Renovation',
-    'Interior Design',
-    'Landscaping'
+  const categories = [
+    'Civil Work', 'Electrical', 'Plumbing', 'Interior Design', 
+    'Architecture', 'Landscaping', 'Painting', 'Roofing'
   ];
 
-  const serviceCategories = [
-    'Architecture',
-    'Civil Work',
-    'Electrical',
-    'Plumbing',
-    'Interior Design',
-    'Landscaping',
-    'Painting',
-    'Flooring'
-  ];
+  // Check if user is logged in before allowing project posting
+  React.useEffect(() => {
+    if (open && !currentUser) {
+      onOpenChange(false);
+      navigate('/auth');
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to post a project.",
+        variant: "destructive"
+      });
+    }
+  }, [open, currentUser, onOpenChange, navigate]);
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const toggleCategory = (category: string) => {
+    setSelectedCategories(prev => 
+      prev.includes(category) 
+        ? prev.filter(c => c !== category)
+        : [...prev, category]
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (isSubmitting) return; // Prevent multiple submissions
-    
     if (!currentUser) {
       toast({
         title: "Authentication Required",
-        description: "Please log in to post a project.",
+        description: "Please sign in to post a project.",
+        variant: "destructive"
+      });
+      navigate('/auth');
+      return;
+    }
+
+    if (selectedCategories.length === 0) {
+      toast({
+        title: "Categories Required",
+        description: "Please select at least one category for your project.",
         variant: "destructive"
       });
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      const budgetAmount = parseInt(formData.budget);
-      const budgetMaxAmount = formData.budgetMax ? parseInt(formData.budgetMax) : budgetAmount;
+    setLoading(true);
 
-      // Ensure postedBy is stored as a string
+    try {
       const projectData = {
         title: formData.title,
         description: formData.description,
-        category: formData.services,
-        budget: budgetAmount,
-        budgetMax: budgetMaxAmount,
+        category: selectedCategories,
+        budget: parseInt(formData.budget),
+        budgetMax: formData.budgetMax ? parseInt(formData.budgetMax) : undefined,
         location: formData.location,
-        startDate: formData.startDate ? formData.startDate.toISOString() : '',
-        expectedDuration: formData.completionTime,
-        postedBy: currentUser.uid.toString(), // Ensure it's a string
+        startDate: formData.startDate,
+        expectedDuration: formData.expectedDuration || undefined,
+        postedBy: currentUser.uid,
         status: 'open',
         createdAt: serverTimestamp()
       };
 
-      console.log('Posting project with data:', projectData);
       await addDoc(collection(db, 'projects'), projectData);
-      
+
       toast({
         title: "Project Posted Successfully",
         description: "Your project has been posted and contractors can now bid on it."
       });
-      
+
       // Reset form
       setFormData({
         title: '',
-        type: '',
         description: '',
         location: '',
         budget: '',
         budgetMax: '',
-        startDate: undefined,
-        completionTime: '',
-        services: []
+        startDate: '',
+        expectedDuration: ''
       });
-
-      // Close dialog and refresh projects list
+      setSelectedCategories([]);
+      
       onOpenChange(false);
       if (onProjectPosted) {
         onProjectPosted();
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error posting project:', error);
       toast({
         title: "Error Posting Project",
-        description: error.message,
+        description: "There was an error posting your project. Please try again.",
         variant: "destructive"
       });
     } finally {
-      setIsSubmitting(false);
+      setLoading(false);
     }
   };
+
+  if (!currentUser) {
+    return null;
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Post New Construction Project</DialogTitle>
+          <DialogTitle>Post a New Project</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="title">Project Title *</Label>
+            <Input
+              id="title"
+              value={formData.title}
+              onChange={(e) => handleInputChange('title', e.target.value)}
+              placeholder="e.g., Modern 3BHK House Construction"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="description">Project Description *</Label>
+            <Textarea
+              id="description"
+              value={formData.description}
+              onChange={(e) => handleInputChange('description', e.target.value)}
+              placeholder="Describe your project requirements, specifications, and any special requirements..."
+              rows={4}
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Categories *</Label>
+            <div className="flex flex-wrap gap-2">
+              {categories.map((category) => (
+                <Badge
+                  key={category}
+                  variant={selectedCategories.includes(category) ? "default" : "outline"}
+                  className="cursor-pointer hover:bg-blue-100"
+                  onClick={() => toggleCategory(category)}
+                >
+                  {category}
+                  {selectedCategories.includes(category) && (
+                    <X className="h-3 w-3 ml-1" />
+                  )}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <Label htmlFor="title">Project Title *</Label>
-              <Input
-                id="title"
-                value={formData.title}
-                onChange={(e) => setFormData({...formData, title: e.target.value})}
-                placeholder="e.g., Residential House Construction"
-                required
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="type">Project Type *</Label>
-              <Select value={formData.type} onValueChange={(value) => setFormData({...formData, type: value})}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select project type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projectTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="location">Location *</Label>
-              <Input
-                id="location"
-                value={formData.location}
-                onChange={(e) => setFormData({...formData, location: e.target.value})}
-                placeholder="City, State"
-                required
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="budget">Minimum Budget *</Label>
+            <div className="space-y-2">
+              <Label htmlFor="budget">Minimum Budget (₹) *</Label>
               <Input
                 id="budget"
                 type="number"
                 value={formData.budget}
-                onChange={(e) => setFormData({...formData, budget: e.target.value})}
-                placeholder="500000"
+                onChange={(e) => handleInputChange('budget', e.target.value)}
+                placeholder="e.g., 1500000"
                 required
               />
             </div>
-
-            <div>
-              <Label htmlFor="budgetMax">Maximum Budget (Optional)</Label>
+            
+            <div className="space-y-2">
+              <Label htmlFor="budgetMax">Maximum Budget (₹)</Label>
               <Input
                 id="budgetMax"
                 type="number"
                 value={formData.budgetMax}
-                onChange={(e) => setFormData({...formData, budgetMax: e.target.value})}
-                placeholder="800000"
+                onChange={(e) => handleInputChange('budgetMax', e.target.value)}
+                placeholder="e.g., 2000000"
               />
-            </div>
-
-            <div>
-              <Label>Preferred Start Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {formData.startDate ? format(formData.startDate, "PPP") : "Select date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={formData.startDate}
-                    onSelect={(date) => setFormData({...formData, startDate: date})}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div>
-              <Label htmlFor="completionTime">Expected Completion Time</Label>
-              <Input
-                id="completionTime"
-                value={formData.completionTime}
-                onChange={(e) => setFormData({...formData, completionTime: e.target.value})}
-                placeholder="e.g., 6 months"
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <Label htmlFor="description">Project Description *</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({...formData, description: e.target.value})}
-                placeholder="Describe your project in detail..."
-                rows={4}
-                required
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <Label>Required Services</Label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
-                {serviceCategories.map((service) => (
-                  <label key={service} className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={formData.services.includes(service)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setFormData({...formData, services: [...formData.services, service]});
-                        } else {
-                          setFormData({...formData, services: formData.services.filter(s => s !== service)});
-                        }
-                      }}
-                      className="rounded"
-                    />
-                    <span className="text-sm">{service}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="md:col-span-2">
-              <Label>Project Documents (Optional)</Label>
-              <div className="mt-2 border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-sm text-gray-500">Upload project drawings, layouts, or documents</p>
-                <Button variant="outline" size="sm" className="mt-2">
-                  Choose Files
-                </Button>
-              </div>
             </div>
           </div>
 
-          <div className="flex gap-4">
-            <Button 
-              type="submit" 
-              className="flex-1"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? 'Posting Project...' : 'Post Project'}
+          <div className="space-y-2">
+            <Label htmlFor="location">Location *</Label>
+            <Input
+              id="location"
+              value={formData.location}
+              onChange={(e) => handleInputChange('location', e.target.value)}
+              placeholder="e.g., Pune, Maharashtra"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="startDate">Preferred Start Date *</Label>
+              <Input
+                id="startDate"
+                type="date"
+                value={formData.startDate}
+                onChange={(e) => handleInputChange('startDate', e.target.value)}
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="expectedDuration">Expected Duration</Label>
+              <Input
+                id="expectedDuration"
+                value={formData.expectedDuration}
+                onChange={(e) => handleInputChange('expectedDuration', e.target.value)}
+                placeholder="e.g., 12 months"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <Button type="submit" disabled={loading} className="flex-1">
+              {loading ? 'Posting...' : 'Post Project'}
             </Button>
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => onOpenChange(false)} 
-              className="flex-1"
-              disabled={isSubmitting}
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
           </div>
