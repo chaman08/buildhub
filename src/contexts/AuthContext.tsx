@@ -34,6 +34,7 @@ export interface UserProfile {
   experience?: number;
   documents?: string[];
   verificationBadge?: boolean;
+  rating?: number;
   // Customer specific fields
   projectsPosted?: number;
   createdAt?: Date;
