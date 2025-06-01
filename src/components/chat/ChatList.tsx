@@ -9,6 +9,21 @@ import { Badge } from '@/components/ui/badge';
 import { MessageCircle, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
+interface ChatData {
+  id: string;
+  projectId: string;
+  senderId: string;
+  senderName: string;
+  senderType: 'customer' | 'contractor';
+  recipientId: string;
+  recipientName: string;
+  recipientType: 'customer' | 'contractor';
+  participants: string[];
+  message: string;
+  timestamp: any;
+  read: boolean;
+}
+
 interface Conversation {
   id: string;
   projectId: string;
@@ -46,7 +61,7 @@ const ChatList: React.FC<ChatListProps> = ({ onSelectChat }) => {
           const chatsData = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
-          }));
+          })) as ChatData[];
 
           // Group by project and recipient
           const conversationMap = new Map<string, Conversation>();
