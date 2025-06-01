@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Calendar, DollarSign, Bookmark, Eye, Clock } from 'lucide-react';
 import BidFormModal from './BidFormModal';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ProjectCardProps {
   project: {
@@ -26,7 +27,11 @@ interface ProjectCardProps {
 }
 
 const ProjectCard: React.FC<ProjectCardProps> = ({ project, onSaveProject, isSaved = false }) => {
+  const { currentUser, userProfile } = useAuth();
   const [showBidModal, setShowBidModal] = useState(false);
+
+  const isContractor = userProfile?.userType === 'contractor';
+  const isOwner = currentUser?.uid === project.postedBy;
 
   const formatBudget = (amount: number, maxAmount?: number) => {
     const formatAmount = (amt: number) => {
@@ -156,12 +161,15 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onSaveProject, isSav
               </Link>
             </Button>
             
-            <Button 
-              onClick={() => setShowBidModal(true)} 
-              className="flex-1"
-            >
-              📩 Place a Bid
-            </Button>
+            {/* Only show bid button for contractors who don't own the project */}
+            {isContractor && !isOwner && (
+              <Button 
+                onClick={() => setShowBidModal(true)} 
+                className="flex-1"
+              >
+                📩 Place a Bid
+              </Button>
+            )}
             
             <Button 
               variant="outline" 
@@ -175,11 +183,14 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onSaveProject, isSav
         </CardContent>
       </Card>
 
-      <BidFormModal 
-        open={showBidModal}
-        onOpenChange={setShowBidModal}
-        project={project}
-      />
+      {/* Only show bid modal for contractors */}
+      {isContractor && !isOwner && (
+        <BidFormModal 
+          open={showBidModal}
+          onOpenChange={setShowBidModal}
+          project={project}
+        />
+      )}
     </>
   );
 };

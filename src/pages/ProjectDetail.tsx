@@ -234,6 +234,7 @@ const ProjectDetail = () => {
                   <p className="text-gray-700 whitespace-pre-wrap">{project.description}</p>
                 </div>
 
+                {/* Only show bid button for contractors who don't own the project */}
                 {isContractor && !isOwner && (
                   <div className="pt-4 border-t">
                     <Button 
@@ -315,11 +316,14 @@ const ProjectDetail = () => {
         </div>
       </div>
 
-      <BidFormModal 
-        open={showBidModal}
-        onOpenChange={setShowBidModal}
-        project={project}
-      />
+      {/* Only show bid modal for contractors who don't own the project */}
+      {isContractor && !isOwner && (
+        <BidFormModal 
+          open={showBidModal}
+          onOpenChange={setShowBidModal}
+          project={project}
+        />
+      )}
     </div>
   );
 };
