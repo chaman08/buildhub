@@ -12,6 +12,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import Auth from "./pages/Auth";
 import VerificationPage from "./components/auth/VerificationPage";
 import Dashboard from "./pages/Dashboard";
+import ContractorDashboard from "./pages/ContractorDashboard";
 import { ProfilePage } from "./pages/ProfilePage";
 import Contractors from "./pages/Contractors";
 import ContractorProfile from "./pages/ContractorProfile";
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/verify" element={<VerificationPage />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/contractor-dashboard" element={<ContractorDashboard />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/contractors" element={<Contractors />} />
             <Route path="/contractor/:uid" element={<ContractorProfile />} />
