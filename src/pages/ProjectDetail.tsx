@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import Header from '@/components/Header';
@@ -11,6 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MapPin, Calendar, DollarSign, ArrowLeft, Phone, Mail, MessageCircle } from 'lucide-react';
 import BidFormModal from '@/components/BidFormModal';
+import ChatInterface from '@/components/chat/ChatInterface';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 interface Project {
   id: string;
@@ -47,6 +48,8 @@ const ProjectDetail = () => {
   const [bids, setBids] = useState<Bid[]>([]);
   const [loading, setLoading] = useState(true);
   const [showBidModal, setShowBidModal] = useState(false);
+  const [showChatModal, setShowChatModal] = useState(false);
+  const [selectedContractor, setSelectedContractor] = useState<{ id: string; name: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const isOwner = currentUser?.uid === project?.postedBy;
@@ -119,6 +122,64 @@ const ProjectDetail = () => {
       month: 'long',
       year: 'numeric'
     });
+  };
+
+  const handleContactContractor = async (contractorId: string, contractorName: string) => {
+    if (!currentUser || !userProfile || !project) return;
+
+    try {
+      // Create initial chat message
+      await addDoc(collection(db, 'chats'), {
+        projectId: project.id,
+        senderId: currentUser.uid,
+        senderName: userProfile.fullName,
+        senderType: userProfile.userType,
+        recipientId: contractorId,
+        recipientName: contractorName,
+        recipientType: 'contractor',
+        participants: [currentUser.uid, contractorId],
+        message: `Hi ${contractorName}, I'm interested in discussing the project "${project.title}". Please let me know if you'd like to chat about the details.`,
+        timestamp: serverTimestamp(),
+        read: false
+      });
+
+      setSelectedContractor({ id: contractorId, name: contractorName });
+      setShowChatModal(true);
+    } catch (error) {
+      console.error('Error starting chat:', error);
+    }
+  };
+
+  const handleContactCustomer = async () => {
+    if (!currentUser || !userProfile || !project) return;
+
+    try {
+      // Get customer details
+      const customerDoc = await getDoc(doc(db, 'users', project.postedBy));
+      if (!customerDoc.exists()) return;
+
+      const customerData = customerDoc.data();
+      
+      // Create initial chat message
+      await addDoc(collection(db, 'chats'), {
+        projectId: project.id,
+        senderId: currentUser.uid,
+        senderName: userProfile.fullName,
+        senderType: userProfile.userType,
+        recipientId: project.postedBy,
+        recipientName: customerData.fullName,
+        recipientType: 'customer',
+        participants: [currentUser.uid, project.postedBy],
+        message: `Hello, I'm interested in your project "${project.title}". I'd like to discuss the requirements and my proposal.`,
+        timestamp: serverTimestamp(),
+        read: false
+      });
+
+      setSelectedContractor({ id: project.postedBy, name: customerData.fullName });
+      setShowChatModal(true);
+    } catch (error) {
+      console.error('Error starting chat:', error);
+    }
   };
 
   if (loading) {
@@ -234,15 +295,25 @@ const ProjectDetail = () => {
                   <p className="text-gray-700 whitespace-pre-wrap">{project.description}</p>
                 </div>
 
-                {/* Only show bid button for contractors who don't own the project */}
+                {/* Contractor Actions */}
                 {isContractor && !isOwner && (
-                  <div className="pt-4 border-t">
+                  <div className="pt-4 border-t space-y-3">
                     <Button 
                       onClick={() => setShowBidModal(true)}
                       className="w-full"
                       size="lg"
                     >
                       📩 Place Your Bid
+                    </Button>
+                    
+                    <Button 
+                      onClick={handleContactCustomer}
+                      variant="outline"
+                      className="w-full"
+                      size="lg"
+                    >
+                      <MessageCircle className="h-4 w-4 mr-2" />
+                      Message Customer
                     </Button>
                   </div>
                 )}
@@ -299,7 +370,11 @@ const ProjectDetail = () => {
                                 <Button size="sm" variant="outline">
                                   <Mail className="h-4 w-4" />
                                 </Button>
-                                <Button size="sm" variant="outline">
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => handleContactContractor(bid.contractorId, bid.contractorName || 'Contractor')}
+                                >
                                   <MessageCircle className="h-4 w-4" />
                                 </Button>
                               </div>
@@ -316,7 +391,7 @@ const ProjectDetail = () => {
         </div>
       </div>
 
-      {/* Only show bid modal for contractors who don't own the project */}
+      {/* Bid Modal */}
       {isContractor && !isOwner && (
         <BidFormModal 
           open={showBidModal}
@@ -324,6 +399,24 @@ const ProjectDetail = () => {
           project={project}
         />
       )}
+
+      {/* Chat Modal */}
+      <Dialog open={showChatModal} onOpenChange={setShowChatModal}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Chat</DialogTitle>
+          </DialogHeader>
+          {selectedContractor && project && (
+            <ChatInterface
+              projectId={project.id}
+              projectTitle={project.title}
+              recipientId={selectedContractor.id}
+              recipientName={selectedContractor.name}
+              recipientType={isContractor ? 'customer' : 'contractor'}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

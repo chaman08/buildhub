@@ -8,9 +8,24 @@ import BidsSection from './BidsSection';
 import ContractorsSection from './ContractorsSection';
 import NotificationsSection from './NotificationsSection';
 import SettingsSection from './SettingsSection';
+import ChatList from '@/components/chat/ChatList';
+import ChatInterface from '@/components/chat/ChatInterface';
+
+interface Conversation {
+  id: string;
+  projectId: string;
+  projectTitle: string;
+  recipientId: string;
+  recipientName: string;
+  recipientType: 'customer' | 'contractor';
+  lastMessage: string;
+  lastMessageTime: any;
+  unreadCount: number;
+}
 
 const DashboardLayout: React.FC = () => {
   const [activeTab, setActiveTab] = useState('profile');
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
 
   return (
     <div className="pt-20 px-4 max-w-7xl mx-auto">
@@ -33,7 +48,7 @@ const DashboardLayout: React.FC = () => {
               <Users className="h-4 w-4" />
               <span className="hidden sm:inline">Contractors</span>
             </TabsTrigger>
-            <TabsTrigger value="notifications" className="flex items-center gap-2">
+            <TabsTrigger value="messages" className="flex items-center gap-2">
               <MessageCircle className="h-4 w-4" />
               <span className="hidden sm:inline">Messages</span>
             </TabsTrigger>
@@ -60,8 +75,30 @@ const DashboardLayout: React.FC = () => {
               <ContractorsSection />
             </TabsContent>
             
-            <TabsContent value="notifications">
-              <NotificationsSection />
+            <TabsContent value="messages">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-1">
+                  <ChatList onSelectChat={setSelectedConversation} />
+                </div>
+                <div className="lg:col-span-2">
+                  {selectedConversation ? (
+                    <ChatInterface
+                      projectId={selectedConversation.projectId}
+                      projectTitle={selectedConversation.projectTitle}
+                      recipientId={selectedConversation.recipientId}
+                      recipientName={selectedConversation.recipientName}
+                      recipientType={selectedConversation.recipientType}
+                    />
+                  ) : (
+                    <div className="h-96 flex items-center justify-center border rounded-lg">
+                      <div className="text-center text-gray-500">
+                        <MessageCircle className="h-12 w-12 mx-auto mb-4" />
+                        <p>Select a conversation to start messaging</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </TabsContent>
             
             <TabsContent value="settings">
