@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, doc, updateDoc, getDoc, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -121,18 +120,7 @@ const BidsSection: React.FC = () => {
         updatedAt: new Date()
       });
 
-      // Reject all other bids for this project
-      const otherBids = bids.filter(b => b.projectId === bid.projectId && b.id !== bid.id);
-      otherBids.forEach(otherBid => {
-        const bidRef = doc(db, 'bids', otherBid.id);
-        batch.update(bidRef, {
-          status: 'rejected',
-          rejectedAt: new Date(),
-          updatedAt: new Date()
-        });
-      });
-
-      // Update project status
+      // Update project to show it has accepted bids, but keep it open for more bids
       const projectRef = doc(db, 'projects', bid.projectId);
       batch.update(projectRef, {
         status: 'in_progress',
@@ -143,21 +131,16 @@ const BidsSection: React.FC = () => {
 
       await batch.commit();
 
-      // Update local state
+      // Update local state - only update the accepted bid
       setBids(prevBids => 
-        prevBids.map(b => {
-          if (b.id === bid.id) {
-            return { ...b, status: 'accepted' as const };
-          } else if (b.projectId === bid.projectId) {
-            return { ...b, status: 'rejected' as const };
-          }
-          return b;
-        })
+        prevBids.map(b => 
+          b.id === bid.id ? { ...b, status: 'accepted' as const } : b
+        )
       );
 
       toast({
         title: "Bid Accepted! 🎉",
-        description: `You've accepted ${bid.contractorName}'s bid for ${bid.projectTitle}`,
+        description: `You've accepted ${bid.contractorName}'s bid for ${bid.projectTitle}. Other bids remain available for consideration.`,
       });
 
     } catch (error) {
@@ -314,11 +297,22 @@ const BidsSection: React.FC = () => {
                   )}
                   
                   {bid.status === 'accepted' && (
-                    <div className="flex-1 text-center py-2">
-                      <Badge className="bg-green-100 text-green-800">
-                        ✅ Accepted - Contact details revealed above
-                      </Badge>
-                    </div>
+                    <>
+                      <div className="flex-1 text-center py-2">
+                        <Badge className="bg-green-100 text-green-800">
+                          ✅ Accepted - Contact details above
+                        </Badge>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="ml-2"
+                        onClick={() => handleRejectBid(bid)}
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Withdraw
+                      </Button>
+                    </>
                   )}
                   
                   {bid.status === 'rejected' && (
