@@ -110,26 +110,43 @@ const BidsSection: React.FC = () => {
 
   const handleAcceptBid = async (bid: Bid) => {
     try {
+      console.log('Starting bid acceptance process for bid:', bid.id);
+      
       const batch = writeBatch(db);
       
       // Update accepted bid status
       const acceptedBidRef = doc(db, 'bids', bid.id);
+      console.log('Updating bid document:', bid.id);
+      
       batch.update(acceptedBidRef, {
         status: 'accepted',
         acceptedAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        projectStatus: 'in_progress'
       });
 
-      // Update project to show it has accepted bids, but keep it open for more bids
+      // Update project status and details
       const projectRef = doc(db, 'projects', bid.projectId);
+      console.log('Updating project document:', bid.projectId);
+      
+      // First verify the project exists
+      const projectDoc = await getDoc(projectRef);
+      if (!projectDoc.exists()) {
+        throw new Error(`Project ${bid.projectId} not found`);
+      }
+
       batch.update(projectRef, {
         status: 'in_progress',
         acceptedContractorId: bid.contractorId,
         acceptedBidId: bid.id,
+        acceptedBidAmount: bid.priceQuoted,
+        acceptedTimeline: bid.timeline,
         updatedAt: new Date()
       });
 
+      console.log('Committing batch updates...');
       await batch.commit();
+      console.log('Batch updates committed successfully');
 
       // Update local state - only update the accepted bid
       setBids(prevBids => 
@@ -144,10 +161,24 @@ const BidsSection: React.FC = () => {
       });
 
     } catch (error) {
-      console.error('Error accepting bid:', error);
+      console.error('Detailed error in handleAcceptBid:', error);
+      
+      // More specific error messages based on the error type
+      let errorMessage = "Failed to accept bid. Please try again.";
+      
+      if (error instanceof Error) {
+        if (error.message.includes('not found')) {
+          errorMessage = "Project not found. The project may have been deleted.";
+        } else if (error.message.includes('permission-denied')) {
+          errorMessage = "Permission denied. Please make sure you have the right access.";
+        } else if (error.message.includes('already-exists')) {
+          errorMessage = "This bid has already been accepted.";
+        }
+      }
+
       toast({
         title: "Error",
-        description: "Failed to accept bid. Please try again.",
+        description: errorMessage,
         variant: "destructive"
       });
     }
