@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
@@ -9,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search } from 'lucide-react';
+import { Search, MapPin } from 'lucide-react';
 
 interface Project {
   id: string;
@@ -34,7 +35,9 @@ const Projects = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedBudget, setSelectedBudget] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState('');
   const [savedProjects, setSavedProjects] = useState<Set<string>>(new Set());
+  const [availableLocations, setAvailableLocations] = useState<string[]>([]);
 
   const categories = ['Civil Work', 'Electrical', 'Plumbing', 'Interior Design', 'Architecture', 'Landscaping'];
   const budgetRanges = [
@@ -52,7 +55,7 @@ const Projects = () => {
 
   useEffect(() => {
     filterProjects();
-  }, [projects, searchTerm, selectedCategory, selectedBudget]);
+  }, [projects, searchTerm, selectedCategory, selectedBudget, selectedLocation]);
 
   const fetchProjects = async () => {
     try {
@@ -82,6 +85,10 @@ const Projects = () => {
       // Filter only open projects on frontend to avoid Firestore index issues
       const openProjects = projectData.filter(project => project.status === 'open');
       console.log('Open projects:', openProjects.length);
+      
+      // Extract unique locations for the filter
+      const locations = [...new Set(openProjects.map(project => project.location).filter(Boolean))].sort();
+      setAvailableLocations(locations);
       
       setProjects(openProjects);
     } catch (error) {
@@ -133,6 +140,12 @@ const Projects = () => {
       );
     }
 
+    if (selectedLocation && selectedLocation !== 'all') {
+      filtered = filtered.filter(project =>
+        project.location && project.location.toLowerCase().includes(selectedLocation.toLowerCase())
+      );
+    }
+
     setFilteredProjects(filtered);
   };
 
@@ -160,7 +173,7 @@ const Projects = () => {
         {/* Search and Filters */}
         <Card className="mb-6">
           <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
@@ -199,12 +212,30 @@ const Projects = () => {
                 </SelectContent>
               </Select>
 
+              <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Locations" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Locations</SelectItem>
+                  {availableLocations.map((location) => (
+                    <SelectItem key={location} value={location}>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4" />
+                        {location}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               <Button
                 variant="outline"
                 onClick={() => {
                   setSearchTerm('');
                   setSelectedCategory('');
                   setSelectedBudget('');
+                  setSelectedLocation('');
                 }}
               >
                 Clear Filters
