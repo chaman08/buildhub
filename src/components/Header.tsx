@@ -26,6 +26,11 @@ const Header = () => {
     }
   };
 
+  const getDashboardRoute = () => {
+    if (!userProfile) return '/dashboard';
+    return userProfile.userType === 'contractor' ? '/contractor-dashboard' : '/dashboard';
+  };
+
   return (
     <header className="bg-white shadow-sm border-b border-gray-200 fixed top-0 left-0 right-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -69,7 +74,7 @@ const Header = () => {
           <div className="flex items-center space-x-4">
             {currentUser ? (
               <div className="flex items-center space-x-3">
-                <Link to="/dashboard">
+                <Link to={getDashboardRoute()}>
                   <Button variant="outline" size="sm">
                     Dashboard
                   </Button>
@@ -95,6 +100,11 @@ const Header = () => {
                         <p className="w-[200px] truncate text-sm text-muted-foreground">
                           {currentUser.email}
                         </p>
+                        {userProfile?.userType && (
+                          <p className="text-xs text-blue-600 capitalize">
+                            {userProfile.userType}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <DropdownMenuSeparator />
@@ -105,7 +115,7 @@ const Header = () => {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link to="/dashboard" className="cursor-pointer">
+                      <Link to={getDashboardRoute()} className="cursor-pointer">
                         <Settings className="mr-2 h-4 w-4" />
                         Dashboard
                       </Link>

@@ -12,10 +12,12 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     if (!currentUser) {
       navigate('/auth');
+    } else if (userProfile?.userType === 'contractor') {
+      navigate('/contractor-dashboard'); // Redirect contractors to their dashboard
     }
-  }, [currentUser, navigate]);
+  }, [currentUser, userProfile, navigate]);
 
-  if (!currentUser) {
+  if (!currentUser || userProfile?.userType === 'contractor') {
     return null;
   }
 

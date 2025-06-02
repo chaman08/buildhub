@@ -22,7 +22,12 @@ const Auth: React.FC = () => {
       
       // Check if user has at least one verification (email OR phone)
       if (isVerificationComplete()) {
-        navigate('/');
+        // Navigate based on user type
+        if (userProfile.userType === 'contractor') {
+          navigate('/contractor-dashboard');
+        } else {
+          navigate('/dashboard');
+        }
       } else {
         navigate('/verify');
       }

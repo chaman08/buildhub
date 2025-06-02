@@ -5,14 +5,19 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 
 const HeroSection = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   const navigate = useNavigate();
 
   const handlePostProject = () => {
     if (!currentUser) {
       navigate('/auth');
     } else {
-      navigate('/dashboard');
+      // Navigate based on user type
+      if (userProfile?.userType === 'contractor') {
+        navigate('/contractor-dashboard');
+      } else {
+        navigate('/dashboard');
+      }
     }
   };
 
@@ -33,7 +38,7 @@ const HeroSection = () => {
             className="text-lg px-8 py-6"
             onClick={handlePostProject}
           >
-            Post Your Project
+            {currentUser && userProfile?.userType === 'contractor' ? 'View Dashboard' : 'Post Your Project'}
           </Button>
           <Button 
             variant="outline" 
