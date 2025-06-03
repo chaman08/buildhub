@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -9,11 +8,25 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Camera, MapPin, Phone, Mail, Edit3, Save, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const ProfileSection: React.FC = () => {
-  const { userProfile, currentUser } = useAuth();
+  const { userProfile, currentUser, refreshUserProfile, sendEmailVerification, setupRecaptcha, sendPhoneOTP, verifyPhoneOTP } = useAuth();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
+  const [showVerificationDialog, setShowVerificationDialog] = useState(false);
+  const [verificationType, setVerificationType] = useState<'email' | 'phone' | null>(null);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [otp, setOtp] = useState('');
+  const [confirmationResult, setConfirmationResult] = useState<any>(null);
   const [formData, setFormData] = useState({
     fullName: userProfile?.fullName || '',
     city: userProfile?.city || '',
@@ -22,17 +35,35 @@ const ProfileSection: React.FC = () => {
   });
 
   const handleSave = async () => {
+    if (!currentUser) {
+      toast({
+        title: "Error",
+        description: "User not authenticated",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
-      // TODO: Update profile in Firestore
+      const userRef = doc(db, 'users', currentUser.uid);
+      const updateData = {
+        ...formData,
+        updatedAt: new Date()
+      };
+
+      await updateDoc(userRef, updateData);
+      await refreshUserProfile();
+      
       toast({
         title: "Profile Updated",
         description: "Your profile has been updated successfully."
       });
       setIsEditing(false);
     } catch (error: any) {
+      console.error('Error updating profile:', error);
       toast({
         title: "Update Failed",
-        description: error.message,
+        description: error.message || "Failed to update profile. Please try again.",
         variant: "destructive"
       });
     }
@@ -40,6 +71,81 @@ const ProfileSection: React.FC = () => {
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  };
+
+  const handleVerification = async (type: 'email' | 'phone') => {
+    setVerificationType(type);
+    setShowVerificationDialog(true);
+
+    if (type === 'email' && currentUser) {
+      try {
+        await sendEmailVerification();
+        toast({
+          title: "Verification Email Sent",
+          description: "Please check your email and click the verification link."
+        });
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to send verification email.",
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
+  const handlePhoneVerification = async () => {
+    if (!phoneNumber) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid phone number",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const recaptchaVerifier = setupRecaptcha('phone-verification');
+      const result = await sendPhoneOTP(phoneNumber, recaptchaVerifier);
+      setConfirmationResult(result);
+      toast({
+        title: "OTP Sent",
+        description: "Please enter the OTP sent to your phone number."
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send OTP.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleVerifyOTP = async () => {
+    if (!otp || !confirmationResult) {
+      toast({
+        title: "Error",
+        description: "Please enter the OTP",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      await verifyPhoneOTP(confirmationResult, otp);
+      await refreshUserProfile();
+      setShowVerificationDialog(false);
+      toast({
+        title: "Success",
+        description: "Phone number verified successfully!"
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to verify OTP.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -199,14 +305,86 @@ const ProfileSection: React.FC = () => {
           </div>
           
           {(!userProfile?.isEmailVerified || !userProfile?.isPhoneVerified) && (
-            <div className="mt-4">
-              <Button variant="outline" size="sm">
-                Complete Verification
-              </Button>
+            <div className="mt-4 space-x-2">
+              {!userProfile?.isEmailVerified && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => handleVerification('email')}
+                >
+                  Verify Email
+                </Button>
+              )}
+              {!userProfile?.isPhoneVerified && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => handleVerification('phone')}
+                >
+                  Verify Phone
+                </Button>
+              )}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Verification Dialog */}
+      <Dialog open={showVerificationDialog} onOpenChange={setShowVerificationDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {verificationType === 'email' ? 'Email Verification' : 'Phone Verification'}
+            </DialogTitle>
+            <DialogDescription>
+              {verificationType === 'email' 
+                ? 'Please check your email for the verification link.'
+                : 'Enter your phone number to receive an OTP.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {verificationType === 'phone' && (
+            <div className="space-y-4">
+              {!confirmationResult ? (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      placeholder="Enter your phone number"
+                    />
+                  </div>
+                  <Button onClick={handlePhoneVerification} className="w-full">
+                    Send OTP
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="otp">Enter OTP</Label>
+                    <Input
+                      id="otp"
+                      type="text"
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value)}
+                      placeholder="Enter the OTP"
+                    />
+                  </div>
+                  <Button onClick={handleVerifyOTP} className="w-full">
+                    Verify OTP
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* reCAPTCHA container for phone verification */}
+      <div id="phone-verification" className="hidden"></div>
     </div>
   );
 };

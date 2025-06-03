@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Star, Phone, Mail, MessageCircle, CheckCircle, X } from 'lucide-react';
+import { Star, Phone, Mail, MessageCircle, CheckCircle, X, ArrowLeft } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 
 interface Bid {
@@ -29,8 +29,16 @@ const BidsSection: React.FC = () => {
   const { currentUser } = useAuth();
   const [bids, setBids] = useState<Bid[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filteredProjectId, setFilteredProjectId] = useState<string | null>(null);
 
   useEffect(() => {
+    // Get project ID from URL if present
+    const hash = window.location.hash;
+    const projectIdMatch = hash.match(/projectId=([^&]+)/);
+    if (projectIdMatch) {
+      setFilteredProjectId(projectIdMatch[1]);
+    }
+
     if (currentUser) {
       fetchReceivedBids();
     }
@@ -60,10 +68,10 @@ const BidsSection: React.FC = () => {
         return;
       }
 
-      // Get all bids for these projects
+      // If filtering by project ID, only get bids for that project
       const bidsQuery = query(
         collection(db, 'bids'),
-        where('projectId', 'in', projectIds)
+        where('projectId', 'in', filteredProjectId ? [filteredProjectId] : projectIds)
       );
       const bidsSnapshot = await getDocs(bidsQuery);
 
@@ -106,6 +114,12 @@ const BidsSection: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const clearProjectFilter = () => {
+    setFilteredProjectId(null);
+    window.location.hash = '#bids';
+    fetchReceivedBids();
   };
 
   const handleAcceptBid = async (bid: Bid) => {
@@ -239,7 +253,22 @@ const BidsSection: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Bids Received</h2>
+        <div className="flex items-center gap-4">
+          {filteredProjectId && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearProjectFilter}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to All Bids
+            </Button>
+          )}
+          <h2 className="text-2xl font-bold text-gray-900">
+            {filteredProjectId ? 'Project Bids' : 'Bids Received'}
+          </h2>
+        </div>
         <Badge variant="outline" className="text-sm">
           {bids.length} total bids
         </Badge>

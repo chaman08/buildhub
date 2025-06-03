@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -251,9 +250,16 @@ const ProjectsSection: React.FC = () => {
                 </div>
 
                 <div className="flex items-center justify-between pt-4 border-t">
-                  <span className="text-sm font-medium text-blue-600">
+                  <Button 
+                    variant="link" 
+                    className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                    onClick={() => {
+                      // Navigate to bids section with project filter
+                      window.location.hash = `#bids?projectId=${project.id}`;
+                    }}
+                  >
                     View bids received
-                  </span>
+                  </Button>
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" asChild>
                       <a href={`/project/${project.id}`}>

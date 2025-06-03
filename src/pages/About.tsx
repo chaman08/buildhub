@@ -1,11 +1,40 @@
-
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Shield, Users, MapPin, Building2, Target, Heart, Award, TrendingUp } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { useAuth } from '@/contexts/AuthContext';
 
 const About = () => {
+  const navigate = useNavigate();
+  const { currentUser, userProfile } = useAuth();
+
+  const handleJoinMission = () => {
+    if (!currentUser) {
+      navigate('/auth');
+    } else if (userProfile?.userType === 'contractor') {
+      navigate('/contractor-dashboard');
+    } else {
+      navigate('/dashboard');
+    }
+  };
+
+  const handlePostProject = () => {
+    if (!currentUser) {
+      navigate('/auth');
+    } else if (userProfile?.userType === 'contractor') {
+      navigate('/contractor-dashboard');
+    } else {
+      navigate('/dashboard');
+    }
+  };
+
+  const handleBrowseContractors = () => {
+    navigate('/contractors');
+  };
+
   const stats = [
     { number: "10,000+", label: "Verified Contractors", icon: Users },
     { number: "25,000+", label: "Projects Completed", icon: Building2 },
@@ -127,7 +156,10 @@ const About = () => {
                   </p>
                 </div>
                 <div className="mt-8">
-                  <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-3">
+                  <Button 
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-3"
+                    onClick={handleJoinMission}
+                  >
                     Join Our Mission
                   </Button>
                 </div>
@@ -204,10 +236,19 @@ const About = () => {
               Join thousands of satisfied customers who found their perfect contractor through BuildConnect
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" className="bg-white text-blue-600 hover:bg-gray-100 px-8 py-3">
+              <Button 
+                size="lg" 
+                className="bg-white text-blue-600 hover:bg-gray-100 px-8 py-3"
+                onClick={handlePostProject}
+              >
                 Post Your Project
               </Button>
-              <Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-blue-600 px-8 py-3">
+              <Button 
+                size="lg" 
+                variant="outline" 
+                className="border-white text-blue-600 hover:bg-white px-8 py-3"
+                onClick={handleBrowseContractors}
+              >
                 Browse Contractors
               </Button>
             </div>
