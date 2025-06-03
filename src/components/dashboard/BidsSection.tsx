@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, doc, updateDoc, getDoc, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -247,42 +248,43 @@ const BidsSection: React.FC = () => {
   };
 
   if (loading) {
-    return <div>Loading received bids...</div>;
+    return <div className="p-4">Loading received bids...</div>;
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+    <div className="space-y-4 md:space-y-6 p-4 md:p-0">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 flex-1">
           {filteredProjectId && (
             <Button
               variant="ghost"
               size="sm"
               onClick={clearProjectFilter}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 self-start"
             >
               <ArrowLeft className="h-4 w-4" />
-              Back to All Bids
+              <span className="hidden xs:inline">Back to All Bids</span>
+              <span className="xs:hidden">Back</span>
             </Button>
           )}
-          <h2 className="text-2xl font-bold text-gray-900">
+          <h2 className="text-xl md:text-2xl font-bold text-gray-900">
             {filteredProjectId ? 'Project Bids' : 'Bids Received'}
           </h2>
         </div>
-        <Badge variant="outline" className="text-sm">
+        <Badge variant="outline" className="text-xs md:text-sm whitespace-nowrap">
           {bids.length} total bids
         </Badge>
       </div>
 
       {bids.length === 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
+          <CardContent className="flex flex-col items-center justify-center py-8 md:py-12 px-4">
             <div className="text-center space-y-4">
-              <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
-                <MessageCircle className="h-8 w-8 text-gray-400" />
+              <div className="h-12 w-12 md:h-16 md:w-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+                <MessageCircle className="h-6 w-6 md:h-8 md:w-8 text-gray-400" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900">No Bids Yet</h3>
-              <p className="text-gray-500">Once you post projects, contractors will start bidding on them.</p>
+              <h3 className="text-base md:text-lg font-medium text-gray-900">No Bids Yet</h3>
+              <p className="text-sm text-gray-500 max-w-sm">Once you post projects, contractors will start bidding on them.</p>
             </div>
           </CardContent>
         </Card>
@@ -290,108 +292,147 @@ const BidsSection: React.FC = () => {
         <div className="space-y-4">
           {bids.map((bid) => (
             <Card key={bid.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-lg">{bid.projectTitle}</CardTitle>
-                    <Badge className={getStatusColor(bid.status)} variant="secondary">
-                      {bid.status.charAt(0).toUpperCase() + bid.status.slice(1)}
-                    </Badge>
+              <CardHeader className="pb-3">
+                <div className="flex flex-col sm:flex-row items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="text-base md:text-lg line-clamp-2 pr-2">{bid.projectTitle}</CardTitle>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Badge className={`${getStatusColor(bid.status)} text-xs`} variant="secondary">
+                        {bid.status.charAt(0).toUpperCase() + bid.status.slice(1)}
+                      </Badge>
+                    </div>
                   </div>
-                  <span className="text-sm text-gray-500">
+                  <span className="text-xs md:text-sm text-gray-500 whitespace-nowrap">
                     {bid.createdAt && new Date(bid.createdAt.toDate()).toLocaleDateString()}
                   </span>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <Avatar className="h-12 w-12">
-                    <AvatarFallback>
-                      {bid.contractorName.split(' ').map(n => n[0]).join('')}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <h4 className="font-medium">{bid.contractorName}</h4>
-                    <div className="flex items-center gap-1">
-                      <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                      <span className="text-sm text-gray-600">{bid.contractorRating}</span>
-                    </div>
-                    {bid.status === 'accepted' && (
-                      <div className="mt-2 text-sm text-gray-600">
-                        <p>📧 {bid.contractorEmail}</p>
-                        <p>📞 {bid.contractorPhone}</p>
+              
+              <CardContent className="space-y-4 pt-0">
+                {/* Contractor Info - Mobile Layout */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <Avatar className="h-10 w-10 md:h-12 md:w-12 flex-shrink-0">
+                      <AvatarFallback className="text-sm">
+                        {bid.contractorName.split(' ').map(n => n[0]).join('')}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-sm md:text-base truncate">{bid.contractorName}</h4>
+                      <div className="flex items-center gap-1">
+                        <Star className="h-3 w-3 md:h-4 md:w-4 text-yellow-500 fill-current" />
+                        <span className="text-xs md:text-sm text-gray-600">{bid.contractorRating}</span>
                       </div>
-                    )}
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-semibold text-lg text-green-600">{formatBudget(bid.priceQuoted)}</div>
-                    <div className="text-sm text-gray-500">Timeline: {bid.timeline}</div>
+                  
+                  {/* Price and Timeline - Stacked on mobile */}
+                  <div className="w-full sm:w-auto text-left sm:text-right">
+                    <div className="font-semibold text-base md:text-lg text-green-600">{formatBudget(bid.priceQuoted)}</div>
+                    <div className="text-xs md:text-sm text-gray-500">Timeline: {bid.timeline}</div>
                   </div>
                 </div>
 
-                <p className="text-gray-600 text-sm bg-gray-50 p-3 rounded-lg">
-                  "{bid.message}"
-                </p>
+                {/* Contact Info for Accepted Bids */}
+                {bid.status === 'accepted' && (
+                  <div className="bg-green-50 p-3 rounded-lg">
+                    <h5 className="font-medium text-sm text-green-800 mb-2">Contact Information</h5>
+                    <div className="space-y-1 text-sm text-green-700">
+                      {bid.contractorEmail && (
+                        <div className="flex items-center gap-2">
+                          <Mail className="h-3 w-3" />
+                          <span className="truncate">{bid.contractorEmail}</span>
+                        </div>
+                      )}
+                      {bid.contractorPhone && (
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-3 w-3" />
+                          <span>{bid.contractorPhone}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
-                <div className="flex gap-2 pt-4 border-t">
+                {/* Message */}
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <p className="text-gray-600 text-sm leading-relaxed">
+                    "{bid.message}"
+                  </p>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex flex-col gap-3 pt-4 border-t">
                   {bid.status === 'pending' && (
-                    <>
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <Button 
                         size="sm" 
-                        className="flex-1"
+                        className="w-full sm:flex-1 text-xs md:text-sm"
                         onClick={() => handleAcceptBid(bid)}
                       >
-                        <CheckCircle className="h-4 w-4 mr-1" />
+                        <CheckCircle className="h-3 w-3 md:h-4 md:w-4 mr-1" />
                         Accept Bid
                       </Button>
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        className="flex-1"
+                        className="w-full sm:flex-1 text-xs md:text-sm"
                         onClick={() => handleRejectBid(bid)}
                       >
-                        <X className="h-4 w-4 mr-1" />
+                        <X className="h-3 w-3 md:h-4 md:w-4 mr-1" />
                         Reject
                       </Button>
-                    </>
+                    </div>
                   )}
                   
                   {bid.status === 'accepted' && (
-                    <>
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <div className="flex-1 text-center py-2">
-                        <Badge className="bg-green-100 text-green-800">
+                        <Badge className="bg-green-100 text-green-800 text-xs">
                           ✅ Accepted - Contact details above
                         </Badge>
                       </div>
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        className="ml-2"
+                        className="text-xs md:text-sm"
                         onClick={() => handleRejectBid(bid)}
                       >
-                        <X className="h-4 w-4 mr-1" />
+                        <X className="h-3 w-3 md:h-4 md:w-4 mr-1" />
                         Withdraw
                       </Button>
-                    </>
+                    </div>
                   )}
                   
                   {bid.status === 'rejected' && (
-                    <div className="flex-1 text-center py-2">
-                      <Badge className="bg-red-100 text-red-800">
+                    <div className="text-center py-2">
+                      <Badge className="bg-red-100 text-red-800 text-xs">
                         ❌ Rejected
                       </Badge>
                     </div>
                   )}
                   
-                  <Button variant="outline" size="sm">
-                    <Phone className="h-4 w-4" />
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <Mail className="h-4 w-4" />
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <MessageCircle className="h-4 w-4" />
-                  </Button>
+                  {/* Communication Buttons */}
+                  <div className="flex gap-2 justify-center sm:justify-start">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1 sm:flex-none text-xs"
+                      onClick={() => window.location.href = `mailto:${bid.contractorEmail}`}
+                    >
+                      <Mail className="h-3 w-3 md:h-4 md:w-4 mr-1" />
+                      <span className="hidden xs:inline">Email</span>
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1 sm:flex-none text-xs"
+                      onClick={() => window.location.href = '/messages'}
+                    >
+                      <MessageCircle className="h-3 w-3 md:h-4 md:w-4 mr-1" />
+                      <span className="hidden xs:inline">Chat</span>
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

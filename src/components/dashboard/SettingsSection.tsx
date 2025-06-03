@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -151,10 +150,6 @@ const SettingsSection: React.FC = () => {
           >
             <Lock className="h-4 w-4 mr-2" />
             Change Password
-          </Button>
-          
-          <Button variant="outline" className="w-full">
-            Manage Login Methods
           </Button>
         </CardContent>
       </Card>
