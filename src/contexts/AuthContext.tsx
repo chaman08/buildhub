@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
   User, 
@@ -28,6 +27,7 @@ export interface UserProfile {
   isEmailVerified: boolean;
   isPhoneVerified: boolean;
   isDocumentVerified?: boolean;
+  isAdmin?: boolean;
   // Contractor specific fields
   companyName?: string;
   serviceCategory?: string;
@@ -57,6 +57,7 @@ interface AuthContextType {
   sendPhoneOTP: (phoneNumber: string, recaptchaVerifier: RecaptchaVerifier) => Promise<ConfirmationResult>;
   verifyPhoneOTP: (confirmationResult: ConfirmationResult, otp: string, userData?: Partial<UserProfile>) => Promise<void>;
   isVerificationComplete: () => boolean;
+  isAdmin: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -92,6 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isEmailVerified: user.emailVerified,
         isPhoneVerified: additionalData.isPhoneVerified || false,
         isDocumentVerified: false,
+        isAdmin: false,
         createdAt: now,
         updatedAt: now,
         ...additionalData
@@ -224,6 +226,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return userProfile.isEmailVerified || userProfile.isPhoneVerified;
   };
 
+  const isAdmin = (): boolean => {
+    return userProfile?.isAdmin === true;
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
@@ -276,7 +282,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setupRecaptcha,
     sendPhoneOTP,
     verifyPhoneOTP,
-    isVerificationComplete
+    isVerificationComplete,
+    isAdmin
   };
 
   return (

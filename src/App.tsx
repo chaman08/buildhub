@@ -19,6 +19,7 @@ import ContractorProfile from "./pages/ContractorProfile";
 import Projects from "./pages/Projects";
 import ProjectDetail from "./pages/ProjectDetail";
 import Messages from "./pages/Messages";
+import AdminPanel from "./pages/AdminPanel";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,7 @@ const App = () => (
             <Route path="/projects" element={<Projects />} />
             <Route path="/project/:projectId" element={<ProjectDetail />} />
             <Route path="/messages" element={<Messages />} />
+            <Route path="/admin-panel-secure-2024" element={<AdminPanel />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
