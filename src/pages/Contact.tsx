@@ -8,6 +8,9 @@ import { Label } from "@/components/ui/label";
 import { MapPin, Phone, Mail, Clock, MessageSquare } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { db } from "@/lib/firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { useToast } from "@/hooks/use-toast";
 
 const Contact = () => {
   const [formData, setFormData] = useState({
@@ -18,6 +21,8 @@ const Contact = () => {
   });
 
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -27,17 +32,45 @@ const Contact = () => {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Here you would typically send the form data to Firebase
-    console.log("Form submitted:", formData);
-    setIsSubmitted(true);
-    
-    // Reset form after 3 seconds
-    setTimeout(() => {
-      setIsSubmitted(false);
-      setFormData({ name: "", email: "", subject: "", message: "" });
-    }, 3000);
+    setIsSubmitting(true);
+
+    try {
+      // Save message to Firestore
+      await addDoc(collection(db, "contactMessages"), {
+        ...formData,
+        timestamp: serverTimestamp(),
+        status: "unread"
+      });
+
+      console.log("Contact message saved to Firestore:", formData);
+      setIsSubmitted(true);
+      
+      toast({
+        title: "Message sent successfully!",
+        description: "We'll get back to you within 24 hours.",
+      });
+
+      // Reset form after 3 seconds
+      setTimeout(() => {
+        setIsSubmitted(false);
+        setFormData({ name: "", email: "", subject: "", message: "" });
+      }, 3000);
+    } catch (error) {
+      console.error("Error saving contact message:", error);
+      toast({
+        title: "Error sending message",
+        description: "Please try again later or contact us directly.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleWhatsAppClick = () => {
+    window.open("https://wa.me/919243425538", "_blank");
   };
 
   return (
@@ -91,6 +124,7 @@ const Contact = () => {
                             required
                             className="mt-2"
                             placeholder="Enter your full name"
+                            disabled={isSubmitting}
                           />
                         </div>
                         <div>
@@ -104,6 +138,7 @@ const Contact = () => {
                             required
                             className="mt-2"
                             placeholder="your.email@example.com"
+                            disabled={isSubmitting}
                           />
                         </div>
                       </div>
@@ -116,7 +151,8 @@ const Contact = () => {
                           value={formData.subject}
                           onChange={handleInputChange}
                           required
-                          className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          disabled={isSubmitting}
+                          className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
                         >
                           <option value="">Select a subject</option>
                           <option value="general">General Inquiry</option>
@@ -136,14 +172,16 @@ const Contact = () => {
                           required
                           className="mt-2 min-h-[120px]"
                           placeholder="Tell us how we can help you..."
+                          disabled={isSubmitting}
                         />
                       </div>
                       
                       <Button 
                         type="submit" 
                         className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-3 text-lg"
+                        disabled={isSubmitting}
                       >
-                        Send Message
+                        {isSubmitting ? "Sending..." : "Send Message"}
                       </Button>
                     </form>
                   )}
@@ -164,7 +202,7 @@ const Contact = () => {
                     </div>
                     <div>
                       <h4 className="font-semibold text-gray-900">Phone</h4>
-                      <p className="text-gray-600">+91 97545 27943</p>
+                      <p className="text-gray-600">+91 9243425538</p>
                       <p className="text-sm text-gray-500">WhatsApp available</p>
                     </div>
                   </div>
@@ -208,7 +246,11 @@ const Contact = () => {
                 <CardContent className="p-6">
                   <h3 className="text-lg font-semibold mb-3">Quick Response</h3>
                   <p className="text-blue-100 mb-4">Need immediate assistance? Our team typically responds within 2-4 hours during business days.</p>
-                  <Button variant="outline" className="w-full bg-white text-blue-600 hover:bg-blue-50">
+                  <Button 
+                    variant="outline" 
+                    className="w-full bg-white text-blue-600 hover:bg-blue-50"
+                    onClick={handleWhatsAppClick}
+                  >
                     Chat on WhatsApp
                   </Button>
                 </CardContent>
