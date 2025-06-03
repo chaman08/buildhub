@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,8 +68,16 @@ const Contact = () => {
     }
   };
 
+  const handleEmailClick = () => {
+    window.open('mailto:support@buildhub.services?subject=General Inquiry', '_blank');
+  };
+
+  const handlePhoneClick = () => {
+    window.open('tel:+919243425538', '_blank');
+  };
+
   const handleWhatsAppClick = () => {
-    window.open("https://wa.me/919243425538", "_blank");
+    window.open('https://wa.me/919243425538?text=Hi, I need help with BuildHub', '_blank');
   };
 
   return (
@@ -196,25 +203,31 @@ const Contact = () => {
                   <CardTitle className="text-xl font-bold text-gray-900">Contact Information</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="flex items-start space-x-4">
+                  <div 
+                    className="flex items-start space-x-4 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
+                    onClick={handlePhoneClick}
+                  >
                     <div className="flex items-center justify-center w-10 h-10 bg-blue-100 rounded-full">
                       <Phone className="h-5 w-5 text-blue-600" />
                     </div>
                     <div>
                       <h4 className="font-semibold text-gray-900">Phone</h4>
                       <p className="text-gray-600">+91 92434 25538</p>
-                      <p className="text-sm text-gray-500">WhatsApp available</p>
+                      <p className="text-sm text-gray-500">Click to call</p>
                     </div>
                   </div>
                   
-                  <div className="flex items-start space-x-4">
+                  <div 
+                    className="flex items-start space-x-4 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
+                    onClick={handleEmailClick}
+                  >
                     <div className="flex items-center justify-center w-10 h-10 bg-green-100 rounded-full">
                       <Mail className="h-5 w-5 text-green-600" />
                     </div>
                     <div>
                       <h4 className="font-semibold text-gray-900">Email</h4>
                       <p className="text-gray-600">support@buildhub.services</p>
-                      <p className="text-sm text-gray-500">For general inquiries</p>
+                      <p className="text-sm text-gray-500">Click to email</p>
                     </div>
                   </div>
                   

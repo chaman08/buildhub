@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import {
   Accordion,
@@ -43,6 +42,14 @@ const FAQ = () => {
     }
   ];
 
+  const handleEmailClick = () => {
+    window.open('mailto:support@buildhub.services?subject=Support Request', '_blank');
+  };
+
+  const handleWhatsAppClick = () => {
+    window.open('https://wa.me/919243425538?text=Hi, I need help with BuildHub', '_blank');
+  };
+
   return (
     <section className="py-20 bg-white">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -84,10 +91,16 @@ const FAQ = () => {
             Our support team is here to help you get started with your construction project.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+            <button 
+              onClick={handleEmailClick}
+              className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+            >
               📧 Email Support
             </button>
-            <button className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+            <button 
+              onClick={handleWhatsAppClick}
+              className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+            >
               📱 WhatsApp Support
             </button>
           </div>
