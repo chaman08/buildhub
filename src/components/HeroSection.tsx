@@ -41,9 +41,8 @@ const HeroSection = () => {
             {currentUser && userProfile?.userType === 'contractor' ? 'View Dashboard' : 'Post Your Project'}
           </Button>
           <Button 
-            variant="outline" 
             size="lg" 
-            className="text-lg px-8 py-6"
+            className="text-lg px-8 py-6 bg-blue-600 text-white border-blue-600"
             asChild
           >
             <Link to="/projects">Browse Projects</Link>
