@@ -319,7 +319,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
                 <Label htmlFor="terms" className="text-sm">
                   I agree to the{' '}
                   <a 
-                    href="https://drive.google.com/file/d/1aLchyWhfgNnotIGnvsTT4dksVBr3CZdq/view" 
+                    href="https://drive.google.com/file/d/1VzaXqpnWkhiDGE0HVEpxpEGR003lK7VA/uc?export=download" 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:underline"

@@ -23,13 +23,13 @@ const Footer = () => {
 
   return (
     <footer className="bg-gray-900 text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         {/* Main Footer Content */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
           {/* Company Info */}
-          <div>
+          <div className="sm:col-span-2 lg:col-span-1">
             <div className="flex items-center mb-4">
-              <div className="text-2xl font-bold text-orange-500">
+              <div className="text-xl sm:text-2xl font-bold text-orange-500">
                 BuildHub
               </div>
               <div className="ml-2 text-sm text-gray-400">
@@ -47,7 +47,7 @@ const Footer = () => {
                 onClick={handleEmailClick}
               >
                 <span>📧</span>
-                <span>support@buildhub.services</span>
+                <span className="break-all">support@buildhub.services</span>
               </div>
               <div 
                 className="flex items-center space-x-2 cursor-pointer hover:text-orange-500 transition-colors"
@@ -68,27 +68,27 @@ const Footer = () => {
             <h3 className="text-lg font-semibold mb-4">Services</h3>
             <ul className="space-y-2">
               <li>
-                <Link to="/projects" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+                <Link to="/projects" className="text-gray-400 hover:text-orange-500 transition-colors text-sm block">
                   Construction Projects
                 </Link>
               </li>
               <li>
-                <Link to="/contractors" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+                <Link to="/contractors" className="text-gray-400 hover:text-orange-500 transition-colors text-sm block">
                   Find Contractors
                 </Link>
               </li>
               <li>
-                <Link to="/auth" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+                <Link to="/auth" className="text-gray-400 hover:text-orange-500 transition-colors text-sm block">
                   Post a Project
                 </Link>
               </li>
               <li>
-                <Link to="/dashboard" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+                <Link to="/dashboard" className="text-gray-400 hover:text-orange-500 transition-colors text-sm block">
                   Customer Dashboard
                 </Link>
               </li>
               <li>
-                <Link to="/contractor-dashboard" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+                <Link to="/contractor-dashboard" className="text-gray-400 hover:text-orange-500 transition-colors text-sm block">
                   Contractor Dashboard
                 </Link>
               </li>
@@ -100,30 +100,30 @@ const Footer = () => {
             <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
             <ul className="space-y-2">
               <li>
-                <Link to="/about" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+                <Link to="/about" className="text-gray-400 hover:text-orange-500 transition-colors text-sm block">
                   About Us
                 </Link>
               </li>
               <li>
-                <Link to="/contact" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+                <Link to="/contact" className="text-gray-400 hover:text-orange-500 transition-colors text-sm block">
                   Contact
                 </Link>
               </li>
               <li>
-                <Link to="/auth" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+                <Link to="/auth" className="text-gray-400 hover:text-orange-500 transition-colors text-sm block">
                   Join as Contractor
                 </Link>
               </li>
               <li>
                 <button 
                   onClick={handleFAQClick}
-                  className="text-gray-400 hover:text-orange-500 transition-colors text-sm text-left"
+                  className="text-gray-400 hover:text-orange-500 transition-colors text-sm text-left block"
                 >
                   FAQ
                 </button>
               </li>
               <li>
-                <Link to="/contact" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+                <Link to="/contact" className="text-gray-400 hover:text-orange-500 transition-colors text-sm block">
                   Help Center
                 </Link>
               </li>
@@ -139,7 +139,7 @@ const Footer = () => {
                   href="https://drive.google.com/file/d/1VzaXqpnWkhiDGE0HVEpxpEGR003lK7VA/uc?export=download" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="text-gray-400 hover:text-orange-500 transition-colors text-sm"
+                  className="text-gray-400 hover:text-orange-500 transition-colors text-sm block"
                 >
                   Terms & Conditions
                 </a>
@@ -147,7 +147,7 @@ const Footer = () => {
               <li>
                 <button 
                   onClick={handleWhatsAppClick}
-                  className="text-gray-400 hover:text-orange-500 transition-colors text-sm text-left"
+                  className="text-gray-400 hover:text-orange-500 transition-colors text-sm text-left block"
                 >
                   WhatsApp Support
                 </button>
@@ -155,13 +155,13 @@ const Footer = () => {
               <li>
                 <button 
                   onClick={handleEmailClick}
-                  className="text-gray-400 hover:text-orange-500 transition-colors text-sm text-left"
+                  className="text-gray-400 hover:text-orange-500 transition-colors text-sm text-left block"
                 >
                   Email Support
                 </button>
               </li>
               <li>
-                <Link to="/messages" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+                <Link to="/messages" className="text-gray-400 hover:text-orange-500 transition-colors text-sm block">
                   Messages
                 </Link>
               </li>

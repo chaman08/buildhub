@@ -43,7 +43,9 @@ const Auth: React.FC = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
         <Header />
-        <ProfileCompletion />
+        <div className="pt-20 px-4 sm:px-6 lg:px-8">
+          <ProfileCompletion />
+        </div>
       </div>
     );
   }
@@ -51,8 +53,8 @@ const Auth: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <Header />
-      <div className="pt-24 pb-16">
-        <div className="max-w-md mx-auto px-4">
+      <div className="pt-20 pb-16 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md mx-auto">
           {isLogin ? (
             <LoginForm 
               onSuccess={handleAuthSuccess}
