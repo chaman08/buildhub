@@ -1,13 +1,18 @@
+
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Eye, Edit, Trash2, MapPin, Calendar, DollarSign } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import PostProjectDialog from './PostProjectDialog';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from '@/hooks/use-toast';
 
 interface Project {
   id: string;
@@ -27,8 +32,10 @@ interface Project {
 const ProjectsSection: React.FC = () => {
   const { currentUser } = useAuth();
   const [showPostDialog, setShowPostDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
 
   useEffect(() => {
     if (currentUser) {
@@ -73,6 +80,74 @@ const ProjectsSection: React.FC = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEditProject = (project: Project) => {
+    setEditingProject(project);
+    setShowEditDialog(true);
+  };
+
+  const handleUpdateProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProject) return;
+
+    try {
+      const formData = new FormData(e.target as HTMLFormElement);
+      const updatedData = {
+        title: formData.get('title') as string,
+        description: formData.get('description') as string,
+        budget: Number(formData.get('budget')),
+        location: formData.get('location') as string,
+        startDate: formData.get('startDate') as string,
+        expectedDuration: formData.get('expectedDuration') as string,
+        updatedAt: new Date()
+      };
+
+      await updateDoc(doc(db, 'projects', editingProject.id), updatedData);
+      
+      // Update local state
+      setProjects(projects.map(p => 
+        p.id === editingProject.id ? { ...p, ...updatedData } : p
+      ));
+      
+      setShowEditDialog(false);
+      setEditingProject(null);
+      
+      toast({
+        title: "Project Updated",
+        description: "Your project has been updated successfully."
+      });
+    } catch (error) {
+      console.error('Error updating project:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update project. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteProject = async (projectId: string, projectTitle: string) => {
+    if (!confirm(`Are you sure you want to delete "${projectTitle}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await deleteDoc(doc(db, 'projects', projectId));
+      setProjects(projects.filter(p => p.id !== projectId));
+      
+      toast({
+        title: "Project Deleted",
+        description: "Your project has been deleted successfully."
+      });
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete project. Please try again.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -186,11 +261,20 @@ const ProjectsSection: React.FC = () => {
                         View
                       </a>
                     </Button>
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleEditProject(project)}
+                    >
                       <Edit className="h-4 w-4 mr-1" />
                       Edit
                     </Button>
-                    <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="text-red-600 hover:text-red-700"
+                      onClick={() => handleDeleteProject(project.id, project.title)}
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -206,6 +290,94 @@ const ProjectsSection: React.FC = () => {
         onOpenChange={setShowPostDialog}
         onProjectPosted={fetchUserProjects}
       />
+
+      {/* Edit Project Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Project</DialogTitle>
+          </DialogHeader>
+          {editingProject && (
+            <form onSubmit={handleUpdateProject} className="space-y-4">
+              <div>
+                <Label htmlFor="title">Project Title</Label>
+                <Input
+                  id="title"
+                  name="title"
+                  defaultValue={editingProject.title}
+                  required
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  name="description"
+                  defaultValue={editingProject.description}
+                  rows={4}
+                  required
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="budget">Budget (₹)</Label>
+                  <Input
+                    id="budget"
+                    name="budget"
+                    type="number"
+                    defaultValue={editingProject.budget}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="location">Location</Label>
+                  <Input
+                    id="location"
+                    name="location"
+                    defaultValue={editingProject.location}
+                    required
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="startDate">Start Date</Label>
+                  <Input
+                    id="startDate"
+                    name="startDate"
+                    type="date"
+                    defaultValue={editingProject.startDate}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="expectedDuration">Expected Duration</Label>
+                  <Input
+                    id="expectedDuration"
+                    name="expectedDuration"
+                    defaultValue={editingProject.expectedDuration || ''}
+                    placeholder="e.g., 3 months"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex gap-2 pt-4">
+                <Button type="submit">Update Project</Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setShowEditDialog(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
