@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 import { User, Building2, Mail, Phone } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -19,6 +19,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
   const [step, setStep] = useState(1);
   const [userType, setUserType] = useState<'customer' | 'contractor' | ''>('');
   const [countryCode, setCountryCode] = useState('+91');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -65,6 +66,15 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
       toast({
         title: "Invalid User Type",
         description: "Please select a valid account type",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!acceptedTerms) {
+      toast({
+        title: "Terms and Conditions",
+        description: "Please accept the terms and conditions to continue",
         variant: "destructive"
       });
       return;
@@ -299,11 +309,30 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
                 </>
               )}
               
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="terms" 
+                  checked={acceptedTerms}
+                  onCheckedChange={setAcceptedTerms}
+                />
+                <Label htmlFor="terms" className="text-sm">
+                  I agree to the{' '}
+                  <a 
+                    href="https://drive.google.com/file/d/1aLchyWhfgNnotIGnvsTT4dksVBr3CZdq/view" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    Terms and Conditions
+                  </a>
+                </Label>
+              </div>
+              
               <div className="flex space-x-2">
                 <Button type="button" variant="outline" onClick={() => setStep(1)}>
                   Back
                 </Button>
-                <Button type="submit" disabled={loading} className="flex-1">
+                <Button type="submit" disabled={loading || !acceptedTerms} className="flex-1">
                   {loading ? 'Creating Account...' : 'Create Account'}
                 </Button>
               </div>

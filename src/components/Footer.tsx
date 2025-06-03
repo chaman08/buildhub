@@ -4,31 +4,13 @@ import { Link } from 'react-router-dom';
 const Footer = () => {
   const currentYear = new Date().getFullYear();
 
-  const footerLinks = {
-    company: [
-      { name: "About Us", href: "/about" },
-      { name: "Contact", href: "/contact" },
-    ],
-    services: [
-      { name: "Post a Project", href: "/auth" },
-      { name: "Find Contractors", href: "/contractors" },
-      { name: "Browse Projects", href: "/projects" },
-    ],
-    cities: [
-      { name: "Contractors in Mumbai", href: "/contractors" },
-      { name: "Contractors in Delhi", href: "/contractors" },
-      { name: "Contractors in Bangalore", href: "/contractors" },
-      { name: "Contractors in Pune", href: "/contractors" },
-    ]
-  };
-
   return (
     <footer className="bg-gray-900 text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Main Footer Content */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Company Info */}
-          <div className="lg:col-span-1">
+          <div>
             <div className="flex items-center mb-4">
               <div className="text-2xl font-bold text-orange-500">
                 BuildHub
@@ -38,7 +20,7 @@ const Footer = () => {
               </div>
             </div>
             
-            <p className="text-gray-400 mb-6 text-sm leading-relaxed">
+            <p className="text-gray-400 mb-4 text-sm leading-relaxed">
               India's most trusted platform connecting customers with verified contractors. 
               From small repairs to large construction projects, we make it easy to find 
               the right professional for your needs.
@@ -53,63 +35,67 @@ const Footer = () => {
                 <span>📱</span>
                 <span>+91 92434 25538</span>
               </div>
+              <div className="flex items-center space-x-2">
+                <span>📍</span>
+                <span>LIG 540 HB Colony Raipur Chhattisgarh</span>
+              </div>
             </div>
           </div>
 
-          {/* Company Links */}
+          {/* Quick Links */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Company</h3>
-            <ul className="space-y-3">
-              {footerLinks.company.map((link, index) => (
-                <li key={index}>
-                  <Link to={link.href} className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
+            <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
+            <ul className="space-y-2">
+              <li>
+                <Link to="/about" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+                  About Us
+                </Link>
+              </li>
+              <li>
+                <Link to="/contact" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+                  Contact
+                </Link>
+              </li>
+              <li>
+                <Link to="/auth" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+                  Post a Project
+                </Link>
+              </li>
+              <li>
+                <Link to="/contractors" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+                  Find Contractors
+                </Link>
+              </li>
+              <li>
+                <Link to="/projects" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+                  Browse Projects
+                </Link>
+              </li>
             </ul>
           </div>
 
-          {/* Services Links */}
+          {/* Legal */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Services</h3>
-            <ul className="space-y-3">
-              {footerLinks.services.map((link, index) => (
-                <li key={index}>
-                  <Link to={link.href} className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Popular Cities */}
-          <div>
-            <h3 className="text-lg font-semibold mb-4">Popular Cities</h3>
-            <ul className="space-y-3">
-              {footerLinks.cities.map((city, index) => (
-                <li key={index}>
-                  <Link 
-                    to={city.href} 
-                    className="text-gray-400 hover:text-orange-500 transition-colors text-sm"
-                  >
-                    {city.name}
-                  </Link>
-                </li>
-              ))}
+            <h3 className="text-lg font-semibold mb-4">Legal</h3>
+            <ul className="space-y-2">
+              <li>
+                <a 
+                  href="https://drive.google.com/file/d/1aLchyWhfgNnotIGnvsTT4dksVBr3CZdq/view" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-gray-400 hover:text-orange-500 transition-colors text-sm"
+                >
+                  Terms and Conditions
+                </a>
+              </li>
             </ul>
           </div>
         </div>
 
         {/* Bottom Bar */}
-        <div className="mt-8 pt-6 border-t border-gray-800 flex flex-col md:flex-row justify-between items-center">
-          <div className="text-gray-400 text-sm text-center md:text-left">
+        <div className="mt-6 pt-4 border-t border-gray-800 text-center">
+          <div className="text-gray-400 text-sm">
             <p>© {currentYear} BuildHub. All rights reserved.</p>
-          </div>
-          
-          <div className="flex items-center space-x-4 mt-4 md:mt-0">
-            <span className="text-gray-400 text-sm">Made with ❤️ in India</span>
           </div>
         </div>
       </div>
