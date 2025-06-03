@@ -1,32 +1,35 @@
+
+import { Link } from 'react-router-dom';
+
 const Footer = () => {
   const currentYear = new Date().getFullYear();
 
   const footerLinks = {
     company: [
-      { name: "About Us", href: "#" },
-      { name: "How It Works", href: "#" },
-      { name: "Careers", href: "#" },
-      { name: "Contact", href: "#" }
+      { name: "About Us", href: "/about" },
+      { name: "How It Works", href: "/about#how-it-works" },
+      { name: "Contact", href: "/contact" },
+      { name: "Careers", href: "/contact" }
     ],
     services: [
-      { name: "Post a Project", href: "#" },
-      { name: "Browse Contractors", href: "#" },
-      { name: "Contractor Signup", href: "#" },
-      { name: "Pricing", href: "#" }
+      { name: "Post a Project", href: "/auth" },
+      { name: "Find Contractors", href: "/contractors" },
+      { name: "Browse Projects", href: "/projects" },
+      { name: "Contractor Signup", href: "/auth" }
     ],
     legal: [
-      { name: "Terms & Conditions", href: "#" },
-      { name: "Privacy Policy", href: "#" },
-      { name: "Refund Policy", href: "#" },
-      { name: "Dispute Resolution", href: "#" }
+      { name: "Terms & Conditions", href: "/contact" },
+      { name: "Privacy Policy", href: "/contact" },
+      { name: "Refund Policy", href: "/contact" },
+      { name: "Dispute Resolution", href: "/contact" }
     ],
     cities: [
-      { name: "Contractors in Mumbai", href: "#" },
-      { name: "Contractors in Delhi", href: "#" },
-      { name: "Contractors in Bangalore", href: "#" },
-      { name: "Contractors in Pune", href: "#" },
-      { name: "Contractors in Chennai", href: "#" },
-      { name: "View All Cities", href: "#" }
+      { name: "Contractors in Mumbai", href: "/contractors" },
+      { name: "Contractors in Delhi", href: "/contractors" },
+      { name: "Contractors in Bangalore", href: "/contractors" },
+      { name: "Contractors in Pune", href: "/contractors" },
+      { name: "Contractors in Chennai", href: "/contractors" },
+      { name: "View All Cities", href: "/contractors" }
     ]
   };
 
@@ -39,7 +42,7 @@ const Footer = () => {
           <div className="lg:col-span-2">
             <div className="flex items-center mb-4">
               <div className="text-2xl font-bold text-orange-500">
-                NirmaanBazaar
+                BuildHub
               </div>
               <div className="ml-2 text-sm text-gray-400">
                 🇮🇳
@@ -55,15 +58,15 @@ const Footer = () => {
             <div className="space-y-2 text-sm text-gray-400">
               <div className="flex items-center space-x-2">
                 <span>📧</span>
-                <span>support@nirmaanbazaar.com</span>
+                <span>support@buildhub.services</span>
               </div>
               <div className="flex items-center space-x-2">
                 <span>📱</span>
-                <span>+91 97545 27943</span>
+                <span>+91 92434 25538</span>
               </div>
               <div className="flex items-center space-x-2">
                 <span>📍</span>
-                <span>NIT Raipur Incubation Center, Chhattisgarh</span>
+                <span>LIG 540 HB Colony Raipur, Chhattisgarh</span>
               </div>
             </div>
             
@@ -90,9 +93,9 @@ const Footer = () => {
             <ul className="space-y-2">
               {footerLinks.company.map((link, index) => (
                 <li key={index}>
-                  <a href={link.href} className="text-gray-400 hover:text-orange-500 transition-colors">
+                  <Link to={link.href} className="text-gray-400 hover:text-orange-500 transition-colors">
                     {link.name}
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -104,9 +107,9 @@ const Footer = () => {
             <ul className="space-y-2">
               {footerLinks.services.map((link, index) => (
                 <li key={index}>
-                  <a href={link.href} className="text-gray-400 hover:text-orange-500 transition-colors">
+                  <Link to={link.href} className="text-gray-400 hover:text-orange-500 transition-colors">
                     {link.name}
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -118,9 +121,9 @@ const Footer = () => {
             <ul className="space-y-2">
               {footerLinks.legal.map((link, index) => (
                 <li key={index}>
-                  <a href={link.href} className="text-gray-400 hover:text-orange-500 transition-colors">
+                  <Link to={link.href} className="text-gray-400 hover:text-orange-500 transition-colors">
                     {link.name}
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -132,13 +135,13 @@ const Footer = () => {
           <h3 className="text-lg font-semibold mb-4">Popular Cities</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {footerLinks.cities.map((city, index) => (
-              <a 
+              <Link 
                 key={index} 
-                href={city.href} 
+                to={city.href} 
                 className="text-gray-400 hover:text-orange-500 transition-colors text-sm"
               >
                 {city.name}
-              </a>
+              </Link>
             ))}
           </div>
         </div>
@@ -158,7 +161,7 @@ const Footer = () => {
           </div>
           
           <div className="text-gray-400 text-sm text-center md:text-right">
-            <p>© {currentYear} NirmaanBazaar. All rights reserved.</p>
+            <p>© {currentYear} BuildHub. All rights reserved.</p>
             <p className="mt-1">Made with ❤️ in India</p>
           </div>
         </div>

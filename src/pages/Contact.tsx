@@ -202,7 +202,7 @@ const Contact = () => {
                     </div>
                     <div>
                       <h4 className="font-semibold text-gray-900">Phone</h4>
-                      <p className="text-gray-600">+91 9243425538</p>
+                      <p className="text-gray-600">+91 92434 25538</p>
                       <p className="text-sm text-gray-500">WhatsApp available</p>
                     </div>
                   </div>
@@ -213,7 +213,7 @@ const Contact = () => {
                     </div>
                     <div>
                       <h4 className="font-semibold text-gray-900">Email</h4>
-                      <p className="text-gray-600">support@buildconnect.in</p>
+                      <p className="text-gray-600">support@buildhub.services</p>
                       <p className="text-sm text-gray-500">For general inquiries</p>
                     </div>
                   </div>
@@ -224,7 +224,7 @@ const Contact = () => {
                     </div>
                     <div>
                       <h4 className="font-semibold text-gray-900">Address</h4>
-                      <p className="text-gray-600">NIT Raipur Incubation Center</p>
+                      <p className="text-gray-600">LIG 540 HB Colony</p>
                       <p className="text-gray-600">Raipur, Chhattisgarh, India</p>
                     </div>
                   </div>

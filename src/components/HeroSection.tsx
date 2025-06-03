@@ -21,10 +21,6 @@ const HeroSection = () => {
     }
   };
 
-  const handleWhatsAppSupport = () => {
-    window.open("https://wa.me/919243425538", "_blank");
-  };
-
   return (
     <section className="relative bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 pt-20 pb-16">
       <div className="max-w-7xl mx-auto px-4 text-center">
@@ -51,14 +47,6 @@ const HeroSection = () => {
             asChild
           >
             <Link to="/projects">Browse Projects</Link>
-          </Button>
-          <Button 
-            variant="outline" 
-            size="lg" 
-            className="text-lg px-8 py-6 bg-green-600 text-white hover:bg-green-700 border-green-600"
-            onClick={handleWhatsAppSupport}
-          >
-            WhatsApp Support
           </Button>
         </div>
       </div>
