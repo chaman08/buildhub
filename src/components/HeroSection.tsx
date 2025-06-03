@@ -3,6 +3,7 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import ContactButtons from '@/components/ContactButtons';
 
 const HeroSection = () => {
   const { currentUser, userProfile } = useAuth();
@@ -32,7 +33,7 @@ const HeroSection = () => {
           Connect with verified contractors, get competitive bids, and bring your construction vision to life with confidence and transparency.
         </p>
         
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+        <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
           <Button 
             size="lg" 
             className="text-lg px-8 py-6"
@@ -49,6 +50,17 @@ const HeroSection = () => {
             <Link to="/projects">Browse Projects</Link>
           </Button>
         </div>
+
+        {/* Contact Buttons */}
+        <div className="flex justify-center">
+          <div className="bg-white/80 backdrop-blur-sm rounded-full p-4 shadow-lg">
+            <ContactButtons size="md" showLabels={false} />
+          </div>
+        </div>
+        
+        <p className="text-sm text-gray-500 mt-4">
+          Need help? Contact us directly
+        </p>
       </div>
     </section>
   );
