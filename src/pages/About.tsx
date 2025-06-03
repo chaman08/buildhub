@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
@@ -317,7 +318,7 @@ const About = () => {
               </Button>
               <Button 
                 size="lg" 
-                className="bg-blue-600 text-white border-blue-600 px-8 py-3"
+                className="bg-white text-blue-600 px-8 py-3"
                 onClick={handleBrowseContractors}
               >
                 Browse Contractors
