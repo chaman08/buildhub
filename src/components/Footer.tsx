@@ -160,7 +160,7 @@ const Footer = () => {
                 </button>
               </li>
               <li>
-                <Link to="/messages" className="text-gray-400 hover:text-orange-500 transition-colors text-sm block">
+                <Link to="/contact" className="text-gray-400 hover:text-orange-500 transition-colors text-sm block">
                   Messages
                 </Link>
               </li>
