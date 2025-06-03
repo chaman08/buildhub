@@ -1,4 +1,3 @@
-
 import { Link } from 'react-router-dom';
 
 const Footer = () => {
@@ -166,6 +165,49 @@ const Footer = () => {
                 </Link>
               </li>
             </ul>
+          </div>
+        </div>
+
+        {/* City-wise Contractor Links */}
+        <div className="mt-8 pt-6 border-t border-gray-800">
+          <h3 className="text-lg font-semibold mb-4 text-center">Find Contractors in Your City</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 text-center">
+            <Link to="/contractors?city=bangalore" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+              Contractors in Bangalore
+            </Link>
+            <Link to="/contractors?city=mumbai" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+              Contractors in Mumbai
+            </Link>
+            <Link to="/contractors?city=delhi" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+              Contractors in Delhi
+            </Link>
+            <Link to="/contractors?city=hyderabad" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+              Contractors in Hyderabad
+            </Link>
+            <Link to="/contractors?city=chennai" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+              Contractors in Chennai
+            </Link>
+            <Link to="/contractors?city=kolkata" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+              Contractors in Kolkata
+            </Link>
+            <Link to="/contractors?city=pune" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+              Contractors in Pune
+            </Link>
+            <Link to="/contractors?city=ahmedabad" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+              Contractors in Ahmedabad
+            </Link>
+            <Link to="/contractors?city=jaipur" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+              Contractors in Jaipur
+            </Link>
+            <Link to="/contractors?city=chandigarh" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+              Contractors in Chandigarh
+            </Link>
+            <Link to="/contractors?city=kochi" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+              Contractors in Kochi
+            </Link>
+            <Link to="/contractors?city=indore" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+              Contractors in Indore
+            </Link>
           </div>
         </div>
 
