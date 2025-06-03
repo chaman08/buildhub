@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -313,7 +314,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
                 <Checkbox 
                   id="terms" 
                   checked={acceptedTerms}
-                  onCheckedChange={setAcceptedTerms}
+                  onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
                 />
                 <Label htmlFor="terms" className="text-sm">
                   I agree to the{' '}
