@@ -4,12 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Camera, MapPin, Phone, Mail, Edit3, Save, X } from 'lucide-react';
+import { Phone, Mail, Edit3, Save, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import ProfilePictureUpload from '@/components/ProfilePictureUpload';
 import {
   Dialog,
   DialogContent,
@@ -67,10 +67,6 @@ const ProfileSection: React.FC = () => {
         variant: "destructive"
       });
     }
-  };
-
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
   const handleVerification = async (type: 'email' | 'phone') => {
@@ -176,18 +172,8 @@ const ProfileSection: React.FC = () => {
           <CardHeader>
             <CardTitle className="text-lg">Profile Picture</CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col items-center space-y-4">
-            <Avatar className="h-24 w-24">
-              <AvatarImage src={userProfile?.profilePicture} />
-              <AvatarFallback className="text-xl">
-                {userProfile?.fullName ? getInitials(userProfile.fullName) : 'U'}
-              </AvatarFallback>
-            </Avatar>
-            
-            <Button variant="outline" size="sm" className="flex items-center gap-2">
-              <Camera className="h-4 w-4" />
-              Change Photo
-            </Button>
+          <CardContent>
+            <ProfilePictureUpload />
           </CardContent>
         </Card>
 

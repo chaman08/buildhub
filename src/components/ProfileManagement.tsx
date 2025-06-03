@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -7,8 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/components/ui/use-toast';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import ProfilePictureUpload from '@/components/ProfilePictureUpload';
 
 export const ProfileManagement = () => {
   const { userProfile, refreshUserProfile } = useAuth();
@@ -95,12 +96,9 @@ export const ProfileManagement = () => {
         <CardDescription>Update your profile information</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="flex items-center space-x-4 mb-6">
-          <Avatar className="h-20 w-20">
-            <AvatarImage src={userProfile.profilePicture} />
-            <AvatarFallback>{userProfile.fullName?.charAt(0)}</AvatarFallback>
-          </Avatar>
-          <div>
+        <div className="flex flex-col items-center mb-6">
+          <ProfilePictureUpload />
+          <div className="mt-4 text-center">
             <h3 className="text-lg font-medium">{userProfile.fullName}</h3>
             <p className="text-sm text-muted-foreground">{userProfile.email}</p>
           </div>
@@ -214,4 +212,4 @@ export const ProfileManagement = () => {
       </CardContent>
     </Card>
   );
-}; 
+};

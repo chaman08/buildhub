@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Phone, Mail, MessageCircle, Calendar, DollarSign, MapPin, Eye } from 'lucide-react';
+import { Mail, MessageCircle, Calendar, DollarSign, MapPin, Eye } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface AcceptedProject {
   id: string;
@@ -26,6 +27,7 @@ interface AcceptedProject {
 
 const AcceptedProjectsSection: React.FC = () => {
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
   const [acceptedProjects, setAcceptedProjects] = useState<AcceptedProject[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -111,6 +113,22 @@ const AcceptedProjectsSection: React.FC = () => {
       case 'completed': return 'bg-green-100 text-green-800';
       default: return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const handleEmailContractor = (email: string, projectTitle: string) => {
+    const subject = encodeURIComponent(`Regarding Project: ${projectTitle}`);
+    const body = encodeURIComponent(`Hello,\n\nI would like to discuss the project "${projectTitle}".\n\nBest regards`);
+    window.open(`mailto:${email}?subject=${subject}&body=${body}`, '_blank');
+  };
+
+  const handleChatWithContractor = (contractorId: string, projectId: string) => {
+    // Navigate to messages page with contractor context
+    navigate('/messages', { 
+      state: { 
+        recipientId: contractorId, 
+        projectId: projectId 
+      } 
+    });
   };
 
   if (loading) {
@@ -212,20 +230,18 @@ const AcceptedProjectsSection: React.FC = () => {
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={() => window.open(`tel:${project.contractorPhone}`)}
+                    onClick={() => handleEmailContractor(project.contractorEmail, project.title)}
+                    title="Send Email"
                   >
-                    <Phone className="h-4 w-4" />
+                    <Mail className="h-4 w-4" />
                   </Button>
                   
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={() => window.open(`mailto:${project.contractorEmail}`)}
+                    onClick={() => handleChatWithContractor(project.acceptedContractorId, project.id)}
+                    title="Start Chat"
                   >
-                    <Mail className="h-4 w-4" />
-                  </Button>
-                  
-                  <Button variant="outline" size="sm">
                     <MessageCircle className="h-4 w-4" />
                   </Button>
                 </div>

@@ -136,7 +136,7 @@ const Footer = () => {
             <ul className="space-y-2">
               <li>
                 <a 
-                  href="https://drive.google.com/file/d/1aLchyWhfgNnotIGnvsTT4dksVBr3CZdq/uc?export=download" 
+                  href="https://drive.google.com/file/d/1VzaXqpnWkhiDGE0HVEpxpEGR003lK7VA/uc?export=download" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="text-gray-400 hover:text-orange-500 transition-colors text-sm"
