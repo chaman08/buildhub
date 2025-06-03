@@ -20,6 +20,14 @@ const Footer = () => {
     window.location.href = '/#faq';
   };
 
+  const handleContactClick = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleAboutClick = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <footer className="bg-gray-900 text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
@@ -99,12 +107,12 @@ const Footer = () => {
             <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
             <ul className="space-y-2">
               <li>
-                <Link to="/about" className="text-gray-400 hover:text-orange-500 transition-colors text-sm block">
+                <Link to="/about" onClick={handleAboutClick} className="text-gray-400 hover:text-orange-500 transition-colors text-sm block">
                   About Us
                 </Link>
               </li>
               <li>
-                <Link to="/contact" className="text-gray-400 hover:text-orange-500 transition-colors text-sm block">
+                <Link to="/contact" onClick={handleContactClick} className="text-gray-400 hover:text-orange-500 transition-colors text-sm block">
                   Contact
                 </Link>
               </li>
@@ -122,7 +130,7 @@ const Footer = () => {
                 </button>
               </li>
               <li>
-                <Link to="/contact" className="text-gray-400 hover:text-orange-500 transition-colors text-sm block">
+                <Link to="/contact" onClick={handleContactClick} className="text-gray-400 hover:text-orange-500 transition-colors text-sm block">
                   Help Center
                 </Link>
               </li>
@@ -160,7 +168,7 @@ const Footer = () => {
                 </button>
               </li>
               <li>
-                <Link to="/contact" className="text-gray-400 hover:text-orange-500 transition-colors text-sm block">
+                <Link to="/contact" onClick={handleContactClick} className="text-gray-400 hover:text-orange-500 transition-colors text-sm block">
                   Messages
                 </Link>
               </li>
