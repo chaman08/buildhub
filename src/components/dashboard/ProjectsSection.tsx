@@ -174,28 +174,29 @@ const ProjectsSection: React.FC = () => {
   };
 
   if (loading) {
-    return <div>Loading your projects...</div>;
+    return <div className="p-4">Loading your projects...</div>;
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">My Projects</h2>
-        <Button onClick={() => setShowPostDialog(true)} className="flex items-center gap-2">
+    <div className="space-y-4 md:space-y-6 p-4 md:p-0">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <h2 className="text-xl md:text-2xl font-bold text-gray-900">My Projects</h2>
+        <Button onClick={() => setShowPostDialog(true)} className="flex items-center gap-2 w-full sm:w-auto">
           <Plus className="h-4 w-4" />
-          Post New Project
+          <span className="hidden xs:inline">Post New Project</span>
+          <span className="xs:hidden">New Project</span>
         </Button>
       </div>
 
       {projects.length === 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
+          <CardContent className="flex flex-col items-center justify-center py-8 md:py-12 px-4">
             <div className="text-center space-y-4">
-              <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
-                <Plus className="h-8 w-8 text-gray-400" />
+              <div className="h-12 w-12 md:h-16 md:w-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+                <Plus className="h-6 w-6 md:h-8 md:w-8 text-gray-400" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900">No Projects Yet</h3>
-              <p className="text-gray-500">Post your first project to start receiving bids from contractors.</p>
+              <h3 className="text-base md:text-lg font-medium text-gray-900">No Projects Yet</h3>
+              <p className="text-sm text-gray-500 max-w-sm">Post your first project to start receiving bids from contractors.</p>
               <Button onClick={() => setShowPostDialog(true)} className="flex items-center gap-2">
                 <Plus className="h-4 w-4" />
                 Post Your First Project
@@ -204,14 +205,14 @@ const ProjectsSection: React.FC = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
           {projects.map((project) => (
             <Card key={project.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-lg">{project.title}</CardTitle>
-                    <div className="flex items-center gap-2 mt-2">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="text-base md:text-lg line-clamp-2 pr-2">{project.title}</CardTitle>
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
                       <div className="flex flex-wrap gap-1">
                         {project.category.slice(0, 2).map((cat) => (
                           <Badge key={cat} variant="outline" className="text-xs">
@@ -224,35 +225,35 @@ const ProjectsSection: React.FC = () => {
                           </Badge>
                         )}
                       </div>
-                      <Badge className={getStatusColor(project.status)}>
-                        {project.status.replace('_', ' ')}
-                      </Badge>
                     </div>
                   </div>
+                  <Badge className={`${getStatusColor(project.status)} whitespace-nowrap text-xs`}>
+                    {project.status.replace('_', ' ')}
+                  </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3 md:space-y-4 pt-0">
                 <p className="text-gray-600 text-sm line-clamp-2">{project.description}</p>
                 
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <MapPin className="h-4 w-4" />
-                    {project.location}
+                  <div className="flex items-center gap-2 text-xs md:text-sm text-gray-500">
+                    <MapPin className="h-3 w-3 md:h-4 md:w-4 flex-shrink-0" />
+                    <span className="truncate">{project.location}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <DollarSign className="h-4 w-4" />
-                    Budget: {formatBudget(project.budget, project.budgetMax)}
+                  <div className="flex items-center gap-2 text-xs md:text-sm text-gray-500">
+                    <DollarSign className="h-3 w-3 md:h-4 md:w-4 flex-shrink-0" />
+                    <span className="truncate">Budget: {formatBudget(project.budget, project.budgetMax)}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <Calendar className="h-4 w-4" />
-                    Start: {new Date(project.startDate).toLocaleDateString('en-IN')}
+                  <div className="flex items-center gap-2 text-xs md:text-sm text-gray-500">
+                    <Calendar className="h-3 w-3 md:h-4 md:w-4 flex-shrink-0" />
+                    <span className="truncate">Start: {new Date(project.startDate).toLocaleDateString('en-IN')}</span>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-4 border-t">
+                <div className="flex flex-col gap-3 pt-3 border-t">
                   <Button 
                     variant="link" 
-                    className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                    className="text-xs md:text-sm font-medium text-blue-600 hover:text-blue-700 p-0 h-auto justify-start"
                     onClick={() => {
                       // Navigate to bids section with project filter
                       window.location.hash = `#bids?projectId=${project.id}`;
@@ -261,27 +262,28 @@ const ProjectsSection: React.FC = () => {
                     View bids received
                   </Button>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" asChild>
+                    <Button variant="outline" size="sm" asChild className="flex-1 text-xs">
                       <a href={`/project/${project.id}`}>
-                        <Eye className="h-4 w-4 mr-1" />
-                        View
+                        <Eye className="h-3 w-3 md:h-4 md:w-4 mr-1" />
+                        <span className="hidden sm:inline">View</span>
                       </a>
                     </Button>
                     <Button 
                       variant="outline" 
                       size="sm"
+                      className="flex-1 text-xs"
                       onClick={() => handleEditProject(project)}
                     >
-                      <Edit className="h-4 w-4 mr-1" />
-                      Edit
+                      <Edit className="h-3 w-3 md:h-4 md:w-4 mr-1" />
+                      <span className="hidden sm:inline">Edit</span>
                     </Button>
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      className="text-red-600 hover:text-red-700"
+                      className="text-red-600 hover:text-red-700 px-2"
                       onClick={() => handleDeleteProject(project.id, project.title)}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3 w-3 md:h-4 md:w-4" />
                     </Button>
                   </div>
                 </div>
@@ -299,7 +301,7 @@ const ProjectsSection: React.FC = () => {
 
       {/* Edit Project Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Project</DialogTitle>
           </DialogHeader>
@@ -326,7 +328,7 @@ const ProjectsSection: React.FC = () => {
                 />
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="budget">Budget (₹)</Label>
                   <Input
@@ -348,7 +350,7 @@ const ProjectsSection: React.FC = () => {
                 </div>
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="startDate">Start Date</Label>
                   <Input
@@ -370,15 +372,16 @@ const ProjectsSection: React.FC = () => {
                 </div>
               </div>
               
-              <div className="flex gap-2 pt-4">
-                <Button type="submit">Update Project</Button>
+              <div className="flex flex-col-reverse sm:flex-row gap-2 pt-4">
                 <Button 
                   type="button" 
                   variant="outline" 
                   onClick={() => setShowEditDialog(false)}
+                  className="w-full sm:w-auto"
                 >
                   Cancel
                 </Button>
+                <Button type="submit" className="w-full sm:w-auto">Update Project</Button>
               </div>
             </form>
           )}
