@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -29,6 +29,7 @@ interface ProjectCardProps {
 const ProjectCard: React.FC<ProjectCardProps> = ({ project, onSaveProject, isSaved = false }) => {
   const { currentUser, userProfile } = useAuth();
   const [showBidModal, setShowBidModal] = useState(false);
+  const navigate = useNavigate();
 
   const isContractor = userProfile?.userType === 'contractor';
   const isOwner = currentUser?.uid === project.postedBy;
@@ -97,6 +98,14 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onSaveProject, isSav
     }
   };
 
+  const handleViewProject = () => {
+    if (!currentUser) {
+      navigate('/auth');
+      return;
+    }
+    navigate(`/project/${project.id}`);
+  };
+
   return (
     <>
       <Card className="hover:shadow-lg transition-shadow">
@@ -154,11 +163,13 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onSaveProject, isSav
           </div>
 
           <div className="flex gap-2 pt-4 border-t">
-            <Button asChild variant="outline" className="flex-1">
-              <Link to={`/project/${project.id}`}>
-                <Eye className="h-4 w-4 mr-2" />
-                View Full Project
-              </Link>
+            <Button 
+              variant="outline" 
+              className="flex-1"
+              onClick={handleViewProject}
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              View Full Project
             </Button>
             
             {/* Only show bid button for contractors who don't own the project */}

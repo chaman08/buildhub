@@ -1,0 +1,54 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isContractor() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.userType == 'contractor';
+    }
+    
+    function isClient() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.userType == 'client';
+    }
+
+    // Projects collection - allow public read access
+    match /projects/{projectId} {
+      allow read: if true;  // Allow anyone to read projects
+      allow create: if isAuthenticated() && isClient();
+      allow update, delete: if isOwner(resource.data.postedBy);
+    }
+
+    // Users collection - allow public read access to contractor profiles
+    match /users/{userId} {
+      allow read: if true;  // Allow anyone to read user profiles
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isOwner(userId);
+    }
+
+    // Bids collection
+    match /bids/{bidId} {
+      allow read: if isAuthenticated() && 
+        (isOwner(resource.data.contractorId) || 
+         isOwner(get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.postedBy));
+      allow create: if isAuthenticated() && isContractor();
+      allow update: if isOwner(resource.data.contractorId);
+    }
+
+    // Messages collection
+    match /messages/{messageId} {
+      allow read: if isAuthenticated() && 
+        (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.senderId;
+    }
+  }
+} 
