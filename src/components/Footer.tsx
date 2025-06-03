@@ -16,6 +16,11 @@ const Footer = () => {
     window.open('https://wa.me/919243425538', '_blank');
   };
 
+  const handleFAQClick = () => {
+    // Navigate to homepage and scroll to FAQ section
+    window.location.href = '/#faq';
+  };
+
   return (
     <footer className="bg-gray-900 text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -78,10 +83,14 @@ const Footer = () => {
                 </Link>
               </li>
               <li>
-                <span className="text-gray-400 text-sm">Interior Design</span>
+                <Link to="/dashboard" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+                  Customer Dashboard
+                </Link>
               </li>
               <li>
-                <span className="text-gray-400 text-sm">Architecture Services</span>
+                <Link to="/contractor-dashboard" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+                  Contractor Dashboard
+                </Link>
               </li>
             </ul>
           </div>
@@ -101,17 +110,22 @@ const Footer = () => {
                 </Link>
               </li>
               <li>
-                <Link to="/dashboard" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
-                  Dashboard
-                </Link>
-              </li>
-              <li>
                 <Link to="/auth" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
                   Join as Contractor
                 </Link>
               </li>
               <li>
-                <span className="text-gray-400 text-sm">Help Center</span>
+                <button 
+                  onClick={handleFAQClick}
+                  className="text-gray-400 hover:text-orange-500 transition-colors text-sm text-left"
+                >
+                  FAQ
+                </button>
+              </li>
+              <li>
+                <Link to="/contact" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+                  Help Center
+                </Link>
               </li>
             </ul>
           </div>
@@ -131,9 +145,6 @@ const Footer = () => {
                 </a>
               </li>
               <li>
-                <span className="text-gray-400 text-sm">Privacy Policy</span>
-              </li>
-              <li>
                 <button 
                   onClick={handleWhatsAppClick}
                   className="text-gray-400 hover:text-orange-500 transition-colors text-sm text-left"
@@ -142,7 +153,17 @@ const Footer = () => {
                 </button>
               </li>
               <li>
-                <span className="text-gray-400 text-sm">FAQ</span>
+                <button 
+                  onClick={handleEmailClick}
+                  className="text-gray-400 hover:text-orange-500 transition-colors text-sm text-left"
+                >
+                  Email Support
+                </button>
+              </li>
+              <li>
+                <Link to="/messages" className="text-gray-400 hover:text-orange-500 transition-colors text-sm">
+                  Messages
+                </Link>
               </li>
             </ul>
           </div>
