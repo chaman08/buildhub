@@ -235,7 +235,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
                     id="mobile"
                     name="mobile"
                     type="tel"
-                    placeholder="97545 27943"
+                    placeholder="Phone Number"
                     value={formData.mobile}
                     onChange={handleInputChange}
                     className="flex-1"
