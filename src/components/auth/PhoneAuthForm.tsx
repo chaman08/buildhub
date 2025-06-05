@@ -190,7 +190,7 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({ onSuccess, isLogin = fals
               <Input
                 id="mobile"
                 type="tel"
-                placeholder="97545 27943"
+                placeholder="Phone Number"
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
                 className="flex-1"
