@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
   User, 
@@ -122,7 +121,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const profileData = await createUserProfile(user, {
       ...userData,
       isEmailVerified: false,
-      isPhoneVerified: false,
       profileComplete: false
     });
     
