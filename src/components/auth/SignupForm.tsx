@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
-import { User, Building2, Mail, Phone } from 'lucide-react';
+import { User, Building2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { ConfirmationResult } from 'firebase/auth';
@@ -21,11 +21,10 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
   const [userType, setUserType] = useState<'customer' | 'contractor' | ''>('');
   const [countryCode, setCountryCode] = useState('+91');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [emailVerified, setEmailVerified] = useState(false);
-  const [phoneVerified, setPhoneVerified] = useState(false);
-  const [showPhoneOTP, setShowPhoneOTP] = useState(false);
+  const [showPhoneVerification, setShowPhoneVerification] = useState(false);
   const [phoneOTP, setPhoneOTP] = useState('');
   const [phoneConfirmationResult, setPhoneConfirmationResult] = useState<ConfirmationResult | null>(null);
+  const [isGoogleSignup, setIsGoogleSignup] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -39,7 +38,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
   });
   const [loading, setLoading] = useState(false);
   
-  const { signup, signInWithGoogle, sendEmailVerification, sendPhoneOTP, verifyPhoneOTP, setupRecaptcha } = useAuth();
+  const { signup, signInWithGoogle, setupRecaptcha, sendPhoneOTP, verifyPhoneOTP } = useAuth();
   const { toast } = useToast();
 
   const countryCodes = [
@@ -69,28 +68,23 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
     setStep(2);
   };
 
-  const handleEmailVerification = async () => {
-    if (!formData.email) {
-      toast({
-        title: "Email Required",
-        description: "Please enter your email address",
-        variant: "destructive"
-      });
-      return;
-    }
-
+  const handleGoogleSignup = async () => {
     try {
       setLoading(true);
-      await sendEmailVerification();
-      setEmailVerified(true);
+      await signInWithGoogle();
+      setIsGoogleSignup(true);
+      
+      // For Google signup, show phone verification step
+      setShowPhoneVerification(true);
+      
       toast({
-        title: "Verification Email Sent",
-        description: "Please check your email and click the verification link."
+        title: "Google Account Connected!",
+        description: "Please verify your phone number to complete registration"
       });
     } catch (error: any) {
       toast({
-        title: "Error",
-        description: error.message || "Failed to send verification email.",
+        title: "Google Signup Failed",
+        description: error.message,
         variant: "destructive"
       });
     } finally {
@@ -114,7 +108,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
       const recaptchaVerifier = setupRecaptcha('recaptcha-container');
       const confirmationResult = await sendPhoneOTP(fullPhone, recaptchaVerifier);
       setPhoneConfirmationResult(confirmationResult);
-      setShowPhoneOTP(true);
+      
       toast({
         title: "OTP Sent",
         description: `Verification code sent to ${fullPhone}`
@@ -143,36 +137,17 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
     try {
       setLoading(true);
       await verifyPhoneOTP(phoneConfirmationResult, phoneOTP);
-      setPhoneVerified(true);
-      setShowPhoneOTP(false);
+      
       toast({
         title: "Phone Verified",
         description: "Your phone number has been verified successfully."
       });
+      
+      onSuccess();
     } catch (error: any) {
       toast({
         title: "Verification Failed",
         description: "Invalid OTP. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleSignup = async () => {
-    try {
-      setLoading(true);
-      await signInWithGoogle();
-      toast({
-        title: "Account Created!",
-        description: "Successfully signed up with Google"
-      });
-      onSuccess();
-    } catch (error: any) {
-      toast({
-        title: "Google Signup Failed",
-        description: error.message,
         variant: "destructive"
       });
     } finally {
@@ -196,6 +171,15 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
       toast({
         title: "Terms and Conditions",
         description: "Please accept the terms and conditions to continue",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!formData.mobile) {
+      toast({
+        title: "Phone Number Required",
+        description: "Please enter your phone number",
         variant: "destructive"
       });
       return;
@@ -228,7 +212,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
         userType,
         mobile: fullMobile,
         city: formData.city,
-        isPhoneVerified: phoneVerified,
+        isPhoneVerified: false,
         ...(userType === 'contractor' && {
           companyName: formData.companyName,
           serviceCategory: formData.serviceCategory,
@@ -238,12 +222,13 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
 
       await signup(formData.email, formData.password, userData);
       
+      // After successful signup, initiate phone verification
+      setShowPhoneVerification(true);
+      
       toast({
         title: "Account Created!",
-        description: emailVerified ? "Welcome to BuildHub!" : "Please verify your email to continue"
+        description: "Please verify your phone number to complete registration"
       });
-      
-      onSuccess();
     } catch (error: any) {
       toast({
         title: "Signup Failed",
@@ -290,61 +275,109 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
     );
   }
 
-  if (showPhoneOTP) {
+  if (showPhoneVerification) {
     return (
       <Card className="w-full max-w-md mx-auto">
         <CardHeader>
           <CardTitle className="text-center">Verify Phone Number</CardTitle>
           <p className="text-center text-sm text-gray-600">
-            Enter the 6-digit code sent to {countryCode}{formData.mobile}
+            {phoneConfirmationResult 
+              ? `Enter the 6-digit code sent to ${countryCode}${formData.mobile}`
+              : `Enter your phone number to receive verification code`
+            }
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex justify-center">
-            <InputOTP
-              maxLength={6}
-              value={phoneOTP}
-              onChange={setPhoneOTP}
-            >
-              <InputOTPGroup>
-                <InputOTPSlot index={0} />
-                <InputOTPSlot index={1} />
-                <InputOTPSlot index={2} />
-                <InputOTPSlot index={3} />
-                <InputOTPSlot index={4} />
-                <InputOTPSlot index={5} />
-              </InputOTPGroup>
-            </InputOTP>
-          </div>
+          {!phoneConfirmationResult ? (
+            <>
+              <div>
+                <Label htmlFor="mobile">Mobile Number</Label>
+                <div className="flex space-x-2">
+                  <Select value={countryCode} onValueChange={setCountryCode}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {countryCodes.map((country) => (
+                        <SelectItem key={country.code} value={country.code}>
+                          {country.code} {country.country}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    id="mobile"
+                    name="mobile"
+                    type="tel"
+                    placeholder="Phone Number"
+                    value={formData.mobile}
+                    onChange={handleInputChange}
+                    className="flex-1"
+                    required
+                  />
+                </div>
+              </div>
+              
+              <Button 
+                onClick={handlePhoneVerification} 
+                disabled={loading || !formData.mobile}
+                className="w-full"
+              >
+                {loading ? 'Sending OTP...' : 'Send OTP'}
+              </Button>
+            </>
+          ) : (
+            <>
+              <div className="flex justify-center">
+                <InputOTP
+                  maxLength={6}
+                  value={phoneOTP}
+                  onChange={setPhoneOTP}
+                >
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
 
-          <div className="flex space-x-2">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => setShowPhoneOTP(false)}
-              className="flex-1"
-            >
-              Back
-            </Button>
-            <Button 
-              onClick={handlePhoneOTPVerification} 
-              disabled={loading || phoneOTP.length !== 6}
-              className="flex-1"
-            >
-              {loading ? 'Verifying...' : 'Verify'}
-            </Button>
-          </div>
+              <div className="flex space-x-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => {
+                    setPhoneConfirmationResult(null);
+                    setPhoneOTP('');
+                  }}
+                  className="flex-1"
+                >
+                  Back
+                </Button>
+                <Button 
+                  onClick={handlePhoneOTPVerification} 
+                  disabled={loading || phoneOTP.length !== 6}
+                  className="flex-1"
+                >
+                  {loading ? 'Verifying...' : 'Verify'}
+                </Button>
+              </div>
 
-          <div className="text-center">
-            <Button 
-              variant="ghost" 
-              onClick={handlePhoneVerification}
-              disabled={loading}
-              className="text-sm"
-            >
-              Resend OTP
-            </Button>
-          </div>
+              <div className="text-center">
+                <Button 
+                  variant="ghost" 
+                  onClick={handlePhoneVerification}
+                  disabled={loading}
+                  className="text-sm"
+                >
+                  Resend OTP
+                </Button>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
     );
@@ -413,27 +446,14 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
           
           <div>
             <Label htmlFor="email">Email Address</Label>
-            <div className="flex space-x-2">
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                className="flex-1"
-                required
-              />
-              <Button 
-                type="button" 
-                variant="outline" 
-                size="sm"
-                onClick={handleEmailVerification}
-                disabled={!formData.email || emailVerified || loading}
-              >
-                <Mail className="h-4 w-4 mr-1" />
-                {emailVerified ? 'Verified' : 'Verify'}
-              </Button>
-            </div>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              required
+            />
           </div>
           
           <div>
@@ -461,16 +481,6 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
                 className="flex-1"
                 required
               />
-              <Button 
-                type="button" 
-                variant="outline" 
-                size="sm"
-                onClick={handlePhoneVerification}
-                disabled={!formData.mobile || phoneVerified || loading}
-              >
-                <Phone className="h-4 w-4 mr-1" />
-                {phoneVerified ? 'Verified' : 'Verify'}
-              </Button>
             </div>
           </div>
           
