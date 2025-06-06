@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Phone, Mail, Edit3, Save, X, CheckCircle, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -26,6 +27,7 @@ const ProfileSection: React.FC = () => {
   const [showVerificationDialog, setShowVerificationDialog] = useState(false);
   const [verificationType, setVerificationType] = useState<'email' | 'phone' | null>(null);
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [countryCode, setCountryCode] = useState('+91');
   const [otp, setOtp] = useState('');
   const [confirmationResult, setConfirmationResult] = useState<any>(null);
   const [formData, setFormData] = useState({
@@ -35,6 +37,19 @@ const ProfileSection: React.FC = () => {
     mobile: userProfile?.mobile || '',
     occupation: userProfile?.occupation || ''
   });
+
+  const countryCodes = [
+    { code: '+91', country: 'India' },
+    { code: '+1', country: 'USA' },
+    { code: '+44', country: 'UK' },
+    { code: '+86', country: 'China' },
+    { code: '+81', country: 'Japan' },
+    { code: '+33', country: 'France' },
+    { code: '+49', country: 'Germany' },
+    { code: '+61', country: 'Australia' },
+    { code: '+971', country: 'UAE' },
+    { code: '+65', country: 'Singapore' }
+  ];
 
   const handleSave = async () => {
     try {
@@ -89,7 +104,17 @@ const ProfileSection: React.FC = () => {
 
   const handlePhoneVerificationStart = () => {
     setVerificationType('phone');
-    setPhoneNumber(formData.mobile);
+    // Extract country code and phone number from existing mobile if available
+    if (formData.mobile) {
+      const mobile = formData.mobile;
+      const matchedCountry = countryCodes.find(c => mobile.startsWith(c.code));
+      if (matchedCountry) {
+        setCountryCode(matchedCountry.code);
+        setPhoneNumber(mobile.substring(matchedCountry.code.length));
+      } else {
+        setPhoneNumber(mobile);
+      }
+    }
     setShowVerificationDialog(true);
   };
 
@@ -104,8 +129,9 @@ const ProfileSection: React.FC = () => {
     }
 
     try {
+      const fullPhoneNumber = `${countryCode}${phoneNumber}`;
       const recaptchaVerifier = setupRecaptcha('phone-verification');
-      const result = await sendPhoneOTP(phoneNumber, recaptchaVerifier);
+      const result = await sendPhoneOTP(fullPhoneNumber, recaptchaVerifier);
       setConfirmationResult(result);
       toast({
         title: "OTP Sent",
@@ -315,13 +341,28 @@ const ProfileSection: React.FC = () => {
               <>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone Number</Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    placeholder="Enter your phone number"
-                  />
+                  <div className="flex space-x-2">
+                    <Select value={countryCode} onValueChange={setCountryCode}>
+                      <SelectTrigger className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {countryCodes.map((country) => (
+                          <SelectItem key={country.code} value={country.code}>
+                            {country.code} {country.country}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      placeholder="Enter your phone number"
+                      className="flex-1"
+                    />
+                  </div>
                 </div>
                 <Button onClick={handlePhoneVerification} className="w-full">
                   Send OTP

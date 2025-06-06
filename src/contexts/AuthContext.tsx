@@ -207,10 +207,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const result = await confirmationResult.confirm(otp);
     
     if (userData && result.user) {
-      // New phone signup - create user profile with phone verified
+      // New phone signup - create user profile with phone verified and store the full phone number
       const profileData = await createUserProfile(result.user, {
         ...userData,
-        mobile: result.user.phoneNumber || '',
+        mobile: userData.mobile || result.user.phoneNumber || '', // Use the mobile from userData which includes country code
         isEmailVerified: false,
         isPhoneVerified: true, // Mark phone as verified for new signups
         profileComplete: userData.profileComplete || false

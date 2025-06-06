@@ -100,7 +100,7 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
         result = await signupWithPhone(fullPhone, {
           fullName: formData.fullName || 'User',
           userType: selectedUserType as 'customer' | 'contractor',
-          mobile: fullPhone,
+          mobile: fullPhone, // Store the full phone number with country code
           profileComplete: false
         });
       }
@@ -137,10 +137,11 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
     
     try {
       const selectedUserType = userType || preSelectedUserType;
+      const fullPhone = `${countryCode}${phoneNumber}`;
       const userData = !isLogin ? {
         fullName: formData.fullName || 'User',
         userType: selectedUserType as 'customer' | 'contractor',
-        mobile: `${countryCode}${phoneNumber}`,
+        mobile: fullPhone, // Store the full phone number with country code
         profileComplete: false
       } : undefined;
 
