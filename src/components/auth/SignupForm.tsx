@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,7 +39,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
   });
   const [loading, setLoading] = useState(false);
   
-  const { signup, signInWithGoogle, sendEmailVerification, sendPhoneOTP, verifyPhoneOTP, setupRecaptcha, createUserProfile } = useAuth();
+  const { signup, signInWithGoogle, sendEmailVerification, sendPhoneOTP, verifyPhoneOTP, setupRecaptcha } = useAuth();
   const { toast } = useToast();
 
   const countryCodes = [
@@ -63,20 +64,9 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleUserTypeSelection = async (selectedType: 'customer' | 'contractor') => {
+  const handleUserTypeSelection = (selectedType: 'customer' | 'contractor') => {
     setUserType(selectedType);
-    
-    try {
-      // Save user type to Firestore immediately
-      await createUserProfile({ userType: selectedType });
-      setStep(2);
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to save user type.",
-        variant: "destructive"
-      });
-    }
+    setStep(2);
   };
 
   const handleEmailVerification = async () => {
@@ -171,15 +161,6 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
   };
 
   const handleGoogleSignup = async () => {
-    if (!userType) {
-      toast({
-        title: "User Type Required",
-        description: "Please select customer or contractor first",
-        variant: "destructive"
-      });
-      return;
-    }
-
     try {
       setLoading(true);
       await signInWithGoogle();
@@ -321,7 +302,6 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
             variant="outline"
             className="w-full"
             disabled={loading}
-            type="button"
           >
             <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24">
               <path
