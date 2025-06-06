@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
   User, 
@@ -28,6 +29,7 @@ export interface UserProfile {
   isPhoneVerified: boolean;
   isDocumentVerified?: boolean;
   isAdmin?: boolean;
+  profileComplete?: boolean;
   // Contractor specific fields
   companyName?: string;
   serviceCategory?: string;
@@ -58,6 +60,8 @@ interface AuthContextType {
   verifyPhoneOTP: (confirmationResult: ConfirmationResult, otp: string, userData?: Partial<UserProfile>) => Promise<void>;
   isVerificationComplete: () => boolean;
   isAdmin: () => boolean;
+  isProfileComplete: () => boolean;
+  markProfileComplete: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -94,6 +98,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isPhoneVerified: additionalData.isPhoneVerified || false,
         isDocumentVerified: false,
         isAdmin: false,
+        profileComplete: additionalData.profileComplete || false,
         createdAt: now,
         updatedAt: now,
         ...additionalData
@@ -116,7 +121,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const profileData = await createUserProfile(user, {
       ...userData,
       isEmailVerified: false,
-      isPhoneVerified: false
+      isPhoneVerified: false,
+      profileComplete: false
     });
     
     setUserProfile(profileData);
@@ -143,7 +149,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Create or update user profile
     const profileData = await createUserProfile(result.user, {
       isEmailVerified: result.user.emailVerified,
-      isPhoneVerified: false
+      isPhoneVerified: false,
+      profileComplete: false
     });
     
     setUserProfile(profileData);
@@ -205,7 +212,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ...userData,
         mobile: result.user.phoneNumber || '',
         isEmailVerified: false,
-        isPhoneVerified: true
+        isPhoneVerified: true,
+        profileComplete: userData.profileComplete || false
       });
       
       setUserProfile(profileData);
@@ -228,6 +236,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isAdmin = (): boolean => {
     return userProfile?.isAdmin === true;
+  };
+  
+  const isProfileComplete = (): boolean => {
+    if (!userProfile) return false;
+    
+    // Check if the profile is explicitly marked as complete
+    if (userProfile.profileComplete === true) {
+      return true;
+    }
+    
+    // If not explicitly marked, check for required fields
+    if (userProfile.userType === 'customer') {
+      return !!(userProfile.fullName && userProfile.mobile && userProfile.city);
+    } else if (userProfile.userType === 'contractor') {
+      return !!(
+        userProfile.fullName && 
+        userProfile.mobile && 
+        userProfile.city &&
+        userProfile.companyName &&
+        userProfile.serviceCategory
+      );
+    }
+    
+    return false;
+  };
+  
+  const markProfileComplete = async (): Promise<void> => {
+    if (!currentUser || !userProfile) return;
+    
+    const userRef = doc(db, 'users', currentUser.uid);
+    await setDoc(userRef, {
+      profileComplete: true,
+      updatedAt: new Date()
+    }, { merge: true });
+    
+    await refreshUserProfile();
   };
 
   useEffect(() => {
@@ -283,7 +327,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     sendPhoneOTP,
     verifyPhoneOTP,
     isVerificationComplete,
-    isAdmin
+    isAdmin,
+    isProfileComplete,
+    markProfileComplete
   };
 
   return (

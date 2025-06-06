@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -341,7 +340,11 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
           </TabsContent>
           
           <TabsContent value="phone">
-            <PhoneAuthForm onSuccess={onSuccess} isLogin={false} />
+            <PhoneAuthForm 
+              onSuccess={onSuccess} 
+              isLogin={false} 
+              preSelectedUserType={userType as 'customer' | 'contractor'}
+            />
           </TabsContent>
         </Tabs>
       </CardContent>
