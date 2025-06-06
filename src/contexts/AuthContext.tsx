@@ -58,6 +58,7 @@ interface AuthContextType {
   setupRecaptcha: (elementId: string) => RecaptchaVerifier;
   sendPhoneOTP: (phoneNumber: string, recaptchaVerifier: RecaptchaVerifier) => Promise<ConfirmationResult>;
   verifyPhoneOTP: (confirmationResult: ConfirmationResult, otp: string, userData?: Partial<UserProfile>) => Promise<void>;
+  createUserProfile: (additionalData: Partial<UserProfile>) => Promise<UserProfile>;
   isVerificationComplete: () => boolean;
   isAdmin: () => boolean;
   isProfileComplete: () => boolean;
@@ -109,6 +110,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     
     return userDoc.data() as UserProfile;
+  };
+
+  const createUserProfileForCurrentUser = async (additionalData: Partial<UserProfile> = {}): Promise<UserProfile> => {
+    if (!currentUser) {
+      throw new Error('No authenticated user found');
+    }
+    
+    const userRef = doc(db, 'users', currentUser.uid);
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) {
+      const now = new Date();
+      const profileData: UserProfile = {
+        uid: currentUser.uid,
+        email: currentUser.email || '',
+        fullName: additionalData.fullName || currentUser.displayName || '',
+        userType: additionalData.userType || 'customer',
+        mobile: additionalData.mobile || '',
+        city: additionalData.city || '',
+        occupation: additionalData.occupation || '',
+        profilePicture: additionalData.profilePicture || currentUser.photoURL || '',
+        isEmailVerified: currentUser.emailVerified,
+        isPhoneVerified: additionalData.isPhoneVerified || false,
+        isDocumentVerified: false,
+        isAdmin: false,
+        profileComplete: additionalData.profileComplete || false,
+        createdAt: now,
+        updatedAt: now,
+        ...additionalData
+      };
+      
+      await setDoc(userRef, profileData);
+      setUserProfile(profileData);
+      return profileData;
+    } else {
+      // Update existing profile with new data
+      const existingData = userDoc.data() as UserProfile;
+      const updatedData = {
+        ...existingData,
+        ...additionalData,
+        updatedAt: new Date()
+      };
+      
+      await setDoc(userRef, updatedData, { merge: true });
+      setUserProfile(updatedData);
+      return updatedData;
+    }
   };
 
   const signup = async (email: string, password: string, userData: Partial<UserProfile>) => {
@@ -325,6 +373,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setupRecaptcha,
     sendPhoneOTP,
     verifyPhoneOTP,
+    createUserProfile: createUserProfileForCurrentUser,
     isVerificationComplete,
     isAdmin,
     isProfileComplete,
