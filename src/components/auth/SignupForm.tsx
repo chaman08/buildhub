@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,6 +57,11 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleUserTypeSelection = (selectedType: 'customer' | 'contractor') => {
+    setUserType(selectedType);
+    setStep(2);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -141,7 +147,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
         </CardHeader>
         <CardContent className="space-y-4">
           <Button
-            onClick={() => { setUserType('customer'); setStep(2); }}
+            onClick={() => handleUserTypeSelection('customer')}
             variant="outline"
             className="w-full h-20 text-left"
           >
@@ -153,7 +159,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
           </Button>
           
           <Button
-            onClick={() => { setUserType('contractor'); setStep(2); }}
+            onClick={() => handleUserTypeSelection('contractor')}
             variant="outline"
             className="w-full h-20 text-left"
           >

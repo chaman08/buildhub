@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -38,17 +37,8 @@ const ProfileSection: React.FC = () => {
   });
 
   const handleSave = async () => {
-    if (!currentUser) {
-      toast({
-        title: "Error",
-        description: "User not authenticated",
-        variant: "destructive"
-      });
-      return;
-    }
-
     try {
-      const userRef = doc(db, 'users', currentUser.uid);
+      const userRef = doc(db, 'users', currentUser!.uid);
       const updateData = {
         ...formData,
         updatedAt: new Date()
@@ -215,6 +205,7 @@ const ProfileSection: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <Input
                       id="email"
+                      type="email"
                       value={formData.email}
                       onChange={(e) => setFormData({...formData, email: e.target.value})}
                       disabled={!isEditing}

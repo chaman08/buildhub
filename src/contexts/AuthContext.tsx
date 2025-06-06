@@ -207,12 +207,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const result = await confirmationResult.confirm(otp);
     
     if (userData && result.user) {
-      // New phone signup - create user profile
+      // New phone signup - create user profile with phone verified
       const profileData = await createUserProfile(result.user, {
         ...userData,
         mobile: result.user.phoneNumber || '',
         isEmailVerified: false,
-        isPhoneVerified: true,
+        isPhoneVerified: true, // Mark phone as verified for new signups
         profileComplete: userData.profileComplete || false
       });
       
