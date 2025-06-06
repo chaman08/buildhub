@@ -11,7 +11,8 @@ import {
   onAuthStateChanged,
   RecaptchaVerifier,
   signInWithPhoneNumber,
-  ConfirmationResult
+  ConfirmationResult,
+  updateEmail
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
@@ -207,12 +208,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const result = await confirmationResult.confirm(otp);
     
     if (userData && result.user) {
-      // New phone signup - create user profile with phone verified and store the full phone number
+      // New phone signup - create user profile with phone verified
       const profileData = await createUserProfile(result.user, {
         ...userData,
-        mobile: userData.mobile || result.user.phoneNumber || '', // Use the mobile from userData which includes country code
+        mobile: userData.mobile || result.user.phoneNumber || '',
         isEmailVerified: false,
-        isPhoneVerified: true, // Mark phone as verified for new signups
+        isPhoneVerified: true,
         profileComplete: userData.profileComplete || false
       });
       

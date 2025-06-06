@@ -1,12 +1,12 @@
+
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Phone, Mail, Edit3, Save, X, CheckCircle, AlertCircle } from 'lucide-react';
+import { Edit3, Save, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -78,16 +78,18 @@ const ProfileSection: React.FC = () => {
   };
 
   const handleEmailVerification = async () => {
-    if (!currentUser) {
-      toast({
-        title: "Error",
-        description: "User not authenticated",
-        variant: "destructive"
-      });
-      return;
-    }
-
     try {
+      // First update the email in Firestore
+      if (formData.email !== userProfile?.email) {
+        const userRef = doc(db, 'users', currentUser!.uid);
+        await updateDoc(userRef, {
+          email: formData.email,
+          isEmailVerified: false,
+          updatedAt: new Date()
+        });
+        await refreshUserProfile();
+      }
+
       await sendEmailVerification();
       toast({
         title: "Verification Email Sent",
@@ -104,7 +106,7 @@ const ProfileSection: React.FC = () => {
 
   const handlePhoneVerificationStart = () => {
     setVerificationType('phone');
-    // Extract country code and phone number from existing mobile if available
+    // Extract country code and phone number from current mobile
     if (formData.mobile) {
       const mobile = formData.mobile;
       const matchedCountry = countryCodes.find(c => mobile.startsWith(c.code));
@@ -130,6 +132,18 @@ const ProfileSection: React.FC = () => {
 
     try {
       const fullPhoneNumber = `${countryCode}${phoneNumber}`;
+      
+      // First update the phone number in Firestore
+      const userRef = doc(db, 'users', currentUser!.uid);
+      await updateDoc(userRef, {
+        mobile: fullPhoneNumber,
+        isPhoneVerified: false,
+        updatedAt: new Date()
+      });
+      
+      // Update local form data
+      setFormData(prev => ({ ...prev, mobile: fullPhoneNumber }));
+      
       const recaptchaVerifier = setupRecaptcha('phone-verification');
       const result = await sendPhoneOTP(fullPhoneNumber, recaptchaVerifier);
       setConfirmationResult(result);
@@ -236,19 +250,9 @@ const ProfileSection: React.FC = () => {
                       onChange={(e) => setFormData({...formData, email: e.target.value})}
                       disabled={!isEditing}
                     />
-                    {userProfile?.isEmailVerified ? (
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                    ) : (
-                      <AlertCircle className="h-5 w-5 text-orange-600" />
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={userProfile?.isEmailVerified ? "default" : "secondary"}>
-                      {userProfile?.isEmailVerified ? "Verified" : "Unverified"}
-                    </Badge>
-                    {!userProfile?.isEmailVerified && (
+                    {isEditing && (
                       <Button size="sm" variant="outline" onClick={handleEmailVerification}>
-                        Verify Email
+                        Verify
                       </Button>
                     )}
                   </div>
@@ -265,19 +269,9 @@ const ProfileSection: React.FC = () => {
                       onChange={(e) => setFormData({...formData, mobile: e.target.value})}
                       disabled={!isEditing}
                     />
-                    {userProfile?.isPhoneVerified ? (
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                    ) : (
-                      <AlertCircle className="h-5 w-5 text-orange-600" />
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={userProfile?.isPhoneVerified ? "default" : "secondary"}>
-                      {userProfile?.isPhoneVerified ? "Verified" : "Unverified"}
-                    </Badge>
-                    {!userProfile?.isPhoneVerified && (
+                    {isEditing && (
                       <Button size="sm" variant="outline" onClick={handlePhoneVerificationStart}>
-                        Verify Phone
+                        Verify
                       </Button>
                     )}
                   </div>
