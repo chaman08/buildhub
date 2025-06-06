@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,7 +28,7 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
   const [countryCode, setCountryCode] = useState('+91');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otp, setOtp] = useState('');
-  const [userType, setUserType] = useState<UserType>(preSelectedUserType);
+  const [userType, setUserType] = useState<UserType>(preSelectedUserType || '');
   const [formData, setFormData] = useState({
     fullName: '',
     city: '',

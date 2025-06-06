@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -5,11 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Phone, Mail, Edit3, Save, X } from 'lucide-react';
+import { Phone, Mail, Edit3, Save, X, CheckCircle, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import ProfilePictureUpload from '@/components/ProfilePictureUpload';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import {
   Dialog,
   DialogContent,
@@ -29,6 +31,7 @@ const ProfileSection: React.FC = () => {
   const [confirmationResult, setConfirmationResult] = useState<any>(null);
   const [formData, setFormData] = useState({
     fullName: userProfile?.fullName || '',
+    email: userProfile?.email || currentUser?.email || '',
     city: userProfile?.city || '',
     mobile: userProfile?.mobile || '',
     occupation: userProfile?.occupation || ''
@@ -69,25 +72,35 @@ const ProfileSection: React.FC = () => {
     }
   };
 
-  const handleVerification = async (type: 'email' | 'phone') => {
-    setVerificationType(type);
-    setShowVerificationDialog(true);
-
-    if (type === 'email' && currentUser) {
-      try {
-        await sendEmailVerification();
-        toast({
-          title: "Verification Email Sent",
-          description: "Please check your email and click the verification link."
-        });
-      } catch (error: any) {
-        toast({
-          title: "Error",
-          description: error.message || "Failed to send verification email.",
-          variant: "destructive"
-        });
-      }
+  const handleEmailVerification = async () => {
+    if (!currentUser) {
+      toast({
+        title: "Error",
+        description: "User not authenticated",
+        variant: "destructive"
+      });
+      return;
     }
+
+    try {
+      await sendEmailVerification();
+      toast({
+        title: "Verification Email Sent",
+        description: "Please check your email and click the verification link."
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send verification email.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handlePhoneVerificationStart = () => {
+    setVerificationType('phone');
+    setPhoneNumber(formData.mobile);
+    setShowVerificationDialog(true);
   };
 
   const handlePhoneVerification = async () => {
@@ -131,6 +144,8 @@ const ProfileSection: React.FC = () => {
       await verifyPhoneOTP(confirmationResult, otp);
       await refreshUserProfile();
       setShowVerificationDialog(false);
+      setOtp('');
+      setConfirmationResult(null);
       toast({
         title: "Success",
         description: "Phone number verified successfully!"
@@ -196,31 +211,59 @@ const ProfileSection: React.FC = () => {
               
               <div>
                 <Label htmlFor="email">Email Address</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="email"
-                    value={userProfile?.email || currentUser?.email || ''}
-                    disabled
-                    className="bg-gray-50"
-                  />
-                  <Badge variant={userProfile?.isEmailVerified ? "default" : "secondary"}>
-                    {userProfile?.isEmailVerified ? "Verified" : "Unverified"}
-                  </Badge>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({...formData, email: e.target.value})}
+                      disabled={!isEditing}
+                    />
+                    {userProfile?.isEmailVerified ? (
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    ) : (
+                      <AlertCircle className="h-5 w-5 text-orange-600" />
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={userProfile?.isEmailVerified ? "default" : "secondary"}>
+                      {userProfile?.isEmailVerified ? "Verified" : "Unverified"}
+                    </Badge>
+                    {!userProfile?.isEmailVerified && (
+                      <Button size="sm" variant="outline" onClick={handleEmailVerification}>
+                        Verify Email
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
               
               <div>
                 <Label htmlFor="mobile">Mobile Number</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="mobile"
-                    value={formData.mobile}
-                    onChange={(e) => setFormData({...formData, mobile: e.target.value})}
-                    disabled={!isEditing}
-                  />
-                  <Badge variant={userProfile?.isPhoneVerified ? "default" : "secondary"}>
-                    {userProfile?.isPhoneVerified ? "Verified" : "Unverified"}
-                  </Badge>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="mobile"
+                      value={formData.mobile}
+                      onChange={(e) => setFormData({...formData, mobile: e.target.value})}
+                      disabled={!isEditing}
+                    />
+                    {userProfile?.isPhoneVerified ? (
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    ) : (
+                      <AlertCircle className="h-5 w-5 text-orange-600" />
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={userProfile?.isPhoneVerified ? "default" : "secondary"}>
+                      {userProfile?.isPhoneVerified ? "Verified" : "Unverified"}
+                    </Badge>
+                    {!userProfile?.isPhoneVerified && (
+                      <Button size="sm" variant="outline" onClick={handlePhoneVerificationStart}>
+                        Verify Phone
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
               
@@ -266,106 +309,58 @@ const ProfileSection: React.FC = () => {
         </Card>
       </div>
 
-      {/* Verification Status */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Account Verification</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-4">
-            <div className="flex items-center gap-2">
-              <Mail className="h-4 w-4 text-blue-600" />
-              <span>Email Verification</span>
-              <Badge variant={userProfile?.isEmailVerified ? "default" : "secondary"}>
-                {userProfile?.isEmailVerified ? "✓ Verified" : "Pending"}
-              </Badge>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <Phone className="h-4 w-4 text-green-600" />
-              <span>Phone Verification</span>
-              <Badge variant={userProfile?.isPhoneVerified ? "default" : "secondary"}>
-                {userProfile?.isPhoneVerified ? "✓ Verified" : "Pending"}
-              </Badge>
-            </div>
-          </div>
-          
-          {(!userProfile?.isEmailVerified || !userProfile?.isPhoneVerified) && (
-            <div className="mt-4 space-x-2">
-              {!userProfile?.isEmailVerified && (
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => handleVerification('email')}
-                >
-                  Verify Email
-                </Button>
-              )}
-              {!userProfile?.isPhoneVerified && (
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => handleVerification('phone')}
-                >
-                  Verify Phone
-                </Button>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Verification Dialog */}
+      {/* Phone Verification Dialog */}
       <Dialog open={showVerificationDialog} onOpenChange={setShowVerificationDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {verificationType === 'email' ? 'Email Verification' : 'Phone Verification'}
-            </DialogTitle>
+            <DialogTitle>Phone Verification</DialogTitle>
             <DialogDescription>
-              {verificationType === 'email' 
-                ? 'Please check your email for the verification link.'
-                : 'Enter your phone number to receive an OTP.'}
+              Enter your phone number to receive an OTP for verification.
             </DialogDescription>
           </DialogHeader>
 
-          {verificationType === 'phone' && (
-            <div className="space-y-4">
-              {!confirmationResult ? (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="Enter your phone number"
-                    />
-                  </div>
-                  <Button onClick={handlePhoneVerification} className="w-full">
-                    Send OTP
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="otp">Enter OTP</Label>
-                    <Input
-                      id="otp"
-                      type="text"
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value)}
-                      placeholder="Enter the OTP"
-                    />
-                  </div>
-                  <Button onClick={handleVerifyOTP} className="w-full">
-                    Verify OTP
-                  </Button>
-                </>
-              )}
-            </div>
-          )}
+          <div className="space-y-4">
+            {!confirmationResult ? (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder="Enter your phone number"
+                  />
+                </div>
+                <Button onClick={handlePhoneVerification} className="w-full">
+                  Send OTP
+                </Button>
+              </>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="otp">Enter OTP</Label>
+                  <InputOTP
+                    maxLength={6}
+                    value={otp}
+                    onChange={setOtp}
+                  >
+                    <InputOTPGroup>
+                      <InputOTPSlot index={0} />
+                      <InputOTPSlot index={1} />
+                      <InputOTPSlot index={2} />
+                      <InputOTPSlot index={3} />
+                      <InputOTPSlot index={4} />
+                      <InputOTPSlot index={5} />
+                    </InputOTPGroup>
+                  </InputOTP>
+                </div>
+                <Button onClick={handleVerifyOTP} className="w-full" disabled={otp.length !== 6}>
+                  Verify OTP
+                </Button>
+              </>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
