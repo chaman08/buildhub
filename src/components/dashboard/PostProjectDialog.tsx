@@ -5,8 +5,14 @@ import { Button } from '@/components/ui/button';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
 import ProfileCompletionRequired from '@/components/ProfileCompletionRequired';
 
+interface PostProjectDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onProjectPosted?: () => Promise<void> | void;
+}
+
 // This is a mock component just to show integration - you would normally have your own PostProjectDialog implementation
-const PostProjectDialog = ({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) => {
+const PostProjectDialog = ({ open, onOpenChange, onProjectPosted }: PostProjectDialogProps) => {
   const { isProfileComplete, loading } = useProfileCompletion();
   const [shouldShowProfilePrompt, setShouldShowProfilePrompt] = useState(false);
   
@@ -20,7 +26,7 @@ const PostProjectDialog = ({ open, onOpenChange }: { open: boolean; onOpenChange
           </DialogHeader>
           {/* Your existing post project form */}
           <p>Project posting form would go here</p>
-          <Button>Post Project</Button>
+          <Button onClick={() => onProjectPosted && onProjectPosted()}>Post Project</Button>
         </DialogContent>
       </Dialog>
     );

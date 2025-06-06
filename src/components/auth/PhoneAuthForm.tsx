@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,10 +10,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { ConfirmationResult } from 'firebase/auth';
 
+type UserType = 'customer' | 'contractor' | '';
+
 interface PhoneAuthFormProps {
   onSuccess: () => void;
   isLogin?: boolean;
-  preSelectedUserType?: 'customer' | 'contractor';
+  preSelectedUserType?: UserType;
 }
 
 const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({ 
@@ -26,7 +27,7 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
   const [countryCode, setCountryCode] = useState('+91');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otp, setOtp] = useState('');
-  const [userType, setUserType] = useState<'customer' | 'contractor' | ''>(preSelectedUserType || '');
+  const [userType, setUserType] = useState<UserType>(preSelectedUserType);
   const [formData, setFormData] = useState({
     fullName: '',
     city: '',
