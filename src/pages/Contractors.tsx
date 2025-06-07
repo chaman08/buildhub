@@ -1,8 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useAuth } from '@/contexts/AuthContext';
 import Header from '@/components/Header';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -29,6 +29,8 @@ interface Contractor {
 }
 
 const Contractors = () => {
+  const { currentUser } = useAuth();
+  const navigate = useNavigate();
   const [contractors, setContractors] = useState<Contractor[]>([]);
   const [filteredContractors, setFilteredContractors] = useState<Contractor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,6 +106,30 @@ const Contractors = () => {
   };
 
   const uniqueCities = [...new Set(contractors.map(c => c.city))].filter(Boolean);
+
+  const handleViewProfile = (contractorId: string) => {
+    if (!currentUser) {
+      navigate('/auth');
+      return;
+    }
+    navigate(`/contractor/${contractorId}`);
+  };
+
+  const handleCall = (phone: string) => {
+    if (!currentUser) {
+      navigate('/auth');
+      return;
+    }
+    window.location.href = `tel:${phone}`;
+  };
+
+  const handleEmail = (email: string) => {
+    if (!currentUser) {
+      navigate('/auth');
+      return;
+    }
+    window.location.href = `mailto:${email}`;
+  };
 
   if (loading) {
     return (
@@ -251,15 +277,25 @@ const Contractors = () => {
                 )}
 
                 <div className="flex gap-2 pt-4 border-t">
-                  <Button asChild size="sm" className="flex-1">
-                    <Link to={`/contractor/${contractor.uid}`}>
-                      View Profile
-                    </Link>
+                  <Button 
+                    size="sm" 
+                    className="flex-1"
+                    onClick={() => handleViewProfile(contractor.uid)}
+                  >
+                    View Profile
                   </Button>
-                  <Button variant="outline" size="sm">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => handleCall(contractor.mobile)}
+                  >
                     <Phone className="h-4 w-4" />
                   </Button>
-                  <Button variant="outline" size="sm">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => handleEmail(contractor.email)}
+                  >
                     <Mail className="h-4 w-4" />
                   </Button>
                 </div>

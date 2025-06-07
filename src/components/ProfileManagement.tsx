@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import ProfilePictureUpload from '@/components/ProfilePictureUpload';
 
 export const ProfileManagement = () => {
-  const { userProfile, refreshUserProfile } = useAuth();
+  const { userProfile, refreshUserProfile, markProfileComplete } = useAuth();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
@@ -59,6 +59,25 @@ export const ProfileManagement = () => {
     e.preventDefault();
     if (!userProfile) return;
 
+    // Validate required fields before saving
+    if (!formData.fullName || !formData.mobile || !formData.city) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill all required fields (Name, Mobile, and City).",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (formData.userType === 'contractor' && (!formData.companyName || !formData.serviceCategory)) {
+      toast({
+        title: "Missing Information",
+        description: "Contractors must provide Company Name and Service Category.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       const userRef = doc(db, 'users', userProfile.uid);
@@ -68,10 +87,14 @@ export const ProfileManagement = () => {
       };
 
       await updateDoc(userRef, updateData);
+      
+      // Mark profile as complete if all required fields are filled
+      await markProfileComplete();
+      
       await refreshUserProfile();
       toast({
         title: "Profile Updated",
-        description: "Your profile has been successfully updated.",
+        description: "Your profile has been successfully updated and marked as complete.",
       });
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -93,7 +116,12 @@ export const ProfileManagement = () => {
     <Card className="w-full max-w-2xl mx-auto">
       <CardHeader>
         <CardTitle>Profile Management</CardTitle>
-        <CardDescription>Update your profile information</CardDescription>
+        <CardDescription>
+          {userProfile.profileComplete ? 
+            "Update your profile information" : 
+            "Complete your profile to unlock all features"
+          }
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="flex flex-col items-center mb-6">
@@ -107,7 +135,7 @@ export const ProfileManagement = () => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name</Label>
+              <Label htmlFor="fullName">Full Name *</Label>
               <Input
                 id="fullName"
                 name="fullName"
@@ -118,7 +146,7 @@ export const ProfileManagement = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="mobile">Mobile Number</Label>
+              <Label htmlFor="mobile">Mobile Number *</Label>
               <Input
                 id="mobile"
                 name="mobile"
@@ -129,12 +157,13 @@ export const ProfileManagement = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="city">City</Label>
+              <Label htmlFor="city">City *</Label>
               <Input
                 id="city"
                 name="city"
                 value={formData.city}
                 onChange={handleInputChange}
+                required
               />
             </div>
 
@@ -149,7 +178,7 @@ export const ProfileManagement = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="userType">User Type</Label>
+              <Label htmlFor="userType">User Type *</Label>
               <Select
                 value={formData.userType}
                 onValueChange={(value) => handleSelectChange('userType', value)}
@@ -167,22 +196,24 @@ export const ProfileManagement = () => {
             {formData.userType === 'contractor' && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="companyName">Company Name</Label>
+                  <Label htmlFor="companyName">Company Name *</Label>
                   <Input
                     id="companyName"
                     name="companyName"
                     value={formData.companyName}
                     onChange={handleInputChange}
+                    required
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="serviceCategory">Service Category</Label>
+                  <Label htmlFor="serviceCategory">Service Category *</Label>
                   <Input
                     id="serviceCategory"
                     name="serviceCategory"
                     value={formData.serviceCategory}
                     onChange={handleInputChange}
+                    required
                   />
                 </div>
 
@@ -205,7 +236,7 @@ export const ProfileManagement = () => {
               type="submit"
               disabled={loading}
             >
-              {loading ? 'Saving...' : 'Save Changes'}
+              {loading ? 'Saving...' : (userProfile.profileComplete ? 'Update Profile' : 'Complete Profile')}
             </Button>
           </div>
         </form>

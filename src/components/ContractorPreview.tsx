@@ -4,6 +4,7 @@ import { db } from '@/lib/firebase';
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from 'react-router-dom';
 import { Star, MapPin, Shield } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Contractor {
   uid: string;
@@ -24,6 +25,7 @@ const ContractorPreview = () => {
   const [loading, setLoading] = useState(true);
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
 
   const categories = [
     { name: "Civil Contractors", icon: "🏗️", category: "civil" },
@@ -200,7 +202,13 @@ const ContractorPreview = () => {
                     
                     <Button 
                       className="w-full bg-orange-600 hover:bg-orange-700" 
-                      onClick={() => navigate(`/contractor/${contractor.uid}`)}
+                      onClick={() => {
+                        if (!currentUser) {
+                          navigate('/auth');
+                          return;
+                        }
+                        navigate(`/contractor/${contractor.uid}`);
+                      }}
                     >
                       View Profile
                     </Button>

@@ -213,7 +213,7 @@ const Contact = () => {
                     <div>
                       <h4 className="font-semibold text-gray-900">Phone</h4>
                       <p className="text-gray-600">+91 92434 25538</p>
-                      <p className="text-sm text-gray-500">Click to call</p>
+                      <p className="text-sm text-gray-500">Available in WhatsApp</p>
                     </div>
                   </div>
                   
