@@ -236,60 +236,7 @@ const Contractors = () => {
         {/* Contractors Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {filteredContractors.map((contractor) => (
-            <div key={contractor.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
-              <div className="p-6">
-                <div className="flex items-center space-x-4 mb-4">
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-2xl">
-                    {contractor.profilePicture ? (
-                      <img 
-                        src={contractor.profilePicture} 
-                        alt={contractor.fullName}
-                        className="w-full h-full rounded-full object-cover"
-                      />
-                    ) : (
-                      contractor.fullName.charAt(0)
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="text-lg font-semibold text-gray-900">
-                      {contractor.fullName}
-                    </h4>
-                    <p className="text-gray-600 text-sm">
-                      {contractor.companyName}
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="space-y-2 mb-4">
-                  {contractor.rating && (
-                    <div className="flex items-center space-x-2">
-                      <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                      <span className="font-medium">{contractor.rating.toFixed(1)}</span>
-                      {contractor.completedProjects && (
-                        <span className="text-gray-500 text-sm">({contractor.completedProjects} projects)</span>
-                      )}
-                    </div>
-                  )}
-                  
-                  <p className="text-blue-600 font-medium text-sm">
-                    {contractor.serviceCategory}
-                  </p>
-                  
-                  <p className="text-gray-600 text-sm flex items-center">
-                    <MapPin className="h-4 w-4 mr-1" />
-                    {contractor.city}
-                  </p>
-                  
-                  <p className="text-gray-600 text-sm">
-                    {contractor.experience}+ years experience
-                  </p>
-                </div>
-                
-                <Button className="w-full bg-orange-600 hover:bg-orange-700">
-                  View Profile
-                </Button>
-              </div>
-            </div>
+            <ContractorPreview key={contractor.id} contractor={contractor} />
           ))}
         </div>
 

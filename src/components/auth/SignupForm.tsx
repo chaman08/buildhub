@@ -78,7 +78,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
 
     try {
       setLoading(true);
-      await signInWithGoogle();
+      await signInWithGoogle(userType);
       
       toast({
         title: "Google Account Connected!",
