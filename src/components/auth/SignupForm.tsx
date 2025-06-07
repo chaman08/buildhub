@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -83,7 +82,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
       
       toast({
         title: "Google Account Connected!",
-        description: "Please complete your profile in the dashboard to access all features."
+        description: "Welcome! Please complete your profile to access all features."
       });
       
       onSuccess();
@@ -253,6 +252,32 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
           <CardTitle className="text-center">Choose Account Type</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <Button
+              onClick={() => handleUserTypeSelection('customer')}
+              variant={userType === 'customer' ? 'default' : 'outline'}
+              className="h-20 text-left"
+            >
+              <User className="h-6 w-6 mr-3" />
+              <div>
+                <div className="font-semibold">Customer</div>
+                <div className="text-sm text-gray-500">Post construction projects</div>
+              </div>
+            </Button>
+            
+            <Button
+              onClick={() => handleUserTypeSelection('contractor')}
+              variant={userType === 'contractor' ? 'default' : 'outline'}
+              className="h-20 text-left"
+            >
+              <Building2 className="h-6 w-6 mr-3" />
+              <div>
+                <div className="font-semibold">Contractor</div>
+                <div className="text-sm text-gray-500">Bid on construction projects</div>
+              </div>
+            </Button>
+          </div>
+
           <Button
             onClick={handleGoogleSignup}
             variant="outline"
@@ -286,33 +311,18 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
             </div>
             <div className="relative flex justify-center text-xs uppercase">
               <span className="bg-background px-2 text-muted-foreground">
-                Or select account type
+                Or continue with email
               </span>
             </div>
           </div>
           
           <Button
-            onClick={() => handleUserTypeSelection('customer')}
+            onClick={() => setStep(2)}
             variant="outline"
-            className="w-full h-20 text-left"
+            className="w-full"
+            disabled={!userType}
           >
-            <User className="h-6 w-6 mr-3" />
-            <div>
-              <div className="font-semibold">Customer</div>
-              <div className="text-sm text-gray-500">Post construction projects</div>
-            </div>
-          </Button>
-          
-          <Button
-            onClick={() => handleUserTypeSelection('contractor')}
-            variant="outline"
-            className="w-full h-20 text-left"
-          >
-            <Building2 className="h-6 w-6 mr-3" />
-            <div>
-              <div className="font-semibold">Contractor</div>
-              <div className="text-sm text-gray-500">Bid on construction projects</div>
-            </div>
+            Sign up with Email
           </Button>
         </CardContent>
       </Card>
