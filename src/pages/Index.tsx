@@ -1,3 +1,4 @@
+
 import HeroSection from "@/components/HeroSection";
 import HowItWorks from "@/components/HowItWorks";
 import WhyChooseUs from "@/components/WhyChooseUs";
@@ -6,6 +7,7 @@ import Testimonials from "@/components/Testimonials";
 import FAQ from "@/components/FAQ";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
+import MobileBottomNav from "@/components/MobileBottomNav";
 import { useAuth } from "@/contexts/AuthContext";
 import PersonalizedGreeting from "@/components/PersonalizedGreeting";
 
@@ -23,6 +25,7 @@ const Index = () => {
       <Testimonials />
       <FAQ />
       <Footer />
+      <MobileBottomNav />
     </div>
   );
 };
