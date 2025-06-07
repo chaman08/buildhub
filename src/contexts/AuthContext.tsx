@@ -11,10 +11,9 @@ import {
   onAuthStateChanged,
   RecaptchaVerifier,
   signInWithPhoneNumber,
-  ConfirmationResult,
-  updateEmail
+  ConfirmationResult
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 
 export interface UserProfile {
@@ -23,7 +22,6 @@ export interface UserProfile {
   fullName: string;
   userType: 'customer' | 'contractor';
   mobile: string;
-  countryCode: string;
   city?: string;
   occupation?: string;
   profilePicture?: string;
@@ -32,7 +30,6 @@ export interface UserProfile {
   isDocumentVerified?: boolean;
   isAdmin?: boolean;
   profileComplete?: boolean;
-  requiresPhoneVerification?: boolean;
   // Contractor specific fields
   companyName?: string;
   serviceCategory?: string;
@@ -57,7 +54,6 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   sendEmailVerification: () => Promise<void>;
-  updateUserEmail: (newEmail: string) => Promise<void>;
   refreshUserProfile: () => Promise<void>;
   setupRecaptcha: (elementId: string) => RecaptchaVerifier;
   sendPhoneOTP: (phoneNumber: string, recaptchaVerifier: RecaptchaVerifier) => Promise<ConfirmationResult>;
@@ -66,7 +62,6 @@ interface AuthContextType {
   isAdmin: () => boolean;
   isProfileComplete: () => boolean;
   markProfileComplete: () => Promise<void>;
-  updatePhoneNumber: (countryCode: string, phoneNumber: string) => Promise<ConfirmationResult>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -96,7 +91,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fullName: additionalData.fullName || user.displayName || '',
         userType: additionalData.userType || 'customer',
         mobile: additionalData.mobile || '',
-        countryCode: additionalData.countryCode || '+91',
         city: additionalData.city || '',
         occupation: additionalData.occupation || '',
         profilePicture: additionalData.profilePicture || user.photoURL || '',
@@ -105,7 +99,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isDocumentVerified: false,
         isAdmin: false,
         profileComplete: additionalData.profileComplete || false,
-        requiresPhoneVerification: additionalData.requiresPhoneVerification || false,
         createdAt: now,
         updatedAt: now,
         ...additionalData
@@ -153,12 +146,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
     
-    // For Google users, always require phone verification
+    // Create or update user profile
     const profileData = await createUserProfile(result.user, {
       isEmailVerified: result.user.emailVerified,
       isPhoneVerified: false,
-      profileComplete: false,
-      requiresPhoneVerification: true // Always require phone verification for Google users
+      profileComplete: false
     });
     
     setUserProfile(profileData);
@@ -173,26 +165,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (currentUser) {
       await sendEmailVerification(currentUser);
     }
-  };
-
-  const updateUserEmail = async (newEmail: string) => {
-    if (!currentUser) throw new Error('No authenticated user');
-    
-    // Update email in Firebase Auth
-    await updateEmail(currentUser, newEmail);
-    
-    // Send verification email for new email
-    await sendEmailVerification(currentUser);
-    
-    // Update email in Firestore and mark as unverified
-    const userRef = doc(db, 'users', currentUser.uid);
-    await updateDoc(userRef, {
-      email: newEmail,
-      isEmailVerified: false,
-      updatedAt: new Date()
-    });
-    
-    await refreshUserProfile();
   };
 
   const refreshUserProfile = async () => {
@@ -250,31 +222,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const now = new Date();
       await setDoc(doc(db, 'users', currentUser.uid), {
         isPhoneVerified: true,
-        requiresPhoneVerification: false,
         updatedAt: now
       }, { merge: true });
       
       await refreshUserProfile();
     }
-  };
-
-  const updatePhoneNumber = async (countryCode: string, phoneNumber: string): Promise<ConfirmationResult> => {
-    if (!currentUser) throw new Error('No authenticated user');
-    
-    const fullPhoneNumber = `${countryCode}${phoneNumber}`;
-    const recaptchaVerifier = setupRecaptcha('phone-update-recaptcha');
-    
-    // Update phone number in Firestore (mark as unverified)
-    const userRef = doc(db, 'users', currentUser.uid);
-    await updateDoc(userRef, {
-      mobile: fullPhoneNumber,
-      countryCode: countryCode,
-      isPhoneVerified: false,
-      updatedAt: new Date()
-    });
-    
-    // Send OTP for verification
-    return await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifier);
   };
 
   const isVerificationComplete = (): boolean => {
@@ -294,22 +246,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return true;
     }
     
-    // For Google users, phone verification is mandatory
-    if (userProfile.requiresPhoneVerification && !userProfile.isPhoneVerified) {
-      return false;
-    }
-    
     // If not explicitly marked, check for required fields
     if (userProfile.userType === 'customer') {
-      return !!(userProfile.fullName && userProfile.mobile && userProfile.city && userProfile.isPhoneVerified);
+      return !!(userProfile.fullName && userProfile.mobile && userProfile.city);
     } else if (userProfile.userType === 'contractor') {
       return !!(
         userProfile.fullName && 
         userProfile.mobile && 
         userProfile.city &&
         userProfile.companyName &&
-        userProfile.serviceCategory &&
-        userProfile.isPhoneVerified
+        userProfile.serviceCategory
       );
     }
     
@@ -319,15 +265,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const markProfileComplete = async (): Promise<void> => {
     if (!currentUser || !userProfile) return;
     
-    // Only mark complete if phone is verified
-    if (!userProfile.isPhoneVerified) {
-      throw new Error('Phone verification required before marking profile complete');
-    }
-    
     const userRef = doc(db, 'users', currentUser.uid);
     await setDoc(userRef, {
       profileComplete: true,
-      requiresPhoneVerification: false,
       updatedAt: new Date()
     }, { merge: true });
     
@@ -382,12 +322,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signInWithGoogle,
     logout,
     sendEmailVerification: sendEmailVerificationHandler,
-    updateUserEmail,
     refreshUserProfile,
     setupRecaptcha,
     sendPhoneOTP,
     verifyPhoneOTP,
-    updatePhoneNumber,
     isVerificationComplete,
     isAdmin,
     isProfileComplete,
