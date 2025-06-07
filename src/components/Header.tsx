@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,7 +15,7 @@ import {
   SheetContent,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import { User, LogOut, Settings, Menu } from 'lucide-react';
+import { User, LogOut, Settings, Menu, X } from 'lucide-react';
 
 const Header = () => {
   const { currentUser, userProfile, logout } = useAuth();
@@ -116,17 +115,17 @@ const Header = () => {
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-200 fixed top-0 left-0 right-0 z-50">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
-        <div className="flex justify-between items-center h-14 sm:h-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <div className="flex items-center">
-            <Link to="/" className="text-lg sm:text-xl lg:text-2xl font-bold text-blue-600">
+            <Link to="/" className="text-xl sm:text-2xl font-bold text-blue-600">
               BuildHub
             </Link>
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden lg:flex space-x-6 xl:space-x-8">
+          <nav className="hidden lg:flex space-x-8">
             {navigationLinks.map((link) => (
               <Link
                 key={link.to}
@@ -139,11 +138,11 @@ const Header = () => {
           </nav>
 
           {/* Desktop Auth Section */}
-          <div className="hidden sm:flex items-center space-x-2 lg:space-x-4">
+          <div className="hidden md:flex items-center space-x-4">
             {currentUser ? (
-              <div className="flex items-center space-x-2 lg:space-x-3">
+              <div className="flex items-center space-x-3">
                 <Link to={getDashboardRoute()}>
-                  <Button variant="outline" size="sm" className="text-xs lg:text-sm">
+                  <Button variant="outline" size="sm">
                     Dashboard
                   </Button>
                 </Link>
@@ -153,7 +152,7 @@ const Header = () => {
                     <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                       <Avatar className="h-8 w-8">
                         <AvatarImage src={userProfile?.profilePicture} />
-                        <AvatarFallback className="text-xs">
+                        <AvatarFallback>
                           {userProfile?.fullName?.charAt(0) || currentUser.email?.charAt(0)?.toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
@@ -163,9 +162,9 @@ const Header = () => {
                     <div className="flex items-center justify-start gap-2 p-2">
                       <div className="flex flex-col space-y-1 leading-none">
                         {userProfile?.fullName && (
-                          <p className="font-medium text-sm">{userProfile.fullName}</p>
+                          <p className="font-medium">{userProfile.fullName}</p>
                         )}
-                        <p className="w-[200px] truncate text-xs text-muted-foreground">
+                        <p className="w-[200px] truncate text-sm text-muted-foreground">
                           {currentUser.email}
                         </p>
                         {userProfile?.userType && (
@@ -198,10 +197,10 @@ const Header = () => {
               </div>
             ) : (
               <div className="flex items-center space-x-2">
-                <Button asChild variant="outline" size="sm" className="text-xs lg:text-sm">
+                <Button asChild variant="outline" size="sm">
                   <Link to="/auth">Login</Link>
                 </Button>
-                <Button onClick={handleSignupClick} size="sm" className="text-xs lg:text-sm">
+                <Button onClick={handleSignupClick} size="sm">
                   Sign Up
                 </Button>
               </div>
@@ -209,15 +208,15 @@ const Header = () => {
           </div>
 
           {/* Mobile Menu Button */}
-          <div className="sm:hidden">
+          <div className="md:hidden">
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="sm" className="sm:hidden">
-                  <Menu className="h-5 w-5" />
+                <Button variant="ghost" size="sm" className="md:hidden">
+                  <Menu className="h-6 w-6" />
                   <span className="sr-only">Open menu</span>
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-[280px] sm:w-[400px]">
+              <SheetContent side="right" className="w-[300px] sm:w-[400px]">
                 <div className="flex flex-col h-full">
                   <div className="flex items-center justify-between pb-4">
                     <Link to="/" className="text-xl font-bold text-blue-600">

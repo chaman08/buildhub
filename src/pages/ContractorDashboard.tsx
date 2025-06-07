@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import Header from '@/components/Header';
-import MobileBottomNav from '@/components/MobileBottomNav';
 import ContractorDashboardLayout from '@/components/contractor/ContractorDashboardLayout';
 
 const ContractorDashboard: React.FC = () => {
@@ -14,7 +13,7 @@ const ContractorDashboard: React.FC = () => {
     if (!currentUser) {
       navigate('/auth');
     } else if (userProfile?.userType !== 'contractor') {
-      navigate('/dashboard');
+      navigate('/dashboard'); // Redirect non-contractors to regular dashboard
     }
   }, [currentUser, userProfile, navigate]);
 
@@ -23,10 +22,9 @@ const ContractorDashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-16 md:pb-0">
+    <div className="min-h-screen bg-gray-50">
       <Header />
       <ContractorDashboardLayout />
-      <MobileBottomNav />
     </div>
   );
 };
