@@ -1,4 +1,3 @@
-
 import HeroSection from "@/components/HeroSection";
 import HowItWorks from "@/components/HowItWorks";
 import WhyChooseUs from "@/components/WhyChooseUs";
@@ -14,7 +13,7 @@ const Index = () => {
   const { currentUser } = useAuth();
 
   return (
-    <div className="min-h-screen bg-white pb-20 md:pb-0">
+    <div className="min-h-screen bg-white">
       <Header />
       {currentUser && <PersonalizedGreeting />}
       <HeroSection />

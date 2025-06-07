@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Home, Briefcase, FileText, CheckCircle, User, Upload, MessageCircle } from 'lucide-react';
 import ContractorHome from './ContractorHome';
@@ -27,36 +27,10 @@ const ContractorDashboardLayout: React.FC = () => {
   const [activeTab, setActiveTab] = useState('home');
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
 
-  // Handle URL hash navigation
-  useEffect(() => {
-    const handleHashChange = () => {
-      const hash = window.location.hash.replace('#', '');
-      if (hash && ['home', 'tenders', 'bids', 'projects', 'messages', 'profile', 'portfolio'].includes(hash)) {
-        setActiveTab(hash);
-      }
-    };
-
-    // Set initial tab from hash
-    handleHashChange();
-
-    // Listen for hash changes
-    window.addEventListener('hashchange', handleHashChange);
-    
-    return () => {
-      window.removeEventListener('hashchange', handleHashChange);
-    };
-  }, []);
-
-  // Update hash when tab changes
-  const handleTabChange = (value: string) => {
-    setActiveTab(value);
-    window.location.hash = value;
-  };
-
   return (
     <div className="pt-20 px-4 max-w-7xl mx-auto">
       <div className="bg-white rounded-lg shadow-sm border">
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-7 lg:grid-cols-7">
             <TabsTrigger value="home" className="flex items-center gap-2">
               <Home className="h-4 w-4" />
