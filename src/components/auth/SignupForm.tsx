@@ -24,7 +24,6 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
   const [showPhoneVerification, setShowPhoneVerification] = useState(false);
   const [phoneOTP, setPhoneOTP] = useState('');
   const [phoneConfirmationResult, setPhoneConfirmationResult] = useState<ConfirmationResult | null>(null);
-  const [isGoogleSignup, setIsGoogleSignup] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -81,11 +80,10 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
     try {
       setLoading(true);
       await signInWithGoogle();
-      setIsGoogleSignup(true);
       
       toast({
         title: "Google Account Connected!",
-        description: "You can complete your profile later from the dashboard"
+        description: "Please complete your profile in the dashboard to access all features."
       });
       
       onSuccess();
@@ -220,7 +218,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
         userType,
         mobile: fullMobile,
         city: formData.city,
-        isPhoneVerified: false,
+        isPhoneVerified: false, // Will be verified separately
         ...(userType === 'contractor' && {
           companyName: formData.companyName,
           serviceCategory: formData.serviceCategory,
