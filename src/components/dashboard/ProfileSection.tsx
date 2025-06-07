@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Edit3, Save, X } from 'lucide-react';
+import { Edit3, Save, X, Phone, CheckCircle, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -19,22 +19,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ConfirmationResult } from 'firebase/auth';
 
 const ProfileSection: React.FC = () => {
-  const { userProfile, currentUser, refreshUserProfile, sendEmailVerification, setupRecaptcha, sendPhoneOTP, verifyPhoneOTP } = useAuth();
+  const { userProfile, currentUser, refreshUserProfile, sendEmailVerification, setupRecaptcha, sendPhoneOTP, updatePhoneNumber } = useAuth();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
-  const [showVerificationDialog, setShowVerificationDialog] = useState(false);
-  const [verificationType, setVerificationType] = useState<'email' | 'phone' | null>(null);
+  const [showPhoneDialog, setShowPhoneDialog] = useState(false);
+  const [phoneStep, setPhoneStep] = useState<'input' | 'verify'>('input');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [countryCode, setCountryCode] = useState('+91');
   const [otp, setOtp] = useState('');
-  const [confirmationResult, setConfirmationResult] = useState<any>(null);
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     fullName: userProfile?.fullName || '',
     email: userProfile?.email || currentUser?.email || '',
     city: userProfile?.city || '',
-    mobile: userProfile?.mobile || '',
     occupation: userProfile?.occupation || ''
   });
 
@@ -104,11 +105,16 @@ const ProfileSection: React.FC = () => {
     }
   };
 
-  const handlePhoneVerificationStart = () => {
-    setVerificationType('phone');
-    // Extract country code and phone number from current mobile
-    if (formData.mobile) {
-      const mobile = formData.mobile;
+  const handlePhoneDialogOpen = () => {
+    // Reset phone verification state
+    setPhoneStep('input');
+    setPhoneNumber('');
+    setOtp('');
+    setConfirmationResult(null);
+    
+    // If user already has a phone number, parse it
+    if (userProfile?.mobile) {
+      const mobile = userProfile.mobile;
       const matchedCountry = countryCodes.find(c => mobile.startsWith(c.code));
       if (matchedCountry) {
         setCountryCode(matchedCountry.code);
@@ -117,10 +123,11 @@ const ProfileSection: React.FC = () => {
         setPhoneNumber(mobile);
       }
     }
-    setShowVerificationDialog(true);
+    
+    setShowPhoneDialog(true);
   };
 
-  const handlePhoneVerification = async () => {
+  const handleSendOTP = async () => {
     if (!phoneNumber) {
       toast({
         title: "Error",
@@ -130,23 +137,13 @@ const ProfileSection: React.FC = () => {
       return;
     }
 
+    setLoading(true);
     try {
       const fullPhoneNumber = `${countryCode}${phoneNumber}`;
-      
-      // First update the phone number in Firestore
-      const userRef = doc(db, 'users', currentUser!.uid);
-      await updateDoc(userRef, {
-        mobile: fullPhoneNumber,
-        isPhoneVerified: false,
-        updatedAt: new Date()
-      });
-      
-      // Update local form data
-      setFormData(prev => ({ ...prev, mobile: fullPhoneNumber }));
-      
       const recaptchaVerifier = setupRecaptcha('phone-verification');
       const result = await sendPhoneOTP(fullPhoneNumber, recaptchaVerifier);
       setConfirmationResult(result);
+      setPhoneStep('verify');
       toast({
         title: "OTP Sent",
         description: "Please enter the OTP sent to your phone number."
@@ -157,6 +154,8 @@ const ProfileSection: React.FC = () => {
         description: error.message || "Failed to send OTP.",
         variant: "destructive"
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -170,10 +169,12 @@ const ProfileSection: React.FC = () => {
       return;
     }
 
+    setLoading(true);
     try {
-      await verifyPhoneOTP(confirmationResult, otp);
+      const fullPhoneNumber = `${countryCode}${phoneNumber}`;
+      await updatePhoneNumber(fullPhoneNumber, confirmationResult, otp);
       await refreshUserProfile();
-      setShowVerificationDialog(false);
+      setShowPhoneDialog(false);
       setOtp('');
       setConfirmationResult(null);
       toast({
@@ -186,8 +187,30 @@ const ProfileSection: React.FC = () => {
         description: error.message || "Failed to verify OTP.",
         variant: "destructive"
       });
+    } finally {
+      setLoading(false);
     }
   };
+
+  const getPhoneDisplayValue = () => {
+    if (userProfile?.mobile) {
+      return userProfile.mobile;
+    }
+    return "Not provided";
+  };
+
+  const getPhoneVerificationStatus = () => {
+    if (!userProfile?.mobile) {
+      return { status: 'missing', icon: AlertCircle, color: 'text-red-600', text: 'Not provided' };
+    }
+    if (userProfile.isPhoneVerified) {
+      return { status: 'verified', icon: CheckCircle, color: 'text-green-600', text: 'Verified' };
+    }
+    return { status: 'unverified', icon: AlertCircle, color: 'text-orange-600', text: 'Unverified' };
+  };
+
+  const phoneStatus = getPhoneVerificationStatus();
+  const StatusIcon = phoneStatus.icon;
 
   return (
     <div className="space-y-6">
@@ -263,17 +286,15 @@ const ProfileSection: React.FC = () => {
                 <Label htmlFor="mobile">Mobile Number</Label>
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <Input
-                      id="mobile"
-                      value={formData.mobile}
-                      onChange={(e) => setFormData({...formData, mobile: e.target.value})}
-                      disabled={!isEditing}
-                    />
-                    {isEditing && (
-                      <Button size="sm" variant="outline" onClick={handlePhoneVerificationStart}>
-                        Verify
-                      </Button>
-                    )}
+                    <div className="flex-1 flex items-center gap-2 p-2 border rounded-md bg-gray-50">
+                      <span className="text-sm">{getPhoneDisplayValue()}</span>
+                      <StatusIcon className={`h-4 w-4 ${phoneStatus.color}`} />
+                      <span className={`text-xs ${phoneStatus.color}`}>{phoneStatus.text}</span>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={handlePhoneDialogOpen}>
+                      <Phone className="h-4 w-4 mr-1" />
+                      {userProfile?.isPhoneVerified ? 'Update' : 'Verify'}
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -321,17 +342,20 @@ const ProfileSection: React.FC = () => {
       </div>
 
       {/* Phone Verification Dialog */}
-      <Dialog open={showVerificationDialog} onOpenChange={setShowVerificationDialog}>
+      <Dialog open={showPhoneDialog} onOpenChange={setShowPhoneDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Phone Verification</DialogTitle>
             <DialogDescription>
-              Enter your phone number to receive an OTP for verification.
+              {phoneStep === 'input' 
+                ? "Enter your phone number to receive an OTP for verification."
+                : "Enter the OTP sent to your phone number."
+              }
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            {!confirmationResult ? (
+            {phoneStep === 'input' ? (
               <>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone Number</Label>
@@ -358,14 +382,17 @@ const ProfileSection: React.FC = () => {
                     />
                   </div>
                 </div>
-                <Button onClick={handlePhoneVerification} className="w-full">
-                  Send OTP
+                <Button onClick={handleSendOTP} className="w-full" disabled={loading || !phoneNumber}>
+                  {loading ? 'Sending OTP...' : 'Send OTP'}
                 </Button>
               </>
             ) : (
               <>
                 <div className="space-y-2">
                   <Label htmlFor="otp">Enter OTP</Label>
+                  <p className="text-sm text-gray-600">
+                    Code sent to {countryCode}{phoneNumber}
+                  </p>
                   <InputOTP
                     maxLength={6}
                     value={otp}
@@ -381,9 +408,14 @@ const ProfileSection: React.FC = () => {
                     </InputOTPGroup>
                   </InputOTP>
                 </div>
-                <Button onClick={handleVerifyOTP} className="w-full" disabled={otp.length !== 6}>
-                  Verify OTP
-                </Button>
+                <div className="flex space-x-2">
+                  <Button onClick={handleVerifyOTP} className="flex-1" disabled={loading || otp.length !== 6}>
+                    {loading ? 'Verifying...' : 'Verify OTP'}
+                  </Button>
+                  <Button onClick={handleSendOTP} variant="outline" disabled={loading}>
+                    Resend
+                  </Button>
+                </div>
               </>
             )}
           </div>

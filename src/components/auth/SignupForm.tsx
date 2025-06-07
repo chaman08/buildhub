@@ -6,11 +6,9 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
-import { User, Building2, Mail, Phone } from 'lucide-react';
+import { User, Building2, Mail } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { ConfirmationResult } from 'firebase/auth';
 
 interface SignupFormProps {
   onSuccess: () => void;
@@ -19,17 +17,11 @@ interface SignupFormProps {
 const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
   const [step, setStep] = useState(1);
   const [userType, setUserType] = useState<'customer' | 'contractor' | ''>('');
-  const [countryCode, setCountryCode] = useState('+91');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
-  const [phoneVerified, setPhoneVerified] = useState(false);
-  const [showPhoneOTP, setShowPhoneOTP] = useState(false);
-  const [phoneOTP, setPhoneOTP] = useState('');
-  const [phoneConfirmationResult, setPhoneConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
-    mobile: '',
     password: '',
     confirmPassword: '',
     city: '',
@@ -39,21 +31,8 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
   });
   const [loading, setLoading] = useState(false);
   
-  const { signup, signInWithGoogle, sendEmailVerification, sendPhoneOTP, verifyPhoneOTP, setupRecaptcha } = useAuth();
+  const { signup, signInWithGoogle, sendEmailVerification } = useAuth();
   const { toast } = useToast();
-
-  const countryCodes = [
-    { code: '+91', country: 'India' },
-    { code: '+1', country: 'USA' },
-    { code: '+44', country: 'UK' },
-    { code: '+86', country: 'China' },
-    { code: '+81', country: 'Japan' },
-    { code: '+33', country: 'France' },
-    { code: '+49', country: 'Germany' },
-    { code: '+61', country: 'Australia' },
-    { code: '+971', country: 'UAE' },
-    { code: '+65', country: 'Singapore' }
-  ];
 
   const serviceCategories = [
     'Civil Construction', 'Electrical', 'Plumbing', 'Painting', 'Carpentry',
@@ -98,75 +77,13 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
     }
   };
 
-  const handlePhoneVerification = async () => {
-    if (!formData.mobile) {
-      toast({
-        title: "Phone Number Required",
-        description: "Please enter your phone number",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const fullPhone = `${countryCode}${formData.mobile}`;
-      const recaptchaVerifier = setupRecaptcha('recaptcha-container');
-      const confirmationResult = await sendPhoneOTP(fullPhone, recaptchaVerifier);
-      setPhoneConfirmationResult(confirmationResult);
-      setShowPhoneOTP(true);
-      toast({
-        title: "OTP Sent",
-        description: `Verification code sent to ${fullPhone}`
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to send OTP.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePhoneOTPVerification = async () => {
-    if (!phoneConfirmationResult || phoneOTP.length !== 6) {
-      toast({
-        title: "Invalid OTP",
-        description: "Please enter a valid 6-digit OTP",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      setLoading(true);
-      await verifyPhoneOTP(phoneConfirmationResult, phoneOTP);
-      setPhoneVerified(true);
-      setShowPhoneOTP(false);
-      toast({
-        title: "Phone Verified",
-        description: "Your phone number has been verified successfully."
-      });
-    } catch (error: any) {
-      toast({
-        title: "Verification Failed",
-        description: "Invalid OTP. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleGoogleSignup = async () => {
     try {
       setLoading(true);
       await signInWithGoogle();
       toast({
         title: "Account Created!",
-        description: "Successfully signed up with Google"
+        description: "Please complete your profile and verify your phone number to get started."
       });
       onSuccess();
     } catch (error: any) {
@@ -222,13 +139,12 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
     setLoading(true);
     
     try {
-      const fullMobile = `${countryCode}${formData.mobile}`;
       const userData = {
         fullName: formData.fullName,
         userType,
-        mobile: fullMobile,
         city: formData.city,
-        isPhoneVerified: phoneVerified,
+        isEmailVerified: emailVerified,
+        isPhoneVerified: false, // Phone verification happens later
         ...(userType === 'contractor' && {
           companyName: formData.companyName,
           serviceCategory: formData.serviceCategory,
@@ -240,7 +156,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
       
       toast({
         title: "Account Created!",
-        description: emailVerified ? "Welcome to BuildHub!" : "Please verify your email to continue"
+        description: "Please complete your profile and verify your phone number to get started."
       });
       
       onSuccess();
@@ -328,66 +244,6 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
     );
   }
 
-  if (showPhoneOTP) {
-    return (
-      <Card className="w-full max-w-md mx-auto">
-        <CardHeader>
-          <CardTitle className="text-center">Verify Phone Number</CardTitle>
-          <p className="text-center text-sm text-gray-600">
-            Enter the 6-digit code sent to {countryCode}{formData.mobile}
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex justify-center">
-            <InputOTP
-              maxLength={6}
-              value={phoneOTP}
-              onChange={setPhoneOTP}
-            >
-              <InputOTPGroup>
-                <InputOTPSlot index={0} />
-                <InputOTPSlot index={1} />
-                <InputOTPSlot index={2} />
-                <InputOTPSlot index={3} />
-                <InputOTPSlot index={4} />
-                <InputOTPSlot index={5} />
-              </InputOTPGroup>
-            </InputOTP>
-          </div>
-
-          <div className="flex space-x-2">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => setShowPhoneOTP(false)}
-              className="flex-1"
-            >
-              Back
-            </Button>
-            <Button 
-              onClick={handlePhoneOTPVerification} 
-              disabled={loading || phoneOTP.length !== 6}
-              className="flex-1"
-            >
-              {loading ? 'Verifying...' : 'Verify'}
-            </Button>
-          </div>
-
-          <div className="text-center">
-            <Button 
-              variant="ghost" 
-              onClick={handlePhoneVerification}
-              disabled={loading}
-              className="text-sm"
-            >
-              Resend OTP
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
@@ -431,44 +287,6 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
               >
                 <Mail className="h-4 w-4 mr-1" />
                 {emailVerified ? 'Verified' : 'Verify'}
-              </Button>
-            </div>
-          </div>
-          
-          <div>
-            <Label htmlFor="mobile">Mobile Number</Label>
-            <div className="flex space-x-2">
-              <Select value={countryCode} onValueChange={setCountryCode}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {countryCodes.map((country) => (
-                    <SelectItem key={country.code} value={country.code}>
-                      {country.code} {country.country}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Input
-                id="mobile"
-                name="mobile"
-                type="tel"
-                placeholder="Phone Number"
-                value={formData.mobile}
-                onChange={handleInputChange}
-                className="flex-1"
-                required
-              />
-              <Button 
-                type="button" 
-                variant="outline" 
-                size="sm"
-                onClick={handlePhoneVerification}
-                disabled={!formData.mobile || phoneVerified || loading}
-              >
-                <Phone className="h-4 w-4 mr-1" />
-                {phoneVerified ? 'Verified' : 'Verify'}
               </Button>
             </div>
           </div>
@@ -538,6 +356,12 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
               </div>
             </>
           )}
+
+          <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+            <p className="text-sm text-blue-800">
+              📱 <strong>Note:</strong> You'll need to verify your phone number after creating your account to complete your profile and access all features.
+            </p>
+          </div>
           
           <div className="flex items-center space-x-2">
             <Checkbox 

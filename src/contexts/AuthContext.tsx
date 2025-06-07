@@ -21,7 +21,7 @@ export interface UserProfile {
   email?: string;
   fullName: string;
   userType: 'customer' | 'contractor';
-  mobile: string;
+  mobile?: string; // Made optional since phone verification is required
   city?: string;
   occupation?: string;
   profilePicture?: string;
@@ -58,6 +58,7 @@ interface AuthContextType {
   setupRecaptcha: (elementId: string) => RecaptchaVerifier;
   sendPhoneOTP: (phoneNumber: string, recaptchaVerifier: RecaptchaVerifier) => Promise<ConfirmationResult>;
   verifyPhoneOTP: (confirmationResult: ConfirmationResult, otp: string, userData?: Partial<UserProfile>) => Promise<void>;
+  updatePhoneNumber: (phoneNumber: string, confirmationResult: ConfirmationResult, otp: string) => Promise<void>;
   isVerificationComplete: () => boolean;
   isAdmin: () => boolean;
   isProfileComplete: () => boolean;
@@ -90,18 +91,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: user.email || '',
         fullName: additionalData.fullName || user.displayName || '',
         userType: additionalData.userType || 'customer',
-        mobile: additionalData.mobile || '',
+        mobile: undefined, // Always start without phone number
         city: additionalData.city || '',
         occupation: additionalData.occupation || '',
         profilePicture: additionalData.profilePicture || user.photoURL || '',
         isEmailVerified: user.emailVerified,
-        isPhoneVerified: additionalData.isPhoneVerified || false,
+        isPhoneVerified: false, // Always start with phone unverified
         isDocumentVerified: false,
         isAdmin: false,
-        profileComplete: additionalData.profileComplete || false,
+        profileComplete: false, // Profile is incomplete without verified phone
         createdAt: now,
         updatedAt: now,
-        ...additionalData
+        ...additionalData,
+        // Override these to ensure proper verification workflow
+        mobile: undefined,
+        isPhoneVerified: false,
+        profileComplete: false
       };
       
       await setDoc(userRef, profileData);
@@ -117,11 +122,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Send email verification
     await sendEmailVerification(user);
     
-    // Create user profile in Firestore
+    // Create user profile in Firestore without phone number
     const profileData = await createUserProfile(user, {
       ...userData,
       isEmailVerified: false,
-      profileComplete: false
+      isPhoneVerified: false,
+      profileComplete: false,
+      mobile: undefined // Remove any phone number from signup
     });
     
     setUserProfile(profileData);
@@ -145,11 +152,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
     
-    // Create or update user profile
+    // Create or update user profile without phone verification
     const profileData = await createUserProfile(result.user, {
       isEmailVerified: result.user.emailVerified,
       isPhoneVerified: false,
-      profileComplete: false
+      profileComplete: false,
+      mobile: undefined // No phone number from Google signup
     });
     
     setUserProfile(profileData);
@@ -228,6 +236,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // New method specifically for updating phone number with verification
+  const updatePhoneNumber = async (phoneNumber: string, confirmationResult: ConfirmationResult, otp: string): Promise<void> => {
+    if (!currentUser) throw new Error('No authenticated user');
+    
+    await confirmationResult.confirm(otp);
+    
+    const now = new Date();
+    await setDoc(doc(db, 'users', currentUser.uid), {
+      mobile: phoneNumber,
+      isPhoneVerified: true,
+      updatedAt: now
+    }, { merge: true });
+    
+    await refreshUserProfile();
+  };
+
   const isVerificationComplete = (): boolean => {
     if (!userProfile) return false;
     return userProfile.isEmailVerified || userProfile.isPhoneVerified;
@@ -240,6 +264,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isProfileComplete = (): boolean => {
     if (!userProfile) return false;
     
+    // Profile cannot be complete without phone verification
+    if (!userProfile.isPhoneVerified || !userProfile.mobile) {
+      return false;
+    }
+    
     // Check if the profile is explicitly marked as complete
     if (userProfile.profileComplete === true) {
       return true;
@@ -247,14 +276,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // If not explicitly marked, check for required fields
     if (userProfile.userType === 'customer') {
-      return !!(userProfile.fullName && userProfile.mobile && userProfile.city);
+      return !!(userProfile.fullName && userProfile.mobile && userProfile.city && userProfile.isPhoneVerified);
     } else if (userProfile.userType === 'contractor') {
       return !!(
         userProfile.fullName && 
         userProfile.mobile && 
         userProfile.city &&
         userProfile.companyName &&
-        userProfile.serviceCategory
+        userProfile.serviceCategory &&
+        userProfile.isPhoneVerified
       );
     }
     
@@ -263,6 +293,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   const markProfileComplete = async (): Promise<void> => {
     if (!currentUser || !userProfile) return;
+    
+    // Cannot mark profile complete without phone verification
+    if (!userProfile.isPhoneVerified || !userProfile.mobile) {
+      throw new Error('Phone number must be verified before completing profile');
+    }
     
     const userRef = doc(db, 'users', currentUser.uid);
     await setDoc(userRef, {
@@ -325,6 +360,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setupRecaptcha,
     sendPhoneOTP,
     verifyPhoneOTP,
+    updatePhoneNumber,
     isVerificationComplete,
     isAdmin,
     isProfileComplete,
