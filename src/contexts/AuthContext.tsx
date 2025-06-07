@@ -1,376 +1,205 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { 
-  User, 
-  createUserWithEmailAndPassword, 
+  User,
   signInWithEmailAndPassword,
-  signInWithPopup,
-  GoogleAuthProvider,
+  createUserWithEmailAndPassword,
   signOut,
-  sendEmailVerification,
   onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithPopup,
   RecaptchaVerifier,
   signInWithPhoneNumber,
-  ConfirmationResult,
-  updateEmail
+  ConfirmationResult
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 
-export interface UserProfile {
+interface AuthContextProps {
+  children: ReactNode;
+}
+
+// Define the structure of a user profile
+interface UserProfile {
   uid: string;
-  email?: string;
+  email: string;
   fullName: string;
+  mobile: string;
   userType: 'customer' | 'contractor';
-  mobile?: string; // Made optional since phone verification is required
-  city?: string;
-  occupation?: string;
+  profileComplete: boolean;
+  createdAt: any;
   profilePicture?: string;
-  isEmailVerified: boolean;
-  isPhoneVerified: boolean;
-  isDocumentVerified?: boolean;
-  isAdmin?: boolean;
-  profileComplete?: boolean;
-  // Contractor specific fields
   companyName?: string;
   serviceCategory?: string;
-  experience?: number;
-  documents?: string[];
-  verificationBadge?: boolean;
+  experience?: string;
+  location?: string;
+  bio?: string;
+  website?: string;
+  socialLinks?: {
+    linkedin?: string;
+    twitter?: string;
+    facebook?: string;
+  };
   rating?: number;
-  // Customer specific fields
-  projectsPosted?: number;
-  createdAt?: Date;
-  updatedAt?: Date;
+  reviewCount?: number;
+  isPhoneVerified?: boolean;
+  countryCode?: string;
 }
 
 interface AuthContextType {
   currentUser: User | null;
   userProfile: UserProfile | null;
-  loading: boolean;
-  signup: (email: string, password: string, userData: Partial<UserProfile>) => Promise<void>;
-  signupWithPhone: (phoneNumber: string, userData: Partial<UserProfile>) => Promise<ConfirmationResult>;
   login: (email: string, password: string) => Promise<void>;
-  loginWithPhone: (phoneNumber: string) => Promise<ConfirmationResult>;
-  signInWithGoogle: () => Promise<void>;
+  signup: (email: string, password: string, userData: Partial<UserProfile>) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
-  sendEmailVerification: () => Promise<void>;
-  refreshUserProfile: () => Promise<void>;
+  updateProfile: (data: Partial<UserProfile>) => Promise<void>;
   setupRecaptcha: (elementId: string) => RecaptchaVerifier;
-  sendPhoneOTP: (phoneNumber: string, recaptchaVerifier: RecaptchaVerifier) => Promise<ConfirmationResult>;
-  verifyPhoneOTP: (confirmationResult: ConfirmationResult, otp: string, userData?: Partial<UserProfile>) => Promise<void>;
-  updatePhoneNumber: (phoneNumber: string, confirmationResult: ConfirmationResult, otp: string) => Promise<void>;
-  isVerificationComplete: () => boolean;
-  isAdmin: () => boolean;
-  isProfileComplete: () => boolean;
-  markProfileComplete: () => Promise<void>;
+  verifyPhoneNumber: (phoneNumber: string, recaptchaVerifier: RecaptchaVerifier) => Promise<ConfirmationResult>;
+  confirmVerificationCode: (confirmationResult: ConfirmationResult, code: string) => Promise<void>;
+  loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 };
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const createUserProfile = async (user: User, additionalData: Partial<UserProfile> = {}) => {
-    const userRef = doc(db, 'users', user.uid);
-    const userDoc = await getDoc(userRef);
-    
-    if (!userDoc.exists()) {
-      const now = new Date();
-      const profileData: UserProfile = {
-        uid: user.uid,
-        email: user.email || '',
-        fullName: additionalData.fullName || user.displayName || '',
-        userType: additionalData.userType || 'customer',
-        city: additionalData.city || '',
-        occupation: additionalData.occupation || '',
-        profilePicture: additionalData.profilePicture || user.photoURL || '',
-        isEmailVerified: user.emailVerified,
-        isPhoneVerified: false, // Always start with phone unverified
-        isDocumentVerified: false,
-        isAdmin: false,
-        profileComplete: false, // Profile is incomplete without verified phone
-        mobile: undefined, // Always start without phone number
-        createdAt: now,
-        updatedAt: now,
-        // Include other additional data but override verification settings
-        ...additionalData,
-        // Force these values to ensure proper verification workflow
-        isPhoneVerified: false,
-        profileComplete: false,
-        mobile: undefined
-      };
-      
-      await setDoc(userRef, profileData);
-      return profileData;
-    }
-    
-    return userDoc.data() as UserProfile;
-  };
-
-  const signup = async (email: string, password: string, userData: Partial<UserProfile>) => {
-    const { user } = await createUserWithEmailAndPassword(auth, email, password);
-    
-    // Send email verification
-    await sendEmailVerification(user);
-    
-    // Create user profile in Firestore without phone number
-    const profileData = await createUserProfile(user, {
-      ...userData,
-      isEmailVerified: false,
-      isPhoneVerified: false,
-      profileComplete: false,
-      mobile: undefined // Remove any phone number from signup
-    });
-    
-    setUserProfile(profileData);
-  };
-
-  const signupWithPhone = async (phoneNumber: string, userData: Partial<UserProfile>): Promise<ConfirmationResult> => {
-    const recaptchaVerifier = setupRecaptcha('recaptcha-container');
-    return await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
-  };
-
-  const login = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
-  };
-
-  const loginWithPhone = async (phoneNumber: string): Promise<ConfirmationResult> => {
-    const recaptchaVerifier = setupRecaptcha('recaptcha-container');
-    return await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
-  };
-
-  const signInWithGoogle = async () => {
-    const provider = new GoogleAuthProvider();
-    const result = await signInWithPopup(auth, provider);
-    
-    // Create or update user profile without phone verification
-    const profileData = await createUserProfile(result.user, {
-      isEmailVerified: result.user.emailVerified,
-      isPhoneVerified: false,
-      profileComplete: false,
-      mobile: undefined // No phone number from Google signup
-    });
-    
-    setUserProfile(profileData);
-  };
-
-  const logout = async () => {
-    await signOut(auth);
-    setUserProfile(null);
-  };
-
-  const sendEmailVerificationHandler = async () => {
-    if (currentUser) {
-      await sendEmailVerification(currentUser);
-    }
-  };
-
-  const refreshUserProfile = async () => {
-    if (currentUser) {
-      await currentUser.reload();
-      const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-      if (userDoc.exists()) {
-        const profile = userDoc.data() as UserProfile;
-        
-        // Update email verification status if it changed
-        if (profile.isEmailVerified !== currentUser.emailVerified) {
-          profile.isEmailVerified = currentUser.emailVerified;
-          profile.updatedAt = new Date();
-          
-          await setDoc(doc(db, 'users', currentUser.uid), {
-            isEmailVerified: currentUser.emailVerified,
-            updatedAt: profile.updatedAt
-          }, { merge: true });
-        }
-        
-        setUserProfile(profile);
-      }
-    }
-  };
-
-  const setupRecaptcha = (elementId: string): RecaptchaVerifier => {
-    return new RecaptchaVerifier(auth, elementId, {
-      size: 'invisible',
-      callback: () => {
-        // reCAPTCHA solved
-      }
-    });
-  };
-
-  const sendPhoneOTP = async (phoneNumber: string, recaptchaVerifier: RecaptchaVerifier): Promise<ConfirmationResult> => {
-    return await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
-  };
-
-  const verifyPhoneOTP = async (confirmationResult: ConfirmationResult, otp: string, userData?: Partial<UserProfile>): Promise<void> => {
-    const result = await confirmationResult.confirm(otp);
-    
-    if (userData && result.user) {
-      // New phone signup - create user profile with phone verified
-      const profileData = await createUserProfile(result.user, {
-        ...userData,
-        mobile: userData.mobile || result.user.phoneNumber || '',
-        isEmailVerified: false,
-        isPhoneVerified: true,
-        profileComplete: userData.profileComplete || false
-      });
-      
-      setUserProfile(profileData);
-    } else if (currentUser) {
-      // Update existing user profile to mark phone as verified
-      const now = new Date();
-      await setDoc(doc(db, 'users', currentUser.uid), {
-        isPhoneVerified: true,
-        updatedAt: now
-      }, { merge: true });
-      
-      await refreshUserProfile();
-    }
-  };
-
-  // New method specifically for updating phone number with verification
-  const updatePhoneNumber = async (phoneNumber: string, confirmationResult: ConfirmationResult, otp: string): Promise<void> => {
-    if (!currentUser) throw new Error('No authenticated user');
-    
-    await confirmationResult.confirm(otp);
-    
-    const now = new Date();
-    await setDoc(doc(db, 'users', currentUser.uid), {
-      mobile: phoneNumber,
-      isPhoneVerified: true,
-      updatedAt: now
-    }, { merge: true });
-    
-    await refreshUserProfile();
-  };
-
-  const isVerificationComplete = (): boolean => {
-    if (!userProfile) return false;
-    return userProfile.isEmailVerified || userProfile.isPhoneVerified;
-  };
-
-  const isAdmin = (): boolean => {
-    return userProfile?.isAdmin === true;
-  };
-  
-  const isProfileComplete = (): boolean => {
-    if (!userProfile) return false;
-    
-    // Profile cannot be complete without phone verification
-    if (!userProfile.isPhoneVerified || !userProfile.mobile) {
-      return false;
-    }
-    
-    // Check if the profile is explicitly marked as complete
-    if (userProfile.profileComplete === true) {
-      return true;
-    }
-    
-    // If not explicitly marked, check for required fields
-    if (userProfile.userType === 'customer') {
-      return !!(userProfile.fullName && userProfile.mobile && userProfile.city && userProfile.isPhoneVerified);
-    } else if (userProfile.userType === 'contractor') {
-      return !!(
-        userProfile.fullName && 
-        userProfile.mobile && 
-        userProfile.city &&
-        userProfile.companyName &&
-        userProfile.serviceCategory &&
-        userProfile.isPhoneVerified
-      );
-    }
-    
-    return false;
-  };
-  
-  const markProfileComplete = async (): Promise<void> => {
-    if (!currentUser || !userProfile) return;
-    
-    // Cannot mark profile complete without phone verification
-    if (!userProfile.isPhoneVerified || !userProfile.mobile) {
-      throw new Error('Phone number must be verified before completing profile');
-    }
-    
-    const userRef = doc(db, 'users', currentUser.uid);
-    await setDoc(userRef, {
-      profileComplete: true,
-      updatedAt: new Date()
-    }, { merge: true });
-    
-    await refreshUserProfile();
-  };
-
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
-      
       if (user) {
-        // Fetch user profile from Firestore
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          const profile = userDoc.data() as UserProfile;
-          
-          // Update email verification status if changed
-          if (profile.isEmailVerified !== user.emailVerified) {
-            profile.isEmailVerified = user.emailVerified;
-            profile.updatedAt = new Date();
-            
-            await setDoc(doc(db, 'users', user.uid), {
-              isEmailVerified: user.emailVerified,
-              updatedAt: profile.updatedAt
-            }, { merge: true });
-          }
-          
-          setUserProfile(profile);
-        } else {
-          // Create profile for existing user (migration case)
-          const profileData = await createUserProfile(user);
-          setUserProfile(profileData);
-        }
+        await fetchUserProfile(user.uid);
       } else {
         setUserProfile(null);
       }
-      
       setLoading(false);
     });
 
     return unsubscribe;
   }, []);
 
-  const value = {
+  const fetchUserProfile = async (uid: string) => {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', uid));
+      if (userDoc.exists()) {
+        setUserProfile(userDoc.data() as UserProfile);
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
+
+  const signup = async (email: string, password: string, userData: Partial<UserProfile>) => {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+
+    const profileData: UserProfile = {
+      uid: user.uid,
+      email: user.email!,
+      fullName: userData.fullName || '',
+      mobile: userData.mobile || '',
+      userType: userData.userType || 'customer',
+      profileComplete: false,
+      createdAt: new Date(),
+      isPhoneVerified: false,
+      countryCode: userData.countryCode || '+91'
+    };
+
+    await setDoc(doc(db, 'users', user.uid), profileData);
+    setUserProfile(profileData);
+  };
+
+  const login = async (email: string, password: string) => {
+    await signInWithEmailAndPassword(auth, email, password);
+  };
+
+  const loginWithGoogle = async () => {
+    const provider = new GoogleAuthProvider();
+    const result = await signInWithPopup(auth, provider);
+    const user = result.user;
+
+    const userDoc = await getDoc(doc(db, 'users', user.uid));
+    
+    if (!userDoc.exists()) {
+      const profileData: UserProfile = {
+        uid: user.uid,
+        email: user.email!,
+        fullName: user.displayName || '',
+        mobile: '',
+        userType: 'customer',
+        profileComplete: false,
+        createdAt: new Date(),
+        profilePicture: user.photoURL || undefined,
+        isPhoneVerified: false,
+        countryCode: '+91'
+      };
+
+      await setDoc(doc(db, 'users', user.uid), profileData);
+      setUserProfile(profileData);
+    }
+  };
+
+  const logout = async () => {
+    await signOut(auth);
+  };
+
+  const updateProfile = async (data: Partial<UserProfile>) => {
+    if (!currentUser) throw new Error('No user logged in');
+
+    await updateDoc(doc(db, 'users', currentUser.uid), data);
+    setUserProfile(prev => prev ? { ...prev, ...data } : null);
+  };
+
+  const setupRecaptcha = (elementId: string): RecaptchaVerifier => {
+    return new RecaptchaVerifier(auth, elementId, {
+      'size': 'invisible',
+      'callback': () => {
+        console.log('reCAPTCHA solved');
+      }
+    });
+  };
+
+  const verifyPhoneNumber = async (phoneNumber: string, recaptchaVerifier: RecaptchaVerifier): Promise<ConfirmationResult> => {
+    return await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
+  };
+
+  const confirmVerificationCode = async (confirmationResult: ConfirmationResult, code: string): Promise<void> => {
+    await confirmationResult.confirm(code);
+    
+    if (currentUser) {
+      await updateProfile({
+        isPhoneVerified: true
+      });
+    }
+  };
+
+  const value: AuthContextType = {
     currentUser,
     userProfile,
-    loading,
-    signup,
-    signupWithPhone,
     login,
-    loginWithPhone,
-    signInWithGoogle,
+    signup,
+    loginWithGoogle,
     logout,
-    sendEmailVerification: sendEmailVerificationHandler,
-    refreshUserProfile,
+    updateProfile,
     setupRecaptcha,
-    sendPhoneOTP,
-    verifyPhoneOTP,
-    updatePhoneNumber,
-    isVerificationComplete,
-    isAdmin,
-    isProfileComplete,
-    markProfileComplete
+    verifyPhoneNumber,
+    confirmVerificationCode,
+    loading
   };
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };
