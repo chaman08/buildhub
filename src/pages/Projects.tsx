@@ -5,6 +5,7 @@ import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import Header from '@/components/Header';
 import ProjectCard from '@/components/ProjectCard';
+import MobileFilterButton from '@/components/MobileFilterButton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -148,6 +149,78 @@ const Projects = () => {
     setFilteredProjects(filtered);
   };
 
+  const FilterContent = () => (
+    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="relative">
+        <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+        <Input
+          placeholder="Search projects..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+      
+      <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+        <SelectTrigger>
+          <SelectValue placeholder="All Categories" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Categories</SelectItem>
+          {categories.map((category) => (
+            <SelectItem key={category} value={category}>
+              {category}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select value={selectedBudget} onValueChange={setSelectedBudget}>
+        <SelectTrigger>
+          <SelectValue placeholder="Budget Range" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Budgets</SelectItem>
+          {budgetRanges.map((range) => (
+            <SelectItem key={range.value} value={range.value}>
+              {range.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+        <SelectTrigger>
+          <SelectValue placeholder="All Locations" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Locations</SelectItem>
+          {availableLocations.map((location) => (
+            <SelectItem key={location} value={location}>
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                {location}
+              </div>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Button
+        variant="outline"
+        onClick={() => {
+          setSearchTerm('');
+          setSelectedCategory('');
+          setSelectedBudget('');
+          setSelectedLocation('');
+        }}
+        className="md:block hidden"
+      >
+        Clear Filters
+      </Button>
+    </div>
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -169,77 +242,27 @@ const Projects = () => {
           <p className="text-gray-600">Browse and bid on construction projects ({projects.length} projects available)</p>
         </div>
 
-        {/* Search and Filters */}
-        <Card className="mb-6">
+        {/* Mobile Filter Button */}
+        <MobileFilterButton title="Project Filters">
+          <FilterContent />
+          <Button
+            variant="outline"
+            onClick={() => {
+              setSearchTerm('');
+              setSelectedCategory('');
+              setSelectedBudget('');
+              setSelectedLocation('');
+            }}
+            className="w-full mt-4"
+          >
+            Clear Filters
+          </Button>
+        </MobileFilterButton>
+
+        {/* Desktop Search and Filters */}
+        <Card className="mb-6 hidden md:block">
           <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search projects..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Categories" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {categories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={selectedBudget} onValueChange={setSelectedBudget}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Budget Range" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Budgets</SelectItem>
-                  {budgetRanges.map((range) => (
-                    <SelectItem key={range.value} value={range.value}>
-                      {range.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Locations" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Locations</SelectItem>
-                  {availableLocations.map((location) => (
-                    <SelectItem key={location} value={location}>
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4" />
-                        {location}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setSearchTerm('');
-                  setSelectedCategory('');
-                  setSelectedBudget('');
-                  setSelectedLocation('');
-                }}
-              >
-                Clear Filters
-              </Button>
-            </div>
+            <FilterContent />
           </CardContent>
         </Card>
 
