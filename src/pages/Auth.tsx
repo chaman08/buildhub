@@ -4,18 +4,26 @@ import { useNavigate } from 'react-router-dom';
 import LoginForm from '@/components/auth/LoginForm';
 import SignupForm from '@/components/auth/SignupForm';
 import ProfileCompletion from '@/components/auth/ProfileCompletion';
+import PhoneVerificationModal from '@/components/PhoneVerificationModal';
 import { useAuth } from '@/contexts/AuthContext';
 import Header from '@/components/Header';
 
 const Auth: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
+  const [showPhoneVerification, setShowPhoneVerification] = useState(false);
   const navigate = useNavigate();
-  const { currentUser, userProfile, isVerificationComplete } = useAuth();
+  const { currentUser, userProfile, isVerificationComplete, isProfileComplete } = useAuth();
 
   useEffect(() => {
     if (currentUser && userProfile) {
-      // Check if Google user needs to complete profile
-      if (!userProfile.mobile) {
+      // Check if Google user needs phone verification
+      if (userProfile.requiresPhoneVerification && !userProfile.isPhoneVerified) {
+        setShowPhoneVerification(true);
+        return;
+      }
+
+      // Check if user needs to complete profile (missing mobile)
+      if (!userProfile.mobile || !userProfile.city) {
         // Show profile completion, don't navigate
         return;
       }
@@ -38,8 +46,30 @@ const Auth: React.FC = () => {
     // Navigation will be handled by the useEffect above
   };
 
-  // Show profile completion for Google users with incomplete profiles
-  if (currentUser && userProfile && !userProfile.mobile) {
+  const handlePhoneVerificationComplete = () => {
+    setShowPhoneVerification(false);
+    // This will trigger the useEffect to check profile completion
+  };
+
+  // Show phone verification modal for Google users
+  if (showPhoneVerification && currentUser && userProfile?.requiresPhoneVerification) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+        <Header />
+        <div className="pt-20 px-4 sm:px-6 lg:px-8">
+          <PhoneVerificationModal
+            open={showPhoneVerification}
+            onOpenChange={setShowPhoneVerification}
+            onVerificationComplete={handlePhoneVerificationComplete}
+            isRequired={true}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Show profile completion for users with incomplete profiles
+  if (currentUser && userProfile && (!userProfile.mobile || !userProfile.city)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
         <Header />
