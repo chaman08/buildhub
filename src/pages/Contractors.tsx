@@ -1,50 +1,44 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+import { Link, useNavigate } from 'react-router-dom';
+import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useAuth } from '@/contexts/AuthContext';
 import Header from '@/components/Header';
-import ContractorPreview from '@/components/ContractorPreview';
-import MobileFilterButton from '@/components/MobileFilterButton';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, MapPin, Star } from 'lucide-react';
+import { Search, MapPin, Star, Shield, Phone, Mail } from 'lucide-react';
 
 interface Contractor {
-  id: string;
+  uid: string;
   fullName: string;
-  companyName: string;
+  companyName?: string;
+  profilePicture?: string;
+  city: string;
   serviceCategory: string;
   experience: number;
-  city: string;
-  profilePicture?: string;
+  verified: boolean;
   rating?: number;
-  completedProjects?: number;
-  description?: string;
-  skills?: string[];
+  reviewsCount?: number;
+  mobile: string;
+  email: string;
+  bio?: string;
 }
 
 const Contractors = () => {
+  const { currentUser } = useAuth();
+  const navigate = useNavigate();
   const [contractors, setContractors] = useState<Contractor[]>([]);
   const [filteredContractors, setFilteredContractors] = useState<Contractor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [selectedExperience, setSelectedExperience] = useState('');
-  const [selectedLocation, setSelectedLocation] = useState('');
-  const [availableLocations, setAvailableLocations] = useState<string[]>([]);
+  const [selectedCity, setSelectedCity] = useState('');
 
-  const serviceCategories = [
-    'Civil Construction', 'Electrical', 'Plumbing', 'Painting', 'Carpentry',
-    'Interior Design', 'Architecture', 'Landscaping', 'Roofing', 'Flooring'
-  ];
-
-  const experienceRanges = [
-    { label: '0-2 years', value: '0-2' },
-    { label: '3-5 years', value: '3-5' },
-    { label: '6-10 years', value: '6-10' },
-    { label: '10+ years', value: '10-100' }
-  ];
+  const categories = ['Civil Work', 'Electrical', 'Plumbing', 'Interior Design', 'Architecture', 'Landscaping'];
 
   useEffect(() => {
     fetchContractors();
@@ -52,28 +46,32 @@ const Contractors = () => {
 
   useEffect(() => {
     filterContractors();
-  }, [contractors, searchTerm, selectedCategory, selectedExperience, selectedLocation]);
+  }, [contractors, searchTerm, selectedCategory, selectedCity]);
 
   const fetchContractors = async () => {
     try {
-      setLoading(true);
-      const contractorsCollection = collection(db, 'users');
-      const snapshot = await getDocs(contractorsCollection);
+      console.log('Fetching contractors from Firestore...');
       
-      const contractorData = snapshot.docs
-        .map(doc => {
-          const data = doc.data();
-          if (data.userType === 'contractor') {
-            return { id: doc.id, ...data } as Contractor;
-          }
-          return null;
-        })
-        .filter(Boolean) as Contractor[];
+      // First try to get all users to debug
+      const allUsersSnapshot = await getDocs(collection(db, 'users'));
+      console.log('Total users in collection:', allUsersSnapshot.size);
       
-      // Extract unique locations for the filter
-      const locations = [...new Set(contractorData.map(contractor => contractor.city).filter(Boolean))].sort();
-      setAvailableLocations(locations);
-
+      const contractorQuery = query(
+        collection(db, 'users'),
+        where('userType', '==', 'contractor')
+      );
+      const snapshot = await getDocs(contractorQuery);
+      console.log('Contractors fetched:', snapshot.size);
+      
+      const contractorData = snapshot.docs.map(doc => {
+        const data = doc.data();
+        console.log('Contractor data:', { uid: doc.id, ...data });
+        return {
+          uid: doc.id,
+          ...data
+        };
+      }) as Contractor[];
+      
       setContractors(contractorData);
     } catch (error) {
       console.error('Error fetching contractors:', error);
@@ -88,9 +86,7 @@ const Contractors = () => {
     if (searchTerm) {
       filtered = filtered.filter(contractor =>
         contractor.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        contractor.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        contractor.serviceCategory.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        contractor.city.toLowerCase().includes(searchTerm.toLowerCase())
+        contractor.companyName?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -100,93 +96,40 @@ const Contractors = () => {
       );
     }
 
-    if (selectedExperience && selectedExperience !== 'all') {
-      const [min, max] = selectedExperience.split('-').map(Number);
+    if (selectedCity && selectedCity !== 'all') {
       filtered = filtered.filter(contractor =>
-        contractor.experience >= min && contractor.experience <= max
-      );
-    }
-
-    if (selectedLocation && selectedLocation !== 'all') {
-      filtered = filtered.filter(contractor =>
-        contractor.city === selectedLocation
+        contractor.city === selectedCity
       );
     }
 
     setFilteredContractors(filtered);
   };
 
-  const FilterContent = () => (
-    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-      <div className="relative">
-        <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-        <Input
-          placeholder="Search contractors..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
-      </div>
-      
-      <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-        <SelectTrigger>
-          <SelectValue placeholder="All Categories" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Categories</SelectItem>
-          {serviceCategories.map((category) => (
-            <SelectItem key={category} value={category}>
-              {category}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+  const uniqueCities = [...new Set(contractors.map(c => c.city))].filter(Boolean);
 
-      <Select value={selectedExperience} onValueChange={setSelectedExperience}>
-        <SelectTrigger>
-          <SelectValue placeholder="Experience" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Experience</SelectItem>
-          {experienceRanges.map((range) => (
-            <SelectItem key={range.value} value={range.value}>
-              {range.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+  const handleViewProfile = (contractorId: string) => {
+    if (!currentUser) {
+      navigate('/auth');
+      return;
+    }
+    navigate(`/contractor/${contractorId}`);
+  };
 
-      <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-        <SelectTrigger>
-          <SelectValue placeholder="All Locations" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All Locations</SelectItem>
-          {availableLocations.map((location) => (
-            <SelectItem key={location} value={location}>
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
-                {location}
-              </div>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+  const handleCall = (phone: string) => {
+    if (!currentUser) {
+      navigate('/auth');
+      return;
+    }
+    window.location.href = `tel:${phone}`;
+  };
 
-      <Button
-        variant="outline"
-        onClick={() => {
-          setSearchTerm('');
-          setSelectedCategory('');
-          setSelectedExperience('');
-          setSelectedLocation('');
-        }}
-        className="md:block hidden"
-      >
-        Clear Filters
-      </Button>
-    </div>
-  );
+  const handleEmail = (email: string) => {
+    if (!currentUser) {
+      navigate('/auth');
+      return;
+    }
+    window.location.href = `mailto:${email}`;
+  };
 
   if (loading) {
     return (
@@ -206,37 +149,158 @@ const Contractors = () => {
       <div className="pt-20 px-4 max-w-7xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Find Contractors</h1>
-          <p className="text-gray-600">Browse verified contractors for your construction projects ({contractors.length} contractors available)</p>
+          <p className="text-gray-600">Connect with verified construction professionals ({contractors.length} contractors available)</p>
         </div>
 
-        {/* Mobile Filter Button */}
-        <MobileFilterButton title="Contractor Filters">
-          <FilterContent />
-          <Button
-            variant="outline"
-            onClick={() => {
-              setSearchTerm('');
-              setSelectedCategory('');
-              setSelectedExperience('');
-              setSelectedLocation('');
-            }}
-            className="w-full mt-4"
-          >
-            Clear Filters
-          </Button>
-        </MobileFilterButton>
-
-        {/* Desktop Search and Filters */}
-        <Card className="mb-6 hidden md:block">
+        {/* Search and Filters */}
+        <Card className="mb-6">
           <CardContent className="p-6">
-            <FilterContent />
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search contractors..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {categories.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={selectedCity} onValueChange={setSelectedCity}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Cities" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Cities</SelectItem>
+                  {uniqueCities.map((city) => (
+                    <SelectItem key={city} value={city}>
+                      {city}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSearchTerm('');
+                  setSelectedCategory('');
+                  setSelectedCity('');
+                }}
+              >
+                Clear Filters
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
+        {/* Debug Info */}
+        {contractors.length === 0 && !loading && (
+          <Card className="mb-6 border-orange-200 bg-orange-50">
+            <CardContent className="p-4">
+              <p className="text-orange-800">
+                <strong>Debug:</strong> No contractors found in database. Please check:
+                <br />• Firestore collection "users" exists
+                <br />• Documents have userType: "contractor"
+                <br />• Console logs for any errors
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Contractors Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredContractors.map((contractor) => (
-            <ContractorPreview key={contractor.id} contractor={contractor} />
+            <Card key={contractor.uid} className="hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-16 w-16">
+                    <AvatarImage src={contractor.profilePicture} />
+                    <AvatarFallback className="text-lg">
+                      {contractor.fullName.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-lg">{contractor.fullName}</h3>
+                      {contractor.verified && (
+                        <Shield className="h-4 w-4 text-green-600" />
+                      )}
+                    </div>
+                    {contractor.companyName && (
+                      <p className="text-sm text-gray-600">{contractor.companyName}</p>
+                    )}
+                  </div>
+                </div>
+              </CardHeader>
+              
+              <CardContent className="space-y-4">
+                <Badge variant="outline" className="w-fit">
+                  {contractor.serviceCategory}
+                </Badge>
+
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <MapPin className="h-4 w-4" />
+                  {contractor.city}
+                </div>
+
+                <div className="text-sm">
+                  <span className="font-medium">{contractor.experience}+ years</span> experience
+                </div>
+
+                {contractor.rating && (
+                  <div className="flex items-center gap-1">
+                    <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                    <span className="font-medium">{contractor.rating}</span>
+                    {contractor.reviewsCount && (
+                      <span className="text-gray-500 text-sm">({contractor.reviewsCount} reviews)</span>
+                    )}
+                  </div>
+                )}
+
+                {contractor.bio && (
+                  <p className="text-sm text-gray-600 line-clamp-2">{contractor.bio}</p>
+                )}
+
+                <div className="flex gap-2 pt-4 border-t">
+                  <Button 
+                    size="sm" 
+                    className="flex-1"
+                    onClick={() => handleViewProfile(contractor.uid)}
+                  >
+                    View Profile
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => handleCall(contractor.mobile)}
+                  >
+                    <Phone className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => handleEmail(contractor.email)}
+                  >
+                    <Mail className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
 

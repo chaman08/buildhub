@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -78,11 +79,11 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
 
     try {
       setLoading(true);
-      await signInWithGoogle(userType);
+      await signInWithGoogle();
       
       toast({
         title: "Google Account Connected!",
-        description: "Please complete your profile to access all features."
+        description: "Please complete your profile in the dashboard to access all features."
       });
       
       onSuccess();
@@ -255,7 +256,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
           <Button
             onClick={handleGoogleSignup}
             variant="outline"
-            className="w-full mb-4"
+            className="w-full"
             disabled={loading || !userType}
           >
             <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24">

@@ -325,23 +325,21 @@ export const ProfileManagement = () => {
               />
             </div>
 
-            {/* Only show user type selector for contractors, customers cannot change */}
-            {userProfile?.userType === 'contractor' && (
-              <div className="space-y-2">
-                <Label htmlFor="userType">User Type *</Label>
-                <Select
-                  value={formData.userType}
-                  onValueChange={(value) => handleSelectChange('userType', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select user type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="contractor">Contractor</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <div className="space-y-2">
+              <Label htmlFor="userType">User Type *</Label>
+              <Select
+                value={formData.userType}
+                onValueChange={(value) => handleSelectChange('userType', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select user type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="customer">Customer</SelectItem>
+                  <SelectItem value="contractor">Contractor</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             {formData.userType === 'contractor' && (
               <>

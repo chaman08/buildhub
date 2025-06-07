@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -239,6 +240,10 @@ const ProfileSection: React.FC = () => {
           </CardHeader>
           <CardContent className="text-center">
             <ProfilePictureUpload />
+            <div className="mt-4 text-sm text-gray-500">
+              <p>Supported formats: JPG, PNG, GIF</p>
+              <p>Maximum size: 5MB</p>
+            </div>
           </CardContent>
         </Card>
 
