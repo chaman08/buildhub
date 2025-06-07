@@ -1,15 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, doc, updateDoc, deleteDoc, query, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, UserCheck, UserX, Eye, Trash2 } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { useToast } from '@/hooks/use-toast';
+import { Search, UserCheck, UserX, Eye } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { UserProfile } from '@/contexts/AuthContext';
 
 const AdminUserManagement: React.FC = () => {
@@ -18,10 +17,6 @@ const AdminUserManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  const { toast } = useToast();
 
   useEffect(() => {
     fetchUsers();
@@ -65,48 +60,8 @@ const AdminUserManagement: React.FC = () => {
         isActive: !currentStatus
       });
       fetchUsers();
-      toast({
-        title: "User Status Updated",
-        description: `User has been ${!currentStatus ? 'activated' : 'deactivated'}.`
-      });
     } catch (error) {
       console.error('Error updating user status:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update user status.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleDeleteUser = async () => {
-    if (!userToDelete) return;
-
-    try {
-      setDeleting(true);
-      
-      // Delete user document
-      await deleteDoc(doc(db, 'users', userToDelete.uid));
-      
-      // Refresh the users list
-      await fetchUsers();
-      
-      toast({
-        title: "User Deleted",
-        description: `${userToDelete.fullName} has been permanently deleted.`
-      });
-      
-      setShowDeleteDialog(false);
-      setUserToDelete(null);
-    } catch (error) {
-      console.error('Error deleting user:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete user. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setDeleting(false);
     }
   };
 
@@ -201,18 +156,6 @@ const AdminUserManagement: React.FC = () => {
                           )}
                         </DialogContent>
                       </Dialog>
-                      
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => {
-                          setUserToDelete(user);
-                          setShowDeleteDialog(true);
-                        }}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -221,48 +164,6 @@ const AdminUserManagement: React.FC = () => {
           </Table>
         </CardContent>
       </Card>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete User Account</DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-gray-600">
-              Are you sure you want to permanently delete the account for{' '}
-              <strong>{userToDelete?.fullName}</strong>? This action cannot be undone.
-            </p>
-            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded">
-              <p className="text-sm text-red-800">
-                ⚠️ This will permanently delete all user data including:
-              </p>
-              <ul className="text-sm text-red-700 mt-2 list-disc list-inside">
-                <li>Profile information</li>
-                <li>Project history</li>
-                <li>Bids and messages</li>
-                <li>Portfolio items (for contractors)</li>
-              </ul>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowDeleteDialog(false)}
-              disabled={deleting}
-            >
-              Cancel
-            </Button>
-            <Button 
-              variant="destructive" 
-              onClick={handleDeleteUser}
-              disabled={deleting}
-            >
-              {deleting ? 'Deleting...' : 'Delete Account'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

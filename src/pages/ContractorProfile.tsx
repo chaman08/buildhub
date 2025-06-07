@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import Header from '@/components/Header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,26 +28,15 @@ interface ContractorProfile {
   portfolio?: string[];
 }
 
-interface PortfolioProject {
-  id: string;
-  title: string;
-  description: string;
-  imageUrl: string;
-  category: string;
-  completionDate: any;
-}
-
 const ContractorProfile = () => {
   const { uid } = useParams<{ uid: string }>();
   const [contractor, setContractor] = useState<ContractorProfile | null>(null);
-  const [portfolioProjects, setPortfolioProjects] = useState<PortfolioProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (uid) {
       fetchContractorProfile();
-      fetchPortfolioProjects();
     }
   }, [uid]);
 
@@ -72,26 +62,6 @@ const ContractorProfile = () => {
       setError('Failed to load contractor profile');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchPortfolioProjects = async () => {
-    if (!uid) return;
-
-    try {
-      const portfolioQuery = query(
-        collection(db, 'portfolio'),
-        where('contractorId', '==', uid)
-      );
-      const portfolioSnapshot = await getDocs(portfolioQuery);
-      const projects = portfolioSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as PortfolioProject[];
-      
-      setPortfolioProjects(projects);
-    } catch (error) {
-      console.error('Error fetching portfolio projects:', error);
     }
   };
 
@@ -232,44 +202,6 @@ const ContractorProfile = () => {
           </CardContent>
         </Card>
 
-        {/* Portfolio Section */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Portfolio</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {portfolioProjects.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {portfolioProjects.map((project) => (
-                  <div key={project.id} className="border rounded-lg overflow-hidden">
-                    <img 
-                      src={project.imageUrl} 
-                      alt={project.title}
-                      className="w-full h-48 object-cover"
-                    />
-                    <div className="p-4">
-                      <h4 className="font-semibold mb-2">{project.title}</h4>
-                      <p className="text-sm text-gray-600 mb-2">{project.description}</p>
-                      <div className="flex justify-between items-center">
-                        <Badge variant="outline">{project.category}</Badge>
-                        {project.completionDate && (
-                          <span className="text-xs text-gray-500">
-                            {new Date(project.completionDate.seconds * 1000).getFullYear()}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-500 text-center py-8">
-                No portfolio projects available yet.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
         {/* Contact Information */}
         <Card className="mb-6">
           <CardHeader>
@@ -288,6 +220,18 @@ const ContractorProfile = () => {
               <MapPin className="h-5 w-5 text-gray-500" />
               <span>{contractor.city}</span>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Portfolio Section (Placeholder) */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Portfolio</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-500 text-center py-8">
+              Portfolio images will be displayed here when uploaded by the contractor.
+            </p>
           </CardContent>
         </Card>
       </div>

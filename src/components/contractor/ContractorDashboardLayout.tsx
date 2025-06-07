@@ -28,45 +28,41 @@ const ContractorDashboardLayout: React.FC = () => {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
 
   return (
-    <div className="pt-16 sm:pt-20 px-3 sm:px-4 lg:px-8 max-w-7xl mx-auto">
+    <div className="pt-20 px-4 max-w-7xl mx-auto">
       <div className="bg-white rounded-lg shadow-sm border">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 sm:grid-cols-7 p-1">
-            <TabsTrigger value="home" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
-              <Home className="h-3 w-3 sm:h-4 sm:w-4" />
+          <TabsList className="grid w-full grid-cols-7 lg:grid-cols-7">
+            <TabsTrigger value="home" className="flex items-center gap-2">
+              <Home className="h-4 w-4" />
               <span className="hidden sm:inline">Home</span>
-              <span className="sm:hidden">Home</span>
             </TabsTrigger>
-            <TabsTrigger value="tenders" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
-              <Briefcase className="h-3 w-3 sm:h-4 sm:w-4" />
+            <TabsTrigger value="tenders" className="flex items-center gap-2">
+              <Briefcase className="h-4 w-4" />
               <span className="hidden sm:inline">Tenders</span>
-              <span className="sm:hidden">Work</span>
             </TabsTrigger>
-            <TabsTrigger value="bids" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
-              <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
+            <TabsTrigger value="bids" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">My Bids</span>
-              <span className="sm:hidden">Bids</span>
             </TabsTrigger>
-            <TabsTrigger value="projects" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
-              <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4" />
+            <TabsTrigger value="projects" className="flex items-center gap-2">
+              <CheckCircle className="h-4 w-4" />
               <span className="hidden sm:inline">Projects</span>
-              <span className="sm:hidden">Jobs</span>
             </TabsTrigger>
-            <TabsTrigger value="messages" className="hidden sm:flex items-center gap-2 text-xs sm:text-sm">
-              <MessageCircle className="h-3 w-3 sm:h-4 sm:w-4" />
+            <TabsTrigger value="messages" className="flex items-center gap-2">
+              <MessageCircle className="h-4 w-4" />
               <span className="hidden sm:inline">Messages</span>
             </TabsTrigger>
-            <TabsTrigger value="profile" className="hidden sm:flex items-center gap-2 text-xs sm:text-sm">
-              <User className="h-3 w-3 sm:h-4 sm:w-4" />
+            <TabsTrigger value="profile" className="flex items-center gap-2">
+              <User className="h-4 w-4" />
               <span className="hidden sm:inline">Profile</span>
             </TabsTrigger>
-            <TabsTrigger value="portfolio" className="hidden sm:flex items-center gap-2 text-xs sm:text-sm">
-              <Upload className="h-3 w-3 sm:h-4 sm:w-4" />
+            <TabsTrigger value="portfolio" className="flex items-center gap-2">
+              <Upload className="h-4 w-4" />
               <span className="hidden sm:inline">Portfolio</span>
             </TabsTrigger>
           </TabsList>
 
-          <div className="p-3 sm:p-4 lg:p-6">
+          <div className="p-6">
             <TabsContent value="home">
               <ContractorHome />
             </TabsContent>
@@ -84,7 +80,7 @@ const ContractorDashboardLayout: React.FC = () => {
             </TabsContent>
             
             <TabsContent value="messages">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-1">
                   <ChatList onSelectChat={setSelectedConversation} />
                 </div>
@@ -98,10 +94,10 @@ const ContractorDashboardLayout: React.FC = () => {
                       recipientType={selectedConversation.recipientType}
                     />
                   ) : (
-                    <div className="h-80 sm:h-96 flex items-center justify-center border rounded-lg">
+                    <div className="h-96 flex items-center justify-center border rounded-lg">
                       <div className="text-center text-gray-500">
-                        <MessageCircle className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-4" />
-                        <p className="text-sm sm:text-base">Select a conversation to start messaging</p>
+                        <MessageCircle className="h-12 w-12 mx-auto mb-4" />
+                        <p>Select a conversation to start messaging</p>
                       </div>
                     </div>
                   )}

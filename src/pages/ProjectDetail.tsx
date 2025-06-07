@@ -12,7 +12,6 @@ import { MapPin, Calendar, DollarSign, ArrowLeft, Phone, Mail, MessageCircle } f
 import BidFormModal from '@/components/BidFormModal';
 import ChatInterface from '@/components/chat/ChatInterface';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import VerificationRequired from '@/components/VerificationRequired';
 
 interface Project {
   id: string;
@@ -299,15 +298,13 @@ const ProjectDetail = () => {
                 {/* Contractor Actions */}
                 {isContractor && !isOwner && (
                   <div className="pt-4 border-t space-y-3">
-                    <VerificationRequired action="place a bid">
-                      <Button 
-                        onClick={() => setShowBidModal(true)}
-                        className="w-full"
-                        size="lg"
-                      >
-                        📩 Place Your Bid
-                      </Button>
-                    </VerificationRequired>
+                    <Button 
+                      onClick={() => setShowBidModal(true)}
+                      className="w-full"
+                      size="lg"
+                    >
+                      📩 Place Your Bid
+                    </Button>
                     
                     <Button 
                       onClick={handleContactCustomer}

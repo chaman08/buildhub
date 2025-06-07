@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import LoginForm from '@/components/auth/LoginForm';
 import SignupForm from '@/components/auth/SignupForm';
 import ProfileCompletion from '@/components/auth/ProfileCompletion';
@@ -8,9 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import Header from '@/components/Header';
 
 const Auth: React.FC = () => {
-  const [searchParams] = useSearchParams();
-  const mode = searchParams.get('mode');
-  const [isLogin, setIsLogin] = useState(mode !== 'signup');
+  const [isLogin, setIsLogin] = useState(true);
   const navigate = useNavigate();
   const { currentUser, userProfile, isVerificationComplete } = useAuth();
 

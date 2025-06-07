@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
-import { User, Building2 } from 'lucide-react';
+import { User, Building2, Mail, Phone } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { ConfirmationResult } from 'firebase/auth';
@@ -18,10 +19,11 @@ interface SignupFormProps {
 const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
   const [step, setStep] = useState(1);
   const [userType, setUserType] = useState<'customer' | 'contractor' | ''>('');
-  const [showUserTypeSelection, setShowUserTypeSelection] = useState(false);
   const [countryCode, setCountryCode] = useState('+91');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [showPhoneVerification, setShowPhoneVerification] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [showPhoneOTP, setShowPhoneOTP] = useState(false);
   const [phoneOTP, setPhoneOTP] = useState('');
   const [phoneConfirmationResult, setPhoneConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [formData, setFormData] = useState({
@@ -37,7 +39,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
   });
   const [loading, setLoading] = useState(false);
   
-  const { signup, signInWithGoogle, setupRecaptcha, sendPhoneOTP, verifyPhoneOTP } = useAuth();
+  const { signup, signInWithGoogle, sendEmailVerification, sendPhoneOTP, verifyPhoneOTP, setupRecaptcha } = useAuth();
   const { toast } = useToast();
 
   const countryCodes = [
@@ -67,16 +69,11 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
     setStep(2);
   };
 
-  const handleGoogleSignup = async () => {
-    if (!userType && !showUserTypeSelection) {
-      setShowUserTypeSelection(true);
-      return;
-    }
-
-    if (!userType) {
+  const handleEmailVerification = async () => {
+    if (!formData.email) {
       toast({
-        title: "User Type Required",
-        description: "Please select a user type first",
+        title: "Email Required",
+        description: "Please enter your email address",
         variant: "destructive"
       });
       return;
@@ -84,18 +81,16 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
 
     try {
       setLoading(true);
-      await signInWithGoogle();
-      
+      await sendEmailVerification();
+      setEmailVerified(true);
       toast({
-        title: "Google Account Connected!",
-        description: "Welcome! Please complete your profile to access all features."
+        title: "Verification Email Sent",
+        description: "Please check your email and click the verification link."
       });
-      
-      onSuccess();
     } catch (error: any) {
       toast({
-        title: "Google Signup Failed",
-        description: error.message,
+        title: "Error",
+        description: error.message || "Failed to send verification email.",
         variant: "destructive"
       });
     } finally {
@@ -119,7 +114,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
       const recaptchaVerifier = setupRecaptcha('recaptcha-container');
       const confirmationResult = await sendPhoneOTP(fullPhone, recaptchaVerifier);
       setPhoneConfirmationResult(confirmationResult);
-      
+      setShowPhoneOTP(true);
       toast({
         title: "OTP Sent",
         description: `Verification code sent to ${fullPhone}`
@@ -148,17 +143,36 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
     try {
       setLoading(true);
       await verifyPhoneOTP(phoneConfirmationResult, phoneOTP);
-      
+      setPhoneVerified(true);
+      setShowPhoneOTP(false);
       toast({
         title: "Phone Verified",
         description: "Your phone number has been verified successfully."
       });
-      
-      onSuccess();
     } catch (error: any) {
       toast({
         title: "Verification Failed",
         description: "Invalid OTP. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignup = async () => {
+    try {
+      setLoading(true);
+      await signInWithGoogle();
+      toast({
+        title: "Account Created!",
+        description: "Successfully signed up with Google"
+      });
+      onSuccess();
+    } catch (error: any) {
+      toast({
+        title: "Google Signup Failed",
+        description: error.message,
         variant: "destructive"
       });
     } finally {
@@ -182,15 +196,6 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
       toast({
         title: "Terms and Conditions",
         description: "Please accept the terms and conditions to continue",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!formData.mobile) {
-      toast({
-        title: "Phone Number Required",
-        description: "Please enter your phone number",
         variant: "destructive"
       });
       return;
@@ -223,7 +228,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
         userType,
         mobile: fullMobile,
         city: formData.city,
-        isPhoneVerified: false, // Will be verified separately
+        isPhoneVerified: phoneVerified,
         ...(userType === 'contractor' && {
           companyName: formData.companyName,
           serviceCategory: formData.serviceCategory,
@@ -233,13 +238,12 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
 
       await signup(formData.email, formData.password, userData);
       
-      // After successful signup, initiate phone verification
-      setShowPhoneVerification(true);
-      
       toast({
         title: "Account Created!",
-        description: "Please verify your phone number to complete registration"
+        description: emailVerified ? "Welcome to BuildHub!" : "Please verify your email to continue"
       });
+      
+      onSuccess();
     } catch (error: any) {
       toast({
         title: "Signup Failed",
@@ -258,241 +262,127 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
           <CardTitle className="text-center">Choose Account Type</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {!showUserTypeSelection ? (
-            <>
-              <Button
-                onClick={handleGoogleSignup}
-                variant="outline"
-                className="w-full"
-                disabled={loading}
-              >
-                <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24">
-                  <path
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    fill="#4285F4"
-                  />
-                  <path
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    fill="#34A853"
-                  />
-                  <path
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                    fill="#FBBC05"
-                  />
-                  <path
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                    fill="#EA4335"
-                  />
-                </svg>
-                {loading ? 'Signing up...' : 'Continue with Google'}
-              </Button>
+          <Button
+            onClick={() => handleUserTypeSelection('customer')}
+            variant="outline"
+            className="w-full h-20 text-left"
+          >
+            <User className="h-6 w-6 mr-3" />
+            <div>
+              <div className="font-semibold">Customer</div>
+              <div className="text-sm text-gray-500">Post construction projects</div>
+            </div>
+          </Button>
+          
+          <Button
+            onClick={() => handleUserTypeSelection('contractor')}
+            variant="outline"
+            className="w-full h-20 text-left"
+          >
+            <Building2 className="h-6 w-6 mr-3" />
+            <div>
+              <div className="font-semibold">Contractor</div>
+              <div className="text-sm text-gray-500">Bid on construction projects</div>
+            </div>
+          </Button>
 
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">
-                    Or continue with email
-                  </span>
-                </div>
-              </div>
-              
-              <Button
-                onClick={() => setShowUserTypeSelection(true)}
-                variant="outline"
-                className="w-full"
-              >
-                Sign up with Email
-              </Button>
-            </>
-          ) : (
-            <>
-              <div className="text-center mb-4">
-                <p className="text-sm text-gray-600">Select your account type to continue</p>
-              </div>
-              
-              <div className="grid grid-cols-1 gap-4 mb-4">
-                <Button
-                  onClick={() => handleUserTypeSelection('customer')}
-                  variant={userType === 'customer' ? 'default' : 'outline'}
-                  className="h-20 text-left"
-                >
-                  <User className="h-6 w-6 mr-3" />
-                  <div>
-                    <div className="font-semibold">Customer</div>
-                    <div className="text-sm text-gray-500">Post construction projects</div>
-                  </div>
-                </Button>
-                
-                <Button
-                  onClick={() => handleUserTypeSelection('contractor')}
-                  variant={userType === 'contractor' ? 'default' : 'outline'}
-                  className="h-20 text-left"
-                >
-                  <Building2 className="h-6 w-6 mr-3" />
-                  <div>
-                    <div className="font-semibold">Contractor</div>
-                    <div className="text-sm text-gray-500">Bid on construction projects</div>
-                  </div>
-                </Button>
-              </div>
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">
+                Or continue with
+              </span>
+            </div>
+          </div>
 
-              {userType && (
-                <Button
-                  onClick={handleGoogleSignup}
-                  variant="default"
-                  className="w-full"
-                  disabled={loading}
-                >
-                  <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24">
-                    <path
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                      fill="#4285F4"
-                    />
-                    <path
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                      fill="#34A853"
-                    />
-                    <path
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                      fill="#FBBC05"
-                    />
-                    <path
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                      fill="#EA4335"
-                    />
-                  </svg>
-                  {loading ? 'Signing up...' : `Continue with Google as ${userType}`}
-                </Button>
-              )}
-
-              <Button
-                onClick={() => setStep(2)}
-                variant="outline"
-                className="w-full"
-                disabled={!userType}
-              >
-                Continue with Email
-              </Button>
-
-              <Button
-                onClick={() => setShowUserTypeSelection(false)}
-                variant="ghost"
-                className="w-full"
-              >
-                Back
-              </Button>
-            </>
-          )}
+          <Button
+            onClick={handleGoogleSignup}
+            variant="outline"
+            className="w-full"
+            disabled={loading}
+          >
+            <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24">
+              <path
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                fill="#4285F4"
+              />
+              <path
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                fill="#34A853"
+              />
+              <path
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                fill="#FBBC05"
+              />
+              <path
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                fill="#EA4335"
+              />
+            </svg>
+            {loading ? 'Signing up...' : 'Sign up with Google'}
+          </Button>
         </CardContent>
       </Card>
     );
   }
 
-  if (showPhoneVerification) {
+  if (showPhoneOTP) {
     return (
       <Card className="w-full max-w-md mx-auto">
         <CardHeader>
           <CardTitle className="text-center">Verify Phone Number</CardTitle>
           <p className="text-center text-sm text-gray-600">
-            {phoneConfirmationResult 
-              ? `Enter the 6-digit code sent to ${countryCode}${formData.mobile}`
-              : `Enter your phone number to receive verification code`
-            }
+            Enter the 6-digit code sent to {countryCode}{formData.mobile}
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          {!phoneConfirmationResult ? (
-            <>
-              <div>
-                <Label htmlFor="mobile">Mobile Number</Label>
-                <div className="flex space-x-2">
-                  <Select value={countryCode} onValueChange={setCountryCode}>
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {countryCodes.map((country) => (
-                        <SelectItem key={country.code} value={country.code}>
-                          {country.code} {country.country}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    id="mobile"
-                    name="mobile"
-                    type="tel"
-                    placeholder="Phone Number"
-                    value={formData.mobile}
-                    onChange={handleInputChange}
-                    className="flex-1"
-                    required
-                  />
-                </div>
-              </div>
-              
-              <Button 
-                onClick={handlePhoneVerification} 
-                disabled={loading || !formData.mobile}
-                className="w-full"
-              >
-                {loading ? 'Sending OTP...' : 'Send OTP'}
-              </Button>
-            </>
-          ) : (
-            <>
-              <div className="flex justify-center">
-                <InputOTP
-                  maxLength={6}
-                  value={phoneOTP}
-                  onChange={setPhoneOTP}
-                >
-                  <InputOTPGroup>
-                    <InputOTPSlot index={0} />
-                    <InputOTPSlot index={1} />
-                    <InputOTPSlot index={2} />
-                    <InputOTPSlot index={3} />
-                    <InputOTPSlot index={4} />
-                    <InputOTPSlot index={5} />
-                  </InputOTPGroup>
-                </InputOTP>
-              </div>
+          <div className="flex justify-center">
+            <InputOTP
+              maxLength={6}
+              value={phoneOTP}
+              onChange={setPhoneOTP}
+            >
+              <InputOTPGroup>
+                <InputOTPSlot index={0} />
+                <InputOTPSlot index={1} />
+                <InputOTPSlot index={2} />
+                <InputOTPSlot index={3} />
+                <InputOTPSlot index={4} />
+                <InputOTPSlot index={5} />
+              </InputOTPGroup>
+            </InputOTP>
+          </div>
 
-              <div className="flex space-x-2">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => {
-                    setPhoneConfirmationResult(null);
-                    setPhoneOTP('');
-                  }}
-                  className="flex-1"
-                >
-                  Back
-                </Button>
-                <Button 
-                  onClick={handlePhoneOTPVerification} 
-                  disabled={loading || phoneOTP.length !== 6}
-                  className="flex-1"
-                >
-                  {loading ? 'Verifying...' : 'Verify'}
-                </Button>
-              </div>
+          <div className="flex space-x-2">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => setShowPhoneOTP(false)}
+              className="flex-1"
+            >
+              Back
+            </Button>
+            <Button 
+              onClick={handlePhoneOTPVerification} 
+              disabled={loading || phoneOTP.length !== 6}
+              className="flex-1"
+            >
+              {loading ? 'Verifying...' : 'Verify'}
+            </Button>
+          </div>
 
-              <div className="text-center">
-                <Button 
-                  variant="ghost" 
-                  onClick={handlePhoneVerification}
-                  disabled={loading}
-                  className="text-sm"
-                >
-                  Resend OTP
-                </Button>
-              </div>
-            </>
-          )}
+          <div className="text-center">
+            <Button 
+              variant="ghost" 
+              onClick={handlePhoneVerification}
+              disabled={loading}
+              className="text-sm"
+            >
+              Resend OTP
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );
@@ -522,14 +412,27 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
           
           <div>
             <Label htmlFor="email">Email Address</Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              required
-            />
+            <div className="flex space-x-2">
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                className="flex-1"
+                required
+              />
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm"
+                onClick={handleEmailVerification}
+                disabled={!formData.email || emailVerified || loading}
+              >
+                <Mail className="h-4 w-4 mr-1" />
+                {emailVerified ? 'Verified' : 'Verify'}
+              </Button>
+            </div>
           </div>
           
           <div>
@@ -557,6 +460,16 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
                 className="flex-1"
                 required
               />
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm"
+                onClick={handlePhoneVerification}
+                disabled={!formData.mobile || phoneVerified || loading}
+              >
+                <Phone className="h-4 w-4 mr-1" />
+                {phoneVerified ? 'Verified' : 'Verify'}
+              </Button>
             </div>
           </div>
           
@@ -653,8 +566,6 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
               {loading ? 'Creating Account...' : 'Create Account'}
             </Button>
           </div>
-
-          <div id="recaptcha-container"></div>
         </form>
       </CardContent>
     </Card>
