@@ -91,7 +91,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: user.email || '',
         fullName: additionalData.fullName || user.displayName || '',
         userType: additionalData.userType || 'customer',
-        mobile: undefined, // Always start without phone number
         city: additionalData.city || '',
         occupation: additionalData.occupation || '',
         profilePicture: additionalData.profilePicture || user.photoURL || '',
@@ -100,13 +99,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isDocumentVerified: false,
         isAdmin: false,
         profileComplete: false, // Profile is incomplete without verified phone
+        mobile: undefined, // Always start without phone number
         createdAt: now,
         updatedAt: now,
+        // Include other additional data but override verification settings
         ...additionalData,
-        // Override these to ensure proper verification workflow
-        mobile: undefined,
+        // Force these values to ensure proper verification workflow
         isPhoneVerified: false,
-        profileComplete: false
+        profileComplete: false,
+        mobile: undefined
       };
       
       await setDoc(userRef, profileData);
