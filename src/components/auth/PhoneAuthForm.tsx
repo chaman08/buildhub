@@ -11,24 +11,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { ConfirmationResult } from 'firebase/auth';
 
-type UserType = 'customer' | 'contractor' | '';
-
 interface PhoneAuthFormProps {
   onSuccess: () => void;
   isLogin?: boolean;
-  preSelectedUserType?: UserType;
 }
 
-const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({ 
-  onSuccess, 
-  isLogin = false,
-  preSelectedUserType = '' 
-}) => {
+const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({ onSuccess, isLogin = false }) => {
   const [step, setStep] = useState(1);
   const [countryCode, setCountryCode] = useState('+91');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otp, setOtp] = useState('');
-  const [userType, setUserType] = useState<UserType>(preSelectedUserType || '');
+  const [userType, setUserType] = useState<'customer' | 'contractor' | ''>('');
   const [formData, setFormData] = useState({
     fullName: '',
     city: '',
@@ -84,29 +77,30 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
       if (isLogin) {
         result = await loginWithPhone(fullPhone);
       } else {
-        if (!userType && !preSelectedUserType) {
+        if (!userType || !formData.fullName) {
           toast({
             title: "Information Required",
-            description: "Please select your account type",
+            description: "Please complete all required fields",
             variant: "destructive"
           });
           setLoading(false);
           return;
         }
-        
-        const selectedUserType = userType || preSelectedUserType;
-        
-        // For signup we'll collect minimal information and let users complete profiles later
         result = await signupWithPhone(fullPhone, {
-          fullName: formData.fullName || 'User',
-          userType: selectedUserType as 'customer' | 'contractor',
-          mobile: fullPhone, // Store the full phone number with country code
-          profileComplete: false
+          fullName: formData.fullName,
+          userType: userType as 'customer' | 'contractor',
+          mobile: fullPhone,
+          city: formData.city,
+          ...(userType === 'contractor' && {
+            companyName: formData.companyName,
+            serviceCategory: formData.serviceCategory,
+            experience: parseInt(formData.experience) || 0
+          })
         });
       }
       
       setConfirmationResult(result);
-      setStep(2);
+      setStep(isLogin ? 2 : 3); // Skip signup form for login
       
       toast({
         title: "OTP Sent",
@@ -136,20 +130,23 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
     setLoading(true);
     
     try {
-      const selectedUserType = userType || preSelectedUserType;
-      const fullPhone = `${countryCode}${phoneNumber}`;
       const userData = !isLogin ? {
-        fullName: formData.fullName || 'User',
-        userType: selectedUserType as 'customer' | 'contractor',
-        mobile: fullPhone, // Store the full phone number with country code
-        profileComplete: false
+        fullName: formData.fullName,
+        userType: userType as 'customer' | 'contractor',
+        mobile: `${countryCode}${phoneNumber}`,
+        city: formData.city,
+        ...(userType === 'contractor' && {
+          companyName: formData.companyName,
+          serviceCategory: formData.serviceCategory,
+          experience: parseInt(formData.experience) || 0
+        })
       } : undefined;
 
       await verifyPhoneOTP(confirmationResult, otp, userData);
       
       toast({
         title: isLogin ? "Login Successful" : "Account Created",
-        description: isLogin ? "Welcome back!" : "Please complete your profile in the dashboard"
+        description: isLogin ? "Welcome back!" : "Your account has been created successfully"
       });
       
       onSuccess();
@@ -193,7 +190,7 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
               <Input
                 id="mobile"
                 type="tel"
-                placeholder="Phone Number"
+                placeholder="97545 27943"
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
                 className="flex-1"
@@ -201,46 +198,126 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
               />
             </div>
           </div>
-
-          {!isLogin && !preSelectedUserType && (
-            <div>
-              <Label>Account Type</Label>
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                <Button
-                  type="button"
-                  variant={userType === 'customer' ? 'default' : 'outline'}
-                  onClick={() => setUserType('customer')}
-                  className="h-auto p-3 flex flex-col"
-                >
-                  <User className="h-5 w-5 mb-1" />
-                  <span className="text-xs">Customer</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant={userType === 'contractor' ? 'default' : 'outline'}
-                  onClick={() => setUserType('contractor')}
-                  className="h-auto p-3 flex flex-col"
-                >
-                  <Building2 className="h-5 w-5 mb-1" />
-                  <span className="text-xs">Contractor</span>
-                </Button>
-              </div>
-            </div>
-          )}
           
           <Button 
-            onClick={handleSendOTP} 
+            onClick={() => isLogin ? handleSendOTP() : setStep(2)} 
             disabled={loading || !phoneNumber}
             className="w-full"
           >
-            {loading ? 'Sending OTP...' : 'Send OTP'}
+            {isLogin ? (loading ? 'Sending OTP...' : 'Send OTP') : 'Continue'}
           </Button>
         </CardContent>
       </Card>
     );
   }
 
-  // Step 2: OTP verification
+  // Step 2: Signup form (only for signup)
+  if (step === 2 && !isLogin) {
+    return (
+      <Card className="w-full max-w-md mx-auto">
+        <CardHeader>
+          <CardTitle className="text-center">Complete Your Profile</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label>Account Type</Label>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <Button
+                type="button"
+                variant={userType === 'customer' ? 'default' : 'outline'}
+                onClick={() => setUserType('customer')}
+                className="h-auto p-3 flex flex-col"
+              >
+                <User className="h-5 w-5 mb-1" />
+                <span className="text-xs">Customer</span>
+              </Button>
+              <Button
+                type="button"
+                variant={userType === 'contractor' ? 'default' : 'outline'}
+                onClick={() => setUserType('contractor')}
+                className="h-auto p-3 flex flex-col"
+              >
+                <Building2 className="h-5 w-5 mb-1" />
+                <span className="text-xs">Contractor</span>
+              </Button>
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="fullName">Full Name</Label>
+            <Input
+              id="fullName"
+              name="fullName"
+              value={formData.fullName}
+              onChange={handleInputChange}
+              required
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="city">City</Label>
+            <Input
+              id="city"
+              name="city"
+              value={formData.city}
+              onChange={handleInputChange}
+            />
+          </div>
+
+          {userType === 'contractor' && (
+            <>
+              <div>
+                <Label htmlFor="companyName">Company Name</Label>
+                <Input
+                  id="companyName"
+                  name="companyName"
+                  value={formData.companyName}
+                  onChange={handleInputChange}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="serviceCategory">Service Category</Label>
+                <Select value={formData.serviceCategory} onValueChange={(value) => setFormData({ ...formData, serviceCategory: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {serviceCategories.map((category) => (
+                      <SelectItem key={category} value={category}>{category}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="experience">Years of Experience</Label>
+                <Input
+                  id="experience"
+                  name="experience"
+                  type="number"
+                  min="0"
+                  value={formData.experience}
+                  onChange={handleInputChange}
+                />
+              </div>
+            </>
+          )}
+
+          <div className="flex space-x-2">
+            <Button type="button" variant="outline" onClick={() => setStep(1)}>
+              Back
+            </Button>
+            <Button onClick={handleSendOTP} disabled={loading} className="flex-1">
+              {loading ? 'Sending OTP...' : 'Send OTP'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Step 3: OTP verification
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
