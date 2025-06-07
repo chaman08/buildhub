@@ -20,6 +20,7 @@ import Projects from "./pages/Projects";
 import ProjectDetail from "./pages/ProjectDetail";
 import Messages from "./pages/Messages";
 import AdminPanel from "./pages/AdminPanel";
+import BottomTabBar from "./components/BottomTabBar";
 
 const queryClient = new QueryClient();
 
@@ -30,24 +31,27 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/verify" element={<VerificationPage />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/contractor-dashboard" element={<ContractorDashboard />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/contractors" element={<Contractors />} />
-            <Route path="/contractor/:uid" element={<ContractorProfile />} />
-            <Route path="/projects" element={<Projects />} />
-            <Route path="/project/:projectId" element={<ProjectDetail />} />
-            <Route path="/messages" element={<Messages />} />
-            <Route path="/admin-panel-secure-2024" element={<AdminPanel />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <div className="min-h-screen">
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/verify" element={<VerificationPage />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/contractor-dashboard" element={<ContractorDashboard />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/contractors" element={<Contractors />} />
+              <Route path="/contractor/:uid" element={<ContractorProfile />} />
+              <Route path="/projects" element={<Projects />} />
+              <Route path="/project/:projectId" element={<ProjectDetail />} />
+              <Route path="/messages" element={<Messages />} />
+              <Route path="/admin-panel-secure-2024" element={<AdminPanel />} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+            <BottomTabBar />
+          </div>
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
