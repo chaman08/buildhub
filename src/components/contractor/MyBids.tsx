@@ -67,9 +67,24 @@ const MyBids: React.FC = () => {
           const bidData = bidDoc.data();
           console.log('Processing bid:', bidDoc.id, bidData);
           
-          let enhancedBidData = {
+          let enhancedBidData: Bid = {
             id: bidDoc.id,
-            ...bidData,
+            projectId: bidData.projectId || '',
+            projectTitle: bidData.projectTitle || '',
+            contractorName: bidData.contractorName || '',
+            contractorEmail: bidData.contractorEmail || '',
+            contractorPhone: bidData.contractorPhone || '',
+            contractorCompany: bidData.contractorCompany || '',
+            contractorCategory: bidData.contractorCategory || '',
+            priceQuoted: bidData.priceQuoted || 0,
+            timeline: bidData.timeline || '',
+            message: bidData.message || '',
+            status: bidData.status || 'pending',
+            createdAt: bidData.createdAt,
+            updatedAt: bidData.updatedAt,
+            customerName: bidData.customerName || '',
+            customerEmail: bidData.customerEmail || '',
+            customerPhone: bidData.customerPhone || '',
           };
 
           // If projectTitle is not in bid data, fetch from project
@@ -102,7 +117,7 @@ const MyBids: React.FC = () => {
       );
       
       console.log('Final processed bids:', bidsData);
-      setBids(bidsData as Bid[]);
+      setBids(bidsData);
     } catch (error) {
       console.error('Error fetching contractor bids:', error);
       setError('Failed to load bids. Please try again.');
