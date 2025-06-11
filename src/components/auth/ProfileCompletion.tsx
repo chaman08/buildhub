@@ -1,42 +1,31 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { User, Building2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Phone, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import PhoneVerificationModal from './PhoneVerificationModal';
 
 const ProfileCompletion: React.FC = () => {
-  const [userType, setUserType] = useState<'customer' | 'contractor' | ''>('');
-  const [countryCode, setCountryCode] = useState('+91');
+  const { userProfile, currentUser, refreshUserProfile, markProfileComplete } = useAuth();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [showPhoneVerification, setShowPhoneVerification] = useState(false);
   const [formData, setFormData] = useState({
     mobile: '',
     city: '',
+    userType: 'customer' as 'customer' | 'contractor',
     companyName: '',
     serviceCategory: '',
     experience: ''
   });
-  const [loading, setLoading] = useState(false);
-  
-  const { currentUser, userProfile, refreshUserProfile } = useAuth();
-  const { toast } = useToast();
-
-  const countryCodes = [
-    { code: '+91', country: 'India' },
-    { code: '+1', country: 'USA' },
-    { code: '+44', country: 'UK' },
-    { code: '+86', country: 'China' },
-    { code: '+81', country: 'Japan' },
-    { code: '+33', country: 'France' },
-    { code: '+49', country: 'Germany' },
-    { code: '+61', country: 'Australia' },
-    { code: '+971', country: 'UAE' },
-    { code: '+65', country: 'Singapore' }
-  ];
 
   const serviceCategories = [
     'Civil Construction', 'Electrical', 'Plumbing', 'Painting', 'Carpentry',
@@ -44,49 +33,57 @@ const ProfileCompletion: React.FC = () => {
   ];
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!userType || !formData.mobile || !formData.city) {
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSaveProfile = async () => {
+    if (!currentUser || !userProfile) return;
+
+    // Validate required fields
+    if (!formData.city || !formData.userType) {
       toast({
-        title: "Incomplete Information",
+        title: "Missing Information",
         description: "Please fill in all required fields",
         variant: "destructive"
       });
       return;
     }
 
+    if (formData.userType === 'contractor' && (!formData.companyName || !formData.serviceCategory)) {
+      toast({
+        title: "Missing Information", 
+        description: "Contractors must provide company name and service category",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setLoading(true);
-    
     try {
-      const fullMobile = `${countryCode}${formData.mobile}`;
-      const updatedProfile = {
-        ...userProfile,
-        userType,
-        mobile: fullMobile,
-        city: formData.city,
-        ...(userType === 'contractor' && {
-          companyName: formData.companyName,
-          serviceCategory: formData.serviceCategory,
-          experience: parseInt(formData.experience) || 0
-        })
+      const userRef = doc(db, 'users', currentUser.uid);
+      const updateData = {
+        ...formData,
+        experience: formData.experience ? parseInt(formData.experience) : 0,
+        updatedAt: new Date()
       };
 
-      await setDoc(doc(db, 'users', currentUser!.uid), updatedProfile, { merge: true });
+      await updateDoc(userRef, updateData);
       await refreshUserProfile();
       
       toast({
-        title: "Profile Updated!",
-        description: "Please complete phone verification to continue"
+        title: "Profile Updated",
+        description: "Your profile has been updated successfully"
       });
-      
     } catch (error: any) {
+      console.error('Error updating profile:', error);
       toast({
-        title: "Update Failed",
-        description: error.message,
+        title: "Error",
+        description: "Failed to update profile. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -94,74 +91,90 @@ const ProfileCompletion: React.FC = () => {
     }
   };
 
-  if (!userProfile || userProfile.mobile) {
-    return null; // Profile is complete or doesn't exist
-  }
+  const handleCompleteProfile = async () => {
+    if (!currentUser || !userProfile) return;
+
+    // Check if phone is verified
+    if (!userProfile.isPhoneVerified) {
+      toast({
+        title: "Phone Verification Required",
+        description: "Please verify your phone number to complete your profile",
+        variant: "destructive"
+      });
+      setShowPhoneVerification(true);
+      return;
+    }
+
+    try {
+      await markProfileComplete();
+      toast({
+        title: "Profile Complete!",
+        description: "Your profile is now complete. Redirecting to dashboard..."
+      });
+      
+      // Redirect will be handled by the Auth page useEffect
+    } catch (error: any) {
+      console.error('Error completing profile:', error);
+      toast({
+        title: "Error",
+        description: "Failed to complete profile. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handlePhoneVerificationSuccess = async () => {
+    await refreshUserProfile();
+    toast({
+      title: "Phone Verified!",
+      description: "You can now complete your profile"
+    });
+  };
+
+  if (!userProfile) return <div>Loading...</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="max-w-md mx-auto px-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-center">Complete Your Profile</CardTitle>
-            <p className="text-center text-sm text-gray-600">
-              Please provide additional information to complete your account setup
-            </p>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label>Account Type</Label>
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  <Button
-                    type="button"
-                    variant={userType === 'customer' ? 'default' : 'outline'}
-                    onClick={() => setUserType('customer')}
-                    className="h-auto p-3 flex flex-col"
-                  >
-                    <User className="h-5 w-5 mb-1" />
-                    <span className="text-xs">Customer</span>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={userType === 'contractor' ? 'default' : 'outline'}
-                    onClick={() => setUserType('contractor')}
-                    className="h-auto p-3 flex flex-col"
-                  >
-                    <Building2 className="h-5 w-5 mb-1" />
-                    <span className="text-xs">Contractor</span>
-                  </Button>
+    <div className="max-w-2xl mx-auto">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-center text-2xl">Complete Your Profile</CardTitle>
+          <p className="text-center text-muted-foreground">
+            Please complete your profile to access all features
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Phone Verification Status */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <Phone className="h-5 w-5 text-blue-600" />
+                <div>
+                  <h3 className="font-semibold text-blue-900">Phone Verification</h3>
+                  <p className="text-sm text-blue-700">
+                    {userProfile.isPhoneVerified 
+                      ? "Your phone number is verified" 
+                      : "Phone verification is required"
+                    }
+                  </p>
                 </div>
               </div>
-              
-              <div>
-                <Label htmlFor="mobile">Mobile Number *</Label>
-                <div className="flex space-x-2">
-                  <Select value={countryCode} onValueChange={setCountryCode}>
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {countryCodes.map((country) => (
-                        <SelectItem key={country.code} value={country.code}>
-                          {country.code} {country.country}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    id="mobile"
-                    name="mobile"
-                    type="tel"
-                    placeholder="97545 27943"
-                    value={formData.mobile}
-                    onChange={handleInputChange}
-                    className="flex-1"
-                    required
-                  />
-                </div>
-              </div>
-              
+              {userProfile.isPhoneVerified ? (
+                <CheckCircle className="h-6 w-6 text-green-600" />
+              ) : (
+                <Button 
+                  onClick={() => setShowPhoneVerification(true)}
+                  variant="outline"
+                  size="sm"
+                >
+                  Verify Phone
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Profile Form */}
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="city">City *</Label>
                 <Input
@@ -169,57 +182,114 @@ const ProfileCompletion: React.FC = () => {
                   name="city"
                   value={formData.city}
                   onChange={handleInputChange}
+                  placeholder="Enter your city"
                   required
                 />
               </div>
-              
-              {userType === 'contractor' && (
-                <>
+
+              <div>
+                <Label htmlFor="userType">Account Type *</Label>
+                <Select 
+                  value={formData.userType} 
+                  onValueChange={(value) => handleSelectChange('userType', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select account type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="customer">Customer</SelectItem>
+                    <SelectItem value="contractor">Contractor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Contractor specific fields */}
+            {formData.userType === 'contractor' && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="companyName">Company Name</Label>
+                    <Label htmlFor="companyName">Company Name *</Label>
                     <Input
                       id="companyName"
                       name="companyName"
                       value={formData.companyName}
                       onChange={handleInputChange}
+                      placeholder="Enter company name"
+                      required
                     />
                   </div>
-                  
+
                   <div>
-                    <Label htmlFor="serviceCategory">Service Category</Label>
-                    <Select value={formData.serviceCategory} onValueChange={(value) => setFormData({ ...formData, serviceCategory: value })}>
+                    <Label htmlFor="serviceCategory">Service Category *</Label>
+                    <Select 
+                      value={formData.serviceCategory}
+                      onValueChange={(value) => handleSelectChange('serviceCategory', value)}
+                    >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a category" />
+                        <SelectValue placeholder="Select category" />
                       </SelectTrigger>
                       <SelectContent>
                         {serviceCategories.map((category) => (
-                          <SelectItem key={category} value={category}>{category}</SelectItem>
+                          <SelectItem key={category} value={category}>
+                            {category}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
-                  
-                  <div>
-                    <Label htmlFor="experience">Years of Experience</Label>
-                    <Input
-                      id="experience"
-                      name="experience"
-                      type="number"
-                      min="0"
-                      value={formData.experience}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                </>
-              )}
-              
-              <Button type="submit" disabled={loading} className="w-full">
-                {loading ? 'Updating Profile...' : 'Complete Profile'}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="experience">Years of Experience</Label>
+                  <Input
+                    id="experience"
+                    name="experience"
+                    type="number"
+                    min="0"
+                    value={formData.experience}
+                    onChange={handleInputChange}
+                    placeholder="Years of experience"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-col space-y-3">
+            <Button 
+              onClick={handleSaveProfile}
+              disabled={loading}
+              variant="outline"
+              className="w-full"
+            >
+              {loading ? 'Saving...' : 'Save Profile'}
+            </Button>
+
+            <Button 
+              onClick={handleCompleteProfile}
+              disabled={!userProfile.isPhoneVerified}
+              className="w-full"
+            >
+              Complete Profile & Continue
+            </Button>
+          </div>
+
+          {!userProfile.isPhoneVerified && (
+            <p className="text-sm text-muted-foreground text-center">
+              Phone verification is required to complete your profile
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Phone Verification Modal */}
+      <PhoneVerificationModal
+        isOpen={showPhoneVerification}
+        onClose={() => setShowPhoneVerification(false)}
+        onSuccess={handlePhoneVerificationSuccess}
+      />
     </div>
   );
 };

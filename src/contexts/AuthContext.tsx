@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
   User, 
@@ -218,13 +217,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       setUserProfile(profileData);
     } else if (currentUser) {
-      // Update existing user profile to mark phone as verified
+      // Update existing user profile to mark phone as verified and update mobile
       const now = new Date();
-      await setDoc(doc(db, 'users', currentUser.uid), {
+      const updateData = {
+        mobile: result.user.phoneNumber || currentUser.phoneNumber || '',
         isPhoneVerified: true,
         updatedAt: now
-      }, { merge: true });
+      };
       
+      await setDoc(doc(db, 'users', currentUser.uid), updateData, { merge: true });
       await refreshUserProfile();
     }
   };
@@ -338,3 +339,5 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     </AuthContext.Provider>
   );
 };
+
+export default AuthProvider;
