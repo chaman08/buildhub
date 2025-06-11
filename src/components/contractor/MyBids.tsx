@@ -12,6 +12,11 @@ interface Bid {
   id: string;
   projectId: string;
   projectTitle?: string;
+  contractorName?: string;
+  contractorEmail?: string;
+  contractorPhone?: string;
+  contractorCompany?: string;
+  contractorCategory?: string;
   priceQuoted: number;
   timeline: string;
   message: string;
@@ -42,13 +47,10 @@ const MyBids: React.FC = () => {
       console.log('Fetching contractor bids for user:', currentUser.uid);
       setError(null);
       
-      // First, let's check if there are any bids at all
-      const allBidsSnapshot = await getDocs(collection(db, 'bids'));
-      console.log('Total bids in database:', allBidsSnapshot.size);
-      
       const bidsQuery = query(
         collection(db, 'bids'),
-        where('contractorId', '==', currentUser.uid)
+        where('contractorId', '==', currentUser.uid),
+        orderBy('createdAt', 'desc')
       );
       
       const snapshot = await getDocs(bidsQuery);
@@ -65,37 +67,41 @@ const MyBids: React.FC = () => {
           const bidData = bidDoc.data();
           console.log('Processing bid:', bidDoc.id, bidData);
           
-          // Fetch project title and customer details
-          try {
-            const projectDoc = await getDoc(doc(db, 'projects', bidData.projectId));
-            const projectData = projectDoc.exists() ? projectDoc.data() : null;
-            
-            let customerData = null;
-            if (projectData?.postedBy) {
-              const customerDoc = await getDoc(doc(db, 'users', projectData.postedBy));
-              customerData = customerDoc.exists() ? customerDoc.data() : null;
+          let enhancedBidData = {
+            id: bidDoc.id,
+            ...bidData,
+          };
+
+          // If projectTitle is not in bid data, fetch from project
+          if (!bidData.projectTitle && bidData.projectId) {
+            try {
+              const projectDoc = await getDoc(doc(db, 'projects', bidData.projectId));
+              if (projectDoc.exists()) {
+                const projectData = projectDoc.data();
+                enhancedBidData.projectTitle = projectData.title;
+                
+                // Fetch customer details from project's postedBy
+                if (projectData.postedBy) {
+                  const customerDoc = await getDoc(doc(db, 'users', projectData.postedBy));
+                  if (customerDoc.exists()) {
+                    const customerData = customerDoc.data();
+                    enhancedBidData.customerName = customerData.fullName;
+                    enhancedBidData.customerEmail = customerData.email;
+                    enhancedBidData.customerPhone = customerData.mobile;
+                  }
+                }
+              }
+            } catch (error) {
+              console.error('Error fetching project details for bid:', error);
+              enhancedBidData.projectTitle = 'Project Not Found';
             }
-            
-            return {
-              id: bidDoc.id,
-              ...bidData,
-              projectTitle: projectData?.title || 'Project Not Found',
-              customerName: customerData?.fullName || 'Unknown Customer',
-              customerEmail: customerData?.email,
-              customerPhone: customerData?.mobile,
-            };
-          } catch (error) {
-            console.error('Error fetching project for bid:', error);
-            return {
-              id: bidDoc.id,
-              ...bidData,
-              projectTitle: 'Project Not Found'
-            };
           }
+          
+          return enhancedBidData;
         })
       );
       
-      console.log('Processed bids data:', bidsData);
+      console.log('Final processed bids:', bidsData);
       setBids(bidsData as Bid[]);
     } catch (error) {
       console.error('Error fetching contractor bids:', error);
@@ -187,15 +193,6 @@ const MyBids: React.FC = () => {
         </div>
       </div>
 
-      {/* Debug Info */}
-      <Card className="bg-blue-50 border-blue-200">
-        <CardContent className="pt-4">
-          <p className="text-sm text-blue-700">
-            Debug Info: Found {bids.length} total bids for contractor {currentUser?.uid}
-          </p>
-        </CardContent>
-      </Card>
-
       {bids.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
@@ -244,9 +241,9 @@ const MyBids: React.FC = () => {
                       <div className="bg-green-100 p-3 rounded-lg mb-3">
                         <h5 className="font-medium text-green-800 mb-2">👤 Customer Contact</h5>
                         <div className="text-sm text-green-700">
-                          <p><strong>Name:</strong> {bid.customerName}</p>
-                          <p><strong>Email:</strong> {bid.customerEmail}</p>
-                          <p><strong>Phone:</strong> {bid.customerPhone}</p>
+                          <p><strong>Name:</strong> {bid.customerName || 'Not available'}</p>
+                          <p><strong>Email:</strong> {bid.customerEmail || 'Not available'}</p>
+                          <p><strong>Phone:</strong> {bid.customerPhone || 'Not available'}</p>
                         </div>
                       </div>
                       
@@ -259,20 +256,24 @@ const MyBids: React.FC = () => {
                           <Eye className="h-4 w-4 mr-1" />
                           View Project
                         </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => window.open(`tel:${bid.customerPhone}`)}
-                        >
-                          📞 Call
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => window.open(`mailto:${bid.customerEmail}`)}
-                        >
-                          📧 Email
-                        </Button>
+                        {bid.customerPhone && (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => window.open(`tel:${bid.customerPhone}`)}
+                          >
+                            📞 Call
+                          </Button>
+                        )}
+                        {bid.customerEmail && (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => window.open(`mailto:${bid.customerEmail}`)}
+                          >
+                            📧 Email
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -303,7 +304,7 @@ const MyBids: React.FC = () => {
                     <TableRow key={bid.id} className={bid.status === 'accepted' ? 'bg-green-50' : ''}>
                       <TableCell>
                         <div>
-                          <div className="font-medium">{bid.projectTitle}</div>
+                          <div className="font-medium">{bid.projectTitle || 'Unknown Project'}</div>
                           <div className="text-sm text-gray-500 line-clamp-1">
                             {bid.message.substring(0, 50)}...
                           </div>

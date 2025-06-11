@@ -46,7 +46,7 @@ interface BidFormModalProps {
 }
 
 const BidFormModal: React.FC<BidFormModalProps> = ({ open, onOpenChange, project }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -60,7 +60,7 @@ const BidFormModal: React.FC<BidFormModalProps> = ({ open, onOpenChange, project
   });
 
   const onSubmit = async (data: BidFormData) => {
-    if (!currentUser) {
+    if (!currentUser || !userProfile) {
       toast({
         title: 'Authentication required',
         description: 'Please log in to place a bid',
@@ -71,15 +71,38 @@ const BidFormModal: React.FC<BidFormModalProps> = ({ open, onOpenChange, project
 
     setIsSubmitting(true);
     try {
+      console.log('Placing bid with data:', {
+        projectId: project.id,
+        contractorId: currentUser.uid,
+        contractorName: userProfile.fullName,
+        contractorEmail: userProfile.email,
+        contractorPhone: userProfile.mobile,
+        contractorCompany: userProfile.companyName,
+        contractorCategory: userProfile.serviceCategory,
+        customerId: project.postedBy,
+        projectTitle: project.title,
+        priceQuoted: data.priceQuoted,
+        timeline: data.timeline,
+        message: data.message,
+        status: 'pending'
+      });
+
       await addDoc(collection(db, 'bids'), {
         projectId: project.id,
         contractorId: currentUser.uid,
+        contractorName: userProfile.fullName || 'Unknown Contractor',
+        contractorEmail: userProfile.email || '',
+        contractorPhone: userProfile.mobile || '',
+        contractorCompany: userProfile.companyName || '',
+        contractorCategory: userProfile.serviceCategory || '',
         customerId: project.postedBy,
+        projectTitle: project.title,
         priceQuoted: data.priceQuoted,
         timeline: data.timeline,
         message: data.message,
         status: 'pending',
         createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
       });
 
       toast({
