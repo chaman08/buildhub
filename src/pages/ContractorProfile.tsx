@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
@@ -8,7 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MapPin, Star, Shield, Phone, Mail, MessageCircle, ArrowLeft } from 'lucide-react';
+import { MapPin, Star, Shield, Phone, Mail, MessageCircle, ArrowLeft, Heart } from 'lucide-react';
+import { useBookmarks } from '@/contexts/BookmarkContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ContractorProfile {
   uid: string;
@@ -33,6 +34,8 @@ const ContractorProfile = () => {
   const [contractor, setContractor] = useState<ContractorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { currentUser } = useAuth();
+  const { isContractorBookmarked, toggleContractorBookmark } = useBookmarks();
 
   useEffect(() => {
     if (uid) {
@@ -126,6 +129,22 @@ const ContractorProfile = () => {
                   <h1 className="text-3xl font-bold text-gray-900">{contractor.fullName}</h1>
                   {contractor.verified && (
                     <Shield className="h-6 w-6 text-green-600" />
+                  )}
+                  {currentUser && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => toggleContractorBookmark(contractor.uid)}
+                      className="ml-2"
+                    >
+                      <Heart
+                        className={`h-6 w-6 ${
+                          isContractorBookmarked(contractor.uid)
+                            ? 'fill-red-500 text-red-500'
+                            : 'text-gray-400'
+                        }`}
+                      />
+                    </Button>
                   )}
                 </div>
                 

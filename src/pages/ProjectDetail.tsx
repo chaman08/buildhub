@@ -3,13 +3,14 @@ import { useParams, Link } from 'react-router-dom';
 import { doc, getDoc, collection, query, where, getDocs, addDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBookmarks } from '@/contexts/BookmarkContext';
 import Header from '@/components/Header';
 import RatingModal from '@/components/RatingModal';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MapPin, Calendar, DollarSign, ArrowLeft, Phone, Mail, MessageCircle, Star } from 'lucide-react';
+import { MapPin, Calendar, DollarSign, ArrowLeft, Phone, Mail, MessageCircle, Star, Heart } from 'lucide-react';
 import BidFormModal from '@/components/BidFormModal';
 import ChatInterface from '@/components/chat/ChatInterface';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -46,6 +47,7 @@ interface Bid {
 const ProjectDetail = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const { currentUser, userProfile } = useAuth();
+  const { isProjectBookmarked, toggleProjectBookmark } = useBookmarks();
   const [project, setProject] = useState<Project | null>(null);
   const [bids, setBids] = useState<Bid[]>([]);
   const [loading, setLoading] = useState(true);
@@ -252,29 +254,52 @@ const ProjectDetail = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Project Details */}
           <div className="lg:col-span-2 space-y-6">
-            <Card>
-              <CardHeader>
+            <Card className="mb-6">
+              <CardContent className="p-6">
                 <div className="flex justify-between items-start">
-                  <CardTitle className="text-2xl">{project.title}</CardTitle>
-                  <div className="flex gap-2">
-                    <Badge variant="outline" className={
-                      project.status === 'completed' ? 'text-green-600 border-green-600' : 
-                      project.status === 'in_progress' ? 'text-blue-600 border-blue-600' :
-                      'text-yellow-600 border-yellow-600'
-                    }>
-                      {project.status}
-                    </Badge>
-                    {project.status === 'completed' && project.rated && (
-                      <Badge variant="outline" className="text-purple-600 border-purple-600">
-                        <Star className="h-3 w-3 mr-1" />
-                        Rated
-                      </Badge>
-                    )}
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <h1 className="text-3xl font-bold text-gray-900">{project.title}</h1>
+                      {currentUser && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => toggleProjectBookmark(project.id)}
+                          className="ml-2"
+                        >
+                          <Heart
+                            className={`h-6 w-6 ${
+                              isProjectBookmarked(project.id)
+                                ? 'fill-red-500 text-red-500'
+                                : 'text-gray-400'
+                            }`}
+                          />
+                        </Button>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {project.category.map((cat, index) => (
+                        <Badge key={index} variant="secondary">
+                          {cat}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
+                  <Badge
+                    variant={
+                      project.status === 'open'
+                        ? 'default'
+                        : project.status === 'in_progress'
+                        ? 'secondary'
+                        : project.status === 'completed'
+                        ? 'success'
+                        : 'destructive'
+                    }
+                  >
+                    {project.status.replace('_', ' ').toUpperCase()}
+                  </Badge>
                 </div>
-              </CardHeader>
-              
-              <CardContent className="space-y-6">
+                
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex items-center gap-2">
                     <DollarSign className="h-5 w-5 text-green-600" />
@@ -311,17 +336,6 @@ const ProjectDetail = () => {
                       <p className="font-medium">{project.expectedDuration}</p>
                     </div>
                   )}
-                </div>
-
-                <div>
-                  <p className="text-sm text-gray-500 mb-2">Categories</p>
-                  <div className="flex flex-wrap gap-2">
-                    {project.category.map((cat) => (
-                      <Badge key={cat} variant="secondary">
-                        {cat}
-                      </Badge>
-                    ))}
-                  </div>
                 </div>
 
                 <div>

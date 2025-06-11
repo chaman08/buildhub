@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,6 +8,7 @@ import Contact from "./pages/Contact";
 import About from "./pages/About";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./contexts/AuthContext";
+import { BookmarkProvider } from "./contexts/BookmarkContext";
 import Auth from "./pages/Auth";
 import VerificationPage from "./components/auth/VerificationPage";
 import Dashboard from "./pages/Dashboard";
@@ -20,36 +20,40 @@ import Projects from "./pages/Projects";
 import ProjectDetail from "./pages/ProjectDetail";
 import Messages from "./pages/Messages";
 import AdminPanel from "./pages/AdminPanel";
+import Bookmarks from "./pages/Bookmarks";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/verify" element={<VerificationPage />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/contractor-dashboard" element={<ContractorDashboard />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/contractors" element={<Contractors />} />
-            <Route path="/contractor/:uid" element={<ContractorProfile />} />
-            <Route path="/projects" element={<Projects />} />
-            <Route path="/project/:projectId" element={<ProjectDetail />} />
-            <Route path="/messages" element={<Messages />} />
-            <Route path="/admin-panel-secure-2024" element={<AdminPanel />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <BookmarkProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/verify" element={<VerificationPage />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/contractor-dashboard" element={<ContractorDashboard />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/contractors" element={<Contractors />} />
+              <Route path="/contractor/:uid" element={<ContractorProfile />} />
+              <Route path="/projects" element={<Projects />} />
+              <Route path="/project/:projectId" element={<ProjectDetail />} />
+              <Route path="/messages" element={<Messages />} />
+              <Route path="/bookmarks" element={<Bookmarks />} />
+              <Route path="/admin-panel-secure-2024" element={<AdminPanel />} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </BookmarkProvider>
     </AuthProvider>
   </QueryClientProvider>
 );

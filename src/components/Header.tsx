@@ -15,7 +15,7 @@ import {
   SheetContent,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import { User, LogOut, Settings, Menu, X } from 'lucide-react';
+import { User, LogOut, Settings, Menu, X, Bookmark } from 'lucide-react';
 
 const Header = () => {
   const { currentUser, userProfile, logout } = useAuth();
@@ -76,6 +76,13 @@ const Header = () => {
             onClick={() => setMobileMenuOpen(false)}
           >
             Profile
+          </Link>
+          <Link
+            to="/bookmarks"
+            className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-base font-medium"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            Bookmarks
           </Link>
           <Button
             onClick={() => {
@@ -146,6 +153,12 @@ const Header = () => {
                     Dashboard
                   </Button>
                 </Link>
+                <Link to="/bookmarks">
+                  <Button variant="outline" size="sm">
+                    <Bookmark className="h-4 w-4 mr-2" />
+                    Bookmarks
+                  </Button>
+                </Link>
                 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -185,6 +198,12 @@ const Header = () => {
                       <Link to={getDashboardRoute()} className="cursor-pointer">
                         <Settings className="mr-2 h-4 w-4" />
                         Dashboard
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/bookmarks" className="cursor-pointer">
+                        <Bookmark className="mr-2 h-4 w-4" />
+                        Bookmarks
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
