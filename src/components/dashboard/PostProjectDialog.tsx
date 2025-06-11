@@ -1,9 +1,11 @@
 
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
 import ProfileCompletionRequired from '@/components/ProfileCompletionRequired';
+import PostProjectForm from '@/components/forms/PostProjectForm';
 
 interface PostProjectDialogProps {
   open: boolean;
@@ -11,33 +13,53 @@ interface PostProjectDialogProps {
   onProjectPosted?: () => Promise<void> | void;
 }
 
-// This is a mock component just to show integration - you would normally have your own PostProjectDialog implementation
 const PostProjectDialog = ({ open, onOpenChange, onProjectPosted }: PostProjectDialogProps) => {
+  const { currentUser } = useAuth();
   const { isProfileComplete, loading } = useProfileCompletion();
-  const [shouldShowProfilePrompt, setShouldShowProfilePrompt] = useState(false);
+  const navigate = useNavigate();
   
-  // If still loading or we know the profile is complete, render normally
-  if (loading || isProfileComplete) {
+  // If user is not logged in, redirect to auth page
+  if (!currentUser) {
+    navigate('/auth');
+    return null;
+  }
+  
+  // If still loading profile completion status
+  if (loading) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Post a New Project</DialogTitle>
-          </DialogHeader>
-          {/* Your existing post project form */}
-          <p>Project posting form would go here</p>
-          <Button onClick={() => onProjectPosted && onProjectPosted()}>Post Project</Button>
+          <div className="flex items-center justify-center p-6">
+            <div className="text-center">Loading...</div>
+          </div>
         </DialogContent>
       </Dialog>
     );
   }
   
   // If profile is incomplete, show the profile completion prompt
+  if (!isProfileComplete) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-md">
+          <ProfileCompletionRequired 
+            message="You need to complete your profile before posting a project."
+          />
+        </DialogContent>
+      </Dialog>
+    );
+  }
+  
+  // If everything is good, show the post project form
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <ProfileCompletionRequired 
-          message="You need to complete your profile before posting a project."
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <PostProjectForm
+          onSuccess={() => {
+            onProjectPosted && onProjectPosted();
+            onOpenChange(false);
+          }}
+          onCancel={() => onOpenChange(false)}
         />
       </DialogContent>
     </Dialog>

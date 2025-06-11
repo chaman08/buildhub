@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -39,12 +38,7 @@ const Header = () => {
   };
 
   const handleSignupClick = () => {
-    if (location.pathname === '/auth') {
-      // If already on auth page, we can trigger a state change to show signup
-      window.location.reload();
-    } else {
-      navigate('/auth');
-    }
+    navigate('/auth', { state: { showSignup: true } });
   };
 
   const navigationLinks = [

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
-import { User, Building2, Mail, Phone } from 'lucide-react';
+import { User, Building2, Mail, Phone, CheckCircle, Star, Briefcase } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import PhoneAuthForm from './PhoneAuthForm';
@@ -193,30 +194,78 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
             </div>
           </div>
 
-          <div className="space-y-4">
-            <Button
-              onClick={() => { setUserType('customer'); setStep(2); }}
-              variant="outline"
-              className="w-full h-20 text-left hover:bg-blue-50 hover:border-blue-200"
-            >
-              <User className="h-6 w-6 mr-3 text-blue-600" />
-              <div>
-                <div className="font-semibold text-base">Customer</div>
-                <div className="text-sm text-gray-500">Post construction projects</div>
-              </div>
-            </Button>
+          <div className="space-y-3">
+            <h3 className="text-center font-semibold text-gray-900 mb-4">Choose Your Account Type</h3>
             
-            <Button
-              onClick={() => { setUserType('contractor'); setStep(2); }}
-              variant="outline"
-              className="w-full h-20 text-left hover:bg-green-50 hover:border-green-200"
+            {/* Customer Card */}
+            <div 
+              onClick={() => { setUserType('customer'); setStep(2); }}
+              className="group relative p-6 border-2 border-gray-200 rounded-xl cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-all duration-200"
             >
-              <Building2 className="h-6 w-6 mr-3 text-green-600" />
-              <div>
-                <div className="font-semibold text-base">Contractor</div>
-                <div className="text-sm text-gray-500">Bid on construction projects</div>
+              <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                    <User className="h-6 w-6 text-blue-600" />
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-lg font-semibold text-gray-900 group-hover:text-blue-700">Customer</h4>
+                  <p className="text-sm text-gray-600 mb-3">Post construction projects and find contractors</p>
+                  <div className="space-y-1">
+                    <div className="flex items-center text-xs text-gray-500">
+                      <CheckCircle className="h-3 w-3 mr-1 text-green-500" />
+                      Post unlimited projects
+                    </div>
+                    <div className="flex items-center text-xs text-gray-500">
+                      <CheckCircle className="h-3 w-3 mr-1 text-green-500" />
+                      Get bids from verified contractors
+                    </div>
+                    <div className="flex items-center text-xs text-gray-500">
+                      <CheckCircle className="h-3 w-3 mr-1 text-green-500" />
+                      Project management tools
+                    </div>
+                  </div>
+                </div>
+                <div className="flex-shrink-0">
+                  <div className="w-6 h-6 border-2 border-gray-300 rounded-full group-hover:border-blue-400 transition-colors"></div>
+                </div>
               </div>
-            </Button>
+            </div>
+            
+            {/* Contractor Card */}
+            <div 
+              onClick={() => { setUserType('contractor'); setStep(2); }}
+              className="group relative p-6 border-2 border-gray-200 rounded-xl cursor-pointer hover:border-green-400 hover:bg-green-50/50 transition-all duration-200"
+            >
+              <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
+                    <Building2 className="h-6 w-6 text-green-600" />
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-lg font-semibold text-gray-900 group-hover:text-green-700">Contractor</h4>
+                  <p className="text-sm text-gray-600 mb-3">Bid on construction projects and grow your business</p>
+                  <div className="space-y-1">
+                    <div className="flex items-center text-xs text-gray-500">
+                      <Star className="h-3 w-3 mr-1 text-green-500" />
+                      Bid on quality projects
+                    </div>
+                    <div className="flex items-center text-xs text-gray-500">
+                      <Briefcase className="h-3 w-3 mr-1 text-green-500" />
+                      Showcase your portfolio
+                    </div>
+                    <div className="flex items-center text-xs text-gray-500">
+                      <CheckCircle className="h-3 w-3 mr-1 text-green-500" />
+                      Build client relationships
+                    </div>
+                  </div>
+                </div>
+                <div className="flex-shrink-0">
+                  <div className="w-6 h-6 border-2 border-gray-300 rounded-full group-hover:border-green-400 transition-colors"></div>
+                </div>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

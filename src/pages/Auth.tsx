@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import LoginForm from '@/components/auth/LoginForm';
 import SignupForm from '@/components/auth/SignupForm';
 import ProfileCompletion from '@/components/auth/ProfileCompletion';
@@ -8,9 +7,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import Header from '@/components/Header';
 
 const Auth: React.FC = () => {
+  const location = useLocation();
   const [isLogin, setIsLogin] = useState(true);
   const navigate = useNavigate();
   const { currentUser, userProfile, isVerificationComplete } = useAuth();
+
+  // Check if we should show signup based on navigation state
+  useEffect(() => {
+    if (location.state?.showSignup) {
+      setIsLogin(false);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     if (currentUser && userProfile) {
