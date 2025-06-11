@@ -14,13 +14,13 @@ import PersonalizedGreeting from "@/components/PersonalizedGreeting";
 
 const Index = () => {
   const { currentUser } = useAuth();
-  const { showPostDialog, setShowPostDialog, handlePostProject } = usePostProject();
+  const { showPostDialog, setShowPostDialog } = usePostProject();
 
   return (
     <div className="min-h-screen bg-white">
       <Header />
       {currentUser && <PersonalizedGreeting />}
-      <HeroSection onPostProject={handlePostProject} />
+      <HeroSection />
       <HowItWorks />
       <WhyChooseUs />
       <ContractorPreview />
