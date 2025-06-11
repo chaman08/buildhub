@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, orderBy, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -7,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Eye, Edit, Calendar, DollarSign, CheckCircle, X, Clock, Star } from 'lucide-react';
+import { Eye, Edit, Calendar, DollarSign, CheckCircle, X, Clock, Star, AlertCircle } from 'lucide-react';
 
 interface Bid {
   id: string;
@@ -28,6 +27,7 @@ const MyBids: React.FC = () => {
   const { currentUser } = useAuth();
   const [bids, setBids] = useState<Bid[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (currentUser) {
@@ -39,18 +39,31 @@ const MyBids: React.FC = () => {
     if (!currentUser) return;
 
     try {
-      console.log('Fetching contractor bids...');
+      console.log('Fetching contractor bids for user:', currentUser.uid);
+      setError(null);
+      
+      // First, let's check if there are any bids at all
+      const allBidsSnapshot = await getDocs(collection(db, 'bids'));
+      console.log('Total bids in database:', allBidsSnapshot.size);
       
       const bidsQuery = query(
         collection(db, 'bids'),
-        where('contractorId', '==', currentUser.uid),
-        orderBy('createdAt', 'desc')
+        where('contractorId', '==', currentUser.uid)
       );
       
       const snapshot = await getDocs(bidsQuery);
+      console.log('Contractor bids found:', snapshot.size);
+      
+      if (snapshot.empty) {
+        console.log('No bids found for contractor:', currentUser.uid);
+        setBids([]);
+        return;
+      }
+
       const bidsData = await Promise.all(
         snapshot.docs.map(async (bidDoc) => {
           const bidData = bidDoc.data();
+          console.log('Processing bid:', bidDoc.id, bidData);
           
           // Fetch project title and customer details
           try {
@@ -82,10 +95,11 @@ const MyBids: React.FC = () => {
         })
       );
       
-      console.log('Contractor bids fetched:', bidsData.length);
+      console.log('Processed bids data:', bidsData);
       setBids(bidsData as Bid[]);
     } catch (error) {
       console.error('Error fetching contractor bids:', error);
+      setError('Failed to load bids. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -129,7 +143,27 @@ const MyBids: React.FC = () => {
   };
 
   if (loading) {
-    return <div>Loading your bids...</div>;
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center space-y-4">
+          <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto"></div>
+          <p>Loading your bids...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12">
+          <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+          <h3 className="text-lg font-medium text-red-700 mb-2">Error Loading Bids</h3>
+          <p className="text-red-600 mb-4">{error}</p>
+          <Button onClick={fetchMyBids}>Try Again</Button>
+        </CardContent>
+      </Card>
+    );
   }
 
   const acceptedBids = bids.filter(bid => bid.status === 'accepted');
@@ -152,6 +186,15 @@ const MyBids: React.FC = () => {
           </Badge>
         </div>
       </div>
+
+      {/* Debug Info */}
+      <Card className="bg-blue-50 border-blue-200">
+        <CardContent className="pt-4">
+          <p className="text-sm text-blue-700">
+            Debug Info: Found {bids.length} total bids for contractor {currentUser?.uid}
+          </p>
+        </CardContent>
+      </Card>
 
       {bids.length === 0 ? (
         <Card>

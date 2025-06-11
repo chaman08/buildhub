@@ -1,8 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useContractorRating } from '@/hooks/useContractorRating';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -12,7 +12,6 @@ interface DashboardStats {
   bidsPlaced: number;
   projectsAccepted: number;
   ongoingProjects: number;
-  rating: number;
 }
 
 interface Notification {
@@ -25,11 +24,11 @@ interface Notification {
 
 const ContractorHome: React.FC = () => {
   const { currentUser, userProfile } = useAuth();
+  const { rating, totalRatings, loading: ratingLoading } = useContractorRating(currentUser?.uid || '');
   const [stats, setStats] = useState<DashboardStats>({
     bidsPlaced: 0,
     projectsAccepted: 0,
-    ongoingProjects: 0,
-    rating: 0
+    ongoingProjects: 0
   });
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,8 +59,7 @@ const ContractorHome: React.FC = () => {
       setStats({
         bidsPlaced,
         projectsAccepted,
-        ongoingProjects,
-        rating: userProfile?.rating || 4.5
+        ongoingProjects
       });
 
       // Mock notifications - in real app, fetch from Firestore
@@ -112,7 +110,7 @@ const ContractorHome: React.FC = () => {
             {userProfile?.fullName?.charAt(0) || 'C'}
           </AvatarFallback>
         </Avatar>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold">
             Welcome back, {userProfile?.fullName || 'Contractor'}!
           </h1>
@@ -120,6 +118,14 @@ const ContractorHome: React.FC = () => {
             {userProfile?.companyName && `${userProfile.companyName} • `}
             {userProfile?.serviceCategory || 'Construction Services'}
           </p>
+          <div className="flex items-center gap-2 mt-2">
+            <div className="flex items-center gap-1">
+              <Star className="h-4 w-4 text-yellow-400 fill-current" />
+              <span className="text-white font-medium">
+                {ratingLoading ? 'Loading...' : `${rating || 'No rating'} ${totalRatings > 0 ? `(${totalRatings})` : ''}`}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -165,10 +171,18 @@ const ContractorHome: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold flex items-center gap-1">
-              {stats.rating}
-              <Star className="h-5 w-5 text-yellow-500 fill-current" />
+              {ratingLoading ? (
+                <div className="animate-pulse bg-gray-200 h-8 w-16 rounded"></div>
+              ) : (
+                <>
+                  {rating || 'No rating'}
+                  <Star className="h-5 w-5 text-yellow-500 fill-current" />
+                </>
+              )}
             </div>
-            <p className="text-xs text-muted-foreground">Client feedback</p>
+            <p className="text-xs text-muted-foreground">
+              {totalRatings > 0 ? `${totalRatings} reviews` : 'No reviews yet'}
+            </p>
           </CardContent>
         </Card>
       </div>

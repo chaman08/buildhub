@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { doc, getDoc, collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, addDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import Header from '@/components/Header';
+import RatingModal from '@/components/RatingModal';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MapPin, Calendar, DollarSign, ArrowLeft, Phone, Mail, MessageCircle } from 'lucide-react';
+import { MapPin, Calendar, DollarSign, ArrowLeft, Phone, Mail, MessageCircle, Star } from 'lucide-react';
 import BidFormModal from '@/components/BidFormModal';
 import ChatInterface from '@/components/chat/ChatInterface';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -26,6 +27,7 @@ interface Project {
   status: 'open' | 'in_progress' | 'completed' | 'closed';
   createdAt: any;
   expectedDuration?: string;
+  rated?: boolean;
 }
 
 interface Bid {
@@ -49,11 +51,13 @@ const ProjectDetail = () => {
   const [loading, setLoading] = useState(true);
   const [showBidModal, setShowBidModal] = useState(false);
   const [showChatModal, setShowChatModal] = useState(false);
+  const [showRatingModal, setShowRatingModal] = useState(false);
   const [selectedContractor, setSelectedContractor] = useState<{ id: string; name: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const isOwner = currentUser?.uid === project?.postedBy;
   const isContractor = userProfile?.userType === 'contractor';
+  const acceptedBid = bids.find(bid => bid.status === 'accepted');
 
   useEffect(() => {
     if (projectId) {
@@ -65,12 +69,10 @@ const ProjectDetail = () => {
     if (!projectId) return;
 
     try {
-      // Fetch project details
       const projectDoc = await getDoc(doc(db, 'projects', projectId));
       if (projectDoc.exists()) {
         setProject({ id: projectDoc.id, ...projectDoc.data() } as Project);
         
-        // Fetch bids for this project
         const bidsQuery = query(
           collection(db, 'bids'),
           where('projectId', '==', projectId)
@@ -81,7 +83,6 @@ const ProjectDetail = () => {
           ...doc.data()
         })) as Bid[];
 
-        // Fetch contractor details for each bid
         const bidsWithContractorInfo = await Promise.all(
           bidsData.map(async (bid) => {
             const contractorDoc = await getDoc(doc(db, 'users', bid.contractorId));
@@ -124,11 +125,34 @@ const ProjectDetail = () => {
     });
   };
 
+  const handleMarkCompleted = async () => {
+    if (!project || !projectId) return;
+
+    try {
+      await updateDoc(doc(db, 'projects', projectId), {
+        status: 'completed',
+        completedAt: serverTimestamp()
+      });
+
+      setProject({ ...project, status: 'completed' });
+
+      // Show rating modal if there's an accepted contractor
+      if (acceptedBid) {
+        setSelectedContractor({
+          id: acceptedBid.contractorId,
+          name: acceptedBid.contractorName || 'Contractor'
+        });
+        setShowRatingModal(true);
+      }
+    } catch (error) {
+      console.error('Error marking project completed:', error);
+    }
+  };
+
   const handleContactContractor = async (contractorId: string, contractorName: string) => {
     if (!currentUser || !userProfile || !project) return;
 
     try {
-      // Create initial chat message
       await addDoc(collection(db, 'chats'), {
         projectId: project.id,
         senderId: currentUser.uid,
@@ -154,13 +178,11 @@ const ProjectDetail = () => {
     if (!currentUser || !userProfile || !project) return;
 
     try {
-      // Get customer details
       const customerDoc = await getDoc(doc(db, 'users', project.postedBy));
       if (!customerDoc.exists()) return;
 
       const customerData = customerDoc.data();
       
-      // Create initial chat message
       await addDoc(collection(db, 'chats'), {
         projectId: project.id,
         senderId: currentUser.uid,
@@ -234,9 +256,21 @@ const ProjectDetail = () => {
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <CardTitle className="text-2xl">{project.title}</CardTitle>
-                  <Badge variant="outline" className="text-green-600 border-green-600">
-                    {project.status}
-                  </Badge>
+                  <div className="flex gap-2">
+                    <Badge variant="outline" className={
+                      project.status === 'completed' ? 'text-green-600 border-green-600' : 
+                      project.status === 'in_progress' ? 'text-blue-600 border-blue-600' :
+                      'text-yellow-600 border-yellow-600'
+                    }>
+                      {project.status}
+                    </Badge>
+                    {project.status === 'completed' && project.rated && (
+                      <Badge variant="outline" className="text-purple-600 border-purple-600">
+                        <Star className="h-3 w-3 mr-1" />
+                        Rated
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               
@@ -295,8 +329,21 @@ const ProjectDetail = () => {
                   <p className="text-gray-700 whitespace-pre-wrap">{project.description}</p>
                 </div>
 
+                {/* Owner Actions */}
+                {isOwner && project.status === 'in_progress' && acceptedBid && (
+                  <div className="pt-4 border-t">
+                    <Button 
+                      onClick={handleMarkCompleted}
+                      className="w-full"
+                      size="lg"
+                    >
+                      ✅ Mark Project as Completed
+                    </Button>
+                  </div>
+                )}
+
                 {/* Contractor Actions */}
-                {isContractor && !isOwner && (
+                {isContractor && !isOwner && project.status === 'open' && (
                   <div className="pt-4 border-t space-y-3">
                     <Button 
                       onClick={() => setShowBidModal(true)}
@@ -417,6 +464,18 @@ const ProjectDetail = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Rating Modal */}
+      {selectedContractor && (
+        <RatingModal
+          open={showRatingModal}
+          onOpenChange={setShowRatingModal}
+          contractorId={selectedContractor.id}
+          contractorName={selectedContractor.name}
+          projectId={projectId || ''}
+          projectTitle={project.title}
+        />
+      )}
     </div>
   );
 };
