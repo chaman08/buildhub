@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBookmarks } from '@/contexts/BookmarkContext';
 import Header from '@/components/Header';
 import ProjectCard from '@/components/ProjectCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,6 +29,7 @@ interface Project {
 
 const Projects = () => {
   const { currentUser } = useAuth();
+  const { isProjectBookmarked, toggleProjectBookmark } = useBookmarks();
   const [projects, setProjects] = useState<Project[]>([]);
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,7 +37,6 @@ const Projects = () => {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedBudget, setSelectedBudget] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
-  const [savedProjects, setSavedProjects] = useState<Set<string>>(new Set());
   const [availableLocations, setAvailableLocations] = useState<string[]>([]);
 
   const categories = ['Civil Work', 'Electrical', 'Plumbing', 'Interior Design', 'Architecture', 'Landscaping'];
@@ -49,7 +50,6 @@ const Projects = () => {
 
   useEffect(() => {
     fetchProjects();
-    loadSavedProjects();
   }, []);
 
   useEffect(() => {
@@ -95,24 +95,6 @@ const Projects = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const loadSavedProjects = () => {
-    const saved = localStorage.getItem('savedProjects');
-    if (saved) {
-      setSavedProjects(new Set(JSON.parse(saved)));
-    }
-  };
-
-  const handleSaveProject = (projectId: string) => {
-    const newSaved = new Set(savedProjects);
-    if (newSaved.has(projectId)) {
-      newSaved.delete(projectId);
-    } else {
-      newSaved.add(projectId);
-    }
-    setSavedProjects(newSaved);
-    localStorage.setItem('savedProjects', JSON.stringify(Array.from(newSaved)));
   };
 
   const filterProjects = () => {
@@ -258,27 +240,21 @@ const Projects = () => {
         )}
 
         {/* Projects Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProjects.map((project) => (
             <ProjectCard
               key={project.id}
               project={project}
-              onSaveProject={handleSaveProject}
-              isSaved={savedProjects.has(project.id)}
+              onSaveProject={toggleProjectBookmark}
+              isSaved={isProjectBookmarked(project.id)}
             />
           ))}
+          {filteredProjects.length === 0 && (
+            <div className="col-span-full text-center py-12">
+              <p className="text-gray-500">No projects found matching your criteria</p>
+            </div>
+          )}
         </div>
-
-        {filteredProjects.length === 0 && projects.length > 0 && (
-          <Card className="mt-8">
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <div className="text-center space-y-4">
-                <h3 className="text-lg font-medium text-gray-900">No projects found</h3>
-                <p className="text-gray-500">Try adjusting your search filters</p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </div>
   );

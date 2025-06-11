@@ -140,7 +140,7 @@ const ContractorProfile = () => {
                       <Heart
                         className={`h-6 w-6 ${
                           isContractorBookmarked(contractor.uid)
-                            ? 'fill-red-500 text-red-500'
+                            ? 'fill-blue-600 text-blue-600'
                             : 'text-gray-400'
                         }`}
                       />

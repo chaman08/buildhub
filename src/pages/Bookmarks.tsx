@@ -29,7 +29,7 @@ const Bookmarks = () => {
     queryKey: ['bookmarkedProjects', bookmarkedProjects],
     queryFn: async () => {
       if (bookmarkedProjects.length === 0) return [];
-      const q = query(collection(db, 'projects'), where('id', 'in', bookmarkedProjects));
+      const q = query(collection(db, 'projects'), where('__name__', 'in', bookmarkedProjects));
       const snapshot = await getDocs(q);
       return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     },
@@ -51,21 +51,21 @@ const Bookmarks = () => {
           <TabsContent value="contractors">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {contractors?.map((contractor: any) => (
-                <Card key={contractor.id} className="hover:shadow-lg transition-shadow">
+                <Card key={contractor.uid} className="hover:shadow-lg transition-shadow">
                   <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle className="text-xl">{contractor.name}</CardTitle>
+                    <CardTitle className="text-xl">{contractor.fullName}</CardTitle>
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => toggleContractorBookmark(contractor.id)}
+                      onClick={() => toggleContractorBookmark(contractor.uid)}
                     >
-                      <Heart className="h-5 w-5 fill-red-500 text-red-500" />
+                      <Heart className="h-5 w-5 fill-blue-600 text-blue-600" />
                     </Button>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-gray-600 mb-4">{contractor.bio}</p>
+                    <p className="text-gray-600 mb-4">{contractor.bio || 'No bio available'}</p>
                     <Button
-                      onClick={() => navigate(`/contractor/${contractor.id}`)}
+                      onClick={() => navigate(`/contractor/${contractor.uid}`)}
                       className="w-full"
                     >
                       View Profile
@@ -92,7 +92,7 @@ const Bookmarks = () => {
                       size="icon"
                       onClick={() => toggleProjectBookmark(project.id)}
                     >
-                      <Heart className="h-5 w-5 fill-red-500 text-red-500" />
+                      <Heart className="h-5 w-5 fill-blue-600 text-blue-600" />
                     </Button>
                   </CardHeader>
                   <CardContent>
