@@ -91,6 +91,7 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
       return;
     }
 
+    console.log('Sending OTP for', isLogin ? 'login' : 'signup', 'to:', fullPhone);
     setLoading(true);
     
     try {
@@ -111,6 +112,7 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
         }
         
         const selectedUserType = userType || preSelectedUserType;
+        console.log('Signup with user type:', selectedUserType);
         
         result = await signupWithPhone(fullPhone, {
           fullName: formData.fullName || 'User',
@@ -149,6 +151,7 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
       return;
     }
 
+    console.log('Verifying OTP:', otp, 'for', isLogin ? 'login' : 'signup');
     setLoading(true);
     
     try {
@@ -160,6 +163,7 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
         profileComplete: false
       } : undefined;
 
+      console.log('Calling verifyPhoneOTP with userData:', userData);
       await verifyPhoneOTP(confirmationResult, otp, userData);
       
       toast({

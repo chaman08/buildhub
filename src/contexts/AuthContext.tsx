@@ -149,12 +149,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
     
-    // Create or update user profile
+    console.log('Google sign-in successful, email verified status:', result.user.emailVerified);
+    
+    // Create or update user profile - Google users should always have verified email
     const profileData = await createUserProfile(result.user, {
-      isEmailVerified: result.user.emailVerified,
+      isEmailVerified: true, // Always mark Google users as email verified
       isPhoneVerified: false,
       profileComplete: false
     });
+    
+    // If user already exists, ensure their email is marked as verified
+    if (profileData.isEmailVerified !== true) {
+      console.log('Updating existing Google user email verification status');
+      await setDoc(doc(db, 'users', result.user.uid), {
+        isEmailVerified: true,
+        updatedAt: new Date()
+      }, { merge: true });
+      
+      profileData.isEmailVerified = true;
+    }
     
     setUserProfile(profileData);
   };
@@ -177,18 +190,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (userDoc.exists()) {
         const profile = userDoc.data() as UserProfile;
         
-        // Update email verification status if it changed
-        if (profile.isEmailVerified !== currentUser.emailVerified) {
+        // For Google users, always ensure email is marked as verified
+        const isGoogleUser = user.providerData.some(provider => provider.providerId === 'google.com');
+        let needsUpdate = false;
+        
+        if (isGoogleUser && !profile.isEmailVerified) {
+          console.log('Updating Google user email verification status');
+          profile.isEmailVerified = true;
+          needsUpdate = true;
+        }
+        
+        // Update email verification status if changed for any user
+        if (profile.isEmailVerified !== currentUser.emailVerified && !isGoogleUser) {
           profile.isEmailVerified = currentUser.emailVerified;
+          needsUpdate = true;
+        }
+        
+        if (needsUpdate) {
           profile.updatedAt = new Date();
-          
           await setDoc(doc(db, 'users', currentUser.uid), {
-            isEmailVerified: currentUser.emailVerified,
+            isEmailVerified: profile.isEmailVerified,
             updatedAt: profile.updatedAt
           }, { merge: true });
         }
         
         setUserProfile(profile);
+      } else {
+        // Create profile for existing user (migration case)
+        const isGoogleUser = user.providerData.some(provider => provider.providerId === 'google.com');
+        const profileData = await createUserProfile(user, {
+          isEmailVerified: isGoogleUser ? true : user.emailVerified
+        });
+        setUserProfile(profileData);
       }
     }
   };
@@ -227,10 +260,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('Verifying OTP:', otp);
       const result = await confirmationResult.confirm(otp);
-      console.log('OTP verified successfully');
+      console.log('OTP verified successfully, user:', result.user);
       
       if (userData && result.user) {
         // New phone signup - create user profile
+        console.log('Creating new user profile for phone signup');
         const profileData = await createUserProfile(result.user, {
           ...userData,
           mobile: result.user.phoneNumber || '',
@@ -240,17 +274,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         
         setUserProfile(profileData);
-      } else if (currentUser) {
+      } else if (currentUser && result.user) {
         // Update existing user profile to mark phone as verified and update mobile
+        console.log('Updating existing user profile with phone verification');
         const now = new Date();
+        
+        // Format phone number properly
+        const phoneNumber = result.user.phoneNumber || currentUser.phoneNumber || '';
+        console.log('Phone number to update:', phoneNumber);
+        
         const updateData = {
-          mobile: result.user.phoneNumber || currentUser.phoneNumber || '',
+          mobile: phoneNumber,
           isPhoneVerified: true,
           updatedAt: now
         };
         
         await setDoc(doc(db, 'users', currentUser.uid), updateData, { merge: true });
+        console.log('Phone verification update saved to Firestore');
+        
+        // Refresh user profile to reflect changes
         await refreshUserProfile();
+      } else {
+        console.error('No current user found during phone verification');
+        throw new Error('No authenticated user found');
       }
     } catch (error) {
       console.error('Error verifying OTP:', error);
@@ -305,6 +351,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log('Auth state changed:', user ? 'User logged in' : 'User logged out');
       setCurrentUser(user);
       
       if (user) {
@@ -313,13 +360,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (userDoc.exists()) {
           const profile = userDoc.data() as UserProfile;
           
-          // Update email verification status if changed
-          if (profile.isEmailVerified !== user.emailVerified) {
+          // For Google users, always ensure email is marked as verified
+          const isGoogleUser = user.providerData.some(provider => provider.providerId === 'google.com');
+          let needsUpdate = false;
+          
+          if (isGoogleUser && !profile.isEmailVerified) {
+            console.log('Updating Google user email verification status');
+            profile.isEmailVerified = true;
+            needsUpdate = true;
+          }
+          
+          // Update email verification status if changed for any user
+          if (profile.isEmailVerified !== user.emailVerified && !isGoogleUser) {
             profile.isEmailVerified = user.emailVerified;
+            needsUpdate = true;
+          }
+          
+          if (needsUpdate) {
             profile.updatedAt = new Date();
-            
             await setDoc(doc(db, 'users', user.uid), {
-              isEmailVerified: user.emailVerified,
+              isEmailVerified: profile.isEmailVerified,
               updatedAt: profile.updatedAt
             }, { merge: true });
           }
@@ -327,7 +387,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUserProfile(profile);
         } else {
           // Create profile for existing user (migration case)
-          const profileData = await createUserProfile(user);
+          const isGoogleUser = user.providerData.some(provider => provider.providerId === 'google.com');
+          const profileData = await createUserProfile(user, {
+            isEmailVerified: isGoogleUser ? true : user.emailVerified
+          });
           setUserProfile(profileData);
         }
       } else {

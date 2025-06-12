@@ -29,7 +29,7 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [recaptchaVerifier, setRecaptchaVerifier] = useState<RecaptchaVerifier | null>(null);
   
-  const { setupRecaptcha, sendPhoneOTP, verifyPhoneOTP } = useAuth();
+  const { setupRecaptcha, sendPhoneOTP, verifyPhoneOTP, currentUser } = useAuth();
   const { toast } = useToast();
 
   const countryCodes = [
@@ -70,6 +70,7 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
     }
 
     const fullPhone = `${countryCode}${phoneNumber}`;
+    console.log('Sending OTP to phone number:', fullPhone, 'for user:', currentUser?.uid);
     setLoading(true);
     
     try {
@@ -104,6 +105,16 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
       return;
     }
 
+    if (!currentUser) {
+      toast({
+        title: "Authentication Error",
+        description: "No authenticated user found. Please login first.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    console.log('Verifying OTP for existing user:', currentUser.uid);
     setLoading(true);
     
     try {
