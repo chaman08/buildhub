@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { db } from '@/lib/firebase';
@@ -15,19 +16,30 @@ interface BookmarkContextType {
 const BookmarkContext = createContext<BookmarkContextType | undefined>(undefined);
 
 export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentUser } = useAuth();
+  const authContext = useAuth();
   const [bookmarkedContractors, setBookmarkedContractors] = useState<string[]>([]);
   const [bookmarkedProjects, setBookmarkedProjects] = useState<string[]>([]);
+
+  // Early return if auth context is not available yet
+  if (!authContext) {
+    return <>{children}</>;
+  }
+
+  const { currentUser } = authContext;
 
   useEffect(() => {
     const loadBookmarks = async () => {
       if (!currentUser) return;
 
-      const bookmarkDoc = await getDoc(doc(db, 'bookmarks', currentUser.uid));
-      if (bookmarkDoc.exists()) {
-        const data = bookmarkDoc.data();
-        setBookmarkedContractors(data.contractors || []);
-        setBookmarkedProjects(data.projects || []);
+      try {
+        const bookmarkDoc = await getDoc(doc(db, 'bookmarks', currentUser.uid));
+        if (bookmarkDoc.exists()) {
+          const data = bookmarkDoc.data();
+          setBookmarkedContractors(data.contractors || []);
+          setBookmarkedProjects(data.projects || []);
+        }
+      } catch (error) {
+        console.error('Error loading bookmarks:', error);
       }
     };
 
@@ -37,29 +49,37 @@ export const BookmarkProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const toggleContractorBookmark = async (contractorId: string) => {
     if (!currentUser) return;
 
-    const newBookmarks = bookmarkedContractors.includes(contractorId)
-      ? bookmarkedContractors.filter(id => id !== contractorId)
-      : [...bookmarkedContractors, contractorId];
+    try {
+      const newBookmarks = bookmarkedContractors.includes(contractorId)
+        ? bookmarkedContractors.filter(id => id !== contractorId)
+        : [...bookmarkedContractors, contractorId];
 
-    setBookmarkedContractors(newBookmarks);
-    await setDoc(doc(db, 'bookmarks', currentUser.uid), {
-      contractors: newBookmarks,
-      projects: bookmarkedProjects
-    });
+      setBookmarkedContractors(newBookmarks);
+      await setDoc(doc(db, 'bookmarks', currentUser.uid), {
+        contractors: newBookmarks,
+        projects: bookmarkedProjects
+      });
+    } catch (error) {
+      console.error('Error toggling contractor bookmark:', error);
+    }
   };
 
   const toggleProjectBookmark = async (projectId: string) => {
     if (!currentUser) return;
 
-    const newBookmarks = bookmarkedProjects.includes(projectId)
-      ? bookmarkedProjects.filter(id => id !== projectId)
-      : [...bookmarkedProjects, projectId];
+    try {
+      const newBookmarks = bookmarkedProjects.includes(projectId)
+        ? bookmarkedProjects.filter(id => id !== projectId)
+        : [...bookmarkedProjects, projectId];
 
-    setBookmarkedProjects(newBookmarks);
-    await setDoc(doc(db, 'bookmarks', currentUser.uid), {
-      contractors: bookmarkedContractors,
-      projects: newBookmarks
-    });
+      setBookmarkedProjects(newBookmarks);
+      await setDoc(doc(db, 'bookmarks', currentUser.uid), {
+        contractors: bookmarkedContractors,
+        projects: newBookmarks
+      });
+    } catch (error) {
+      console.error('Error toggling project bookmark:', error);
+    }
   };
 
   const isContractorBookmarked = (contractorId: string) => {
@@ -92,4 +112,4 @@ export const useBookmarks = () => {
     throw new Error('useBookmarks must be used within a BookmarkProvider');
   }
   return context;
-}; 
+};
