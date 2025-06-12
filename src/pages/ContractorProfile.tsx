@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
@@ -7,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MapPin, Star, Shield, Phone, Mail, MessageCircle, ArrowLeft, Heart } from 'lucide-react';
+import { MapPin, Star, Shield, Phone, Mail, MessageCircle, ArrowLeft, Heart, FileText } from 'lucide-react';
 import { useBookmarks } from '@/contexts/BookmarkContext';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -207,6 +208,34 @@ const ContractorProfile = () => {
             </p>
           </CardContent>
         </Card>
+
+        {/* Certificates Section */}
+        {contractor.certifications && contractor.certifications.length > 0 && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Certificates & Qualifications</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {contractor.certifications.map((certUrl, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <FileText className="h-5 w-5 text-gray-500" />
+                      <span className="text-sm font-medium">Certificate {index + 1}</span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(certUrl, '_blank')}
+                    >
+                      View
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Services Section */}
         <Card className="mb-6">
