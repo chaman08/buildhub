@@ -292,8 +292,13 @@ const ProjectDetail = () => {
                         : project.status === 'in_progress'
                         ? 'secondary'
                         : project.status === 'completed'
-                        ? 'success'
+                        ? 'default'
                         : 'destructive'
+                    }
+                    className={
+                      project.status === 'completed' 
+                        ? 'bg-green-600 text-white hover:bg-green-700' 
+                        : ''
                     }
                   >
                     {project.status.replace('_', ' ').toUpperCase()}

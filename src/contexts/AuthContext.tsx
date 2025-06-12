@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
   User, 
@@ -29,13 +30,17 @@ export interface UserProfile {
   isDocumentVerified?: boolean;
   isAdmin?: boolean;
   profileComplete?: boolean;
+  verified?: boolean;
   // Contractor specific fields
   companyName?: string;
   serviceCategory?: string;
   experience?: number;
+  bio?: string;
+  certifications?: string[];
   documents?: string[];
   verificationBadge?: boolean;
   rating?: number;
+  reviewsCount?: number;
   // Customer specific fields
   projectsPosted?: number;
   createdAt?: Date;
