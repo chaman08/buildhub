@@ -191,7 +191,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const profile = userDoc.data() as UserProfile;
         
         // For Google users, always ensure email is marked as verified
-        const isGoogleUser = user.providerData.some(provider => provider.providerId === 'google.com');
+        const isGoogleUser = currentUser.providerData.some(provider => provider.providerId === 'google.com');
         let needsUpdate = false;
         
         if (isGoogleUser && !profile.isEmailVerified) {
@@ -217,9 +217,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUserProfile(profile);
       } else {
         // Create profile for existing user (migration case)
-        const isGoogleUser = user.providerData.some(provider => provider.providerId === 'google.com');
-        const profileData = await createUserProfile(user, {
-          isEmailVerified: isGoogleUser ? true : user.emailVerified
+        const isGoogleUser = currentUser.providerData.some(provider => provider.providerId === 'google.com');
+        const profileData = await createUserProfile(currentUser, {
+          isEmailVerified: isGoogleUser ? true : currentUser.emailVerified
         });
         setUserProfile(profileData);
       }
