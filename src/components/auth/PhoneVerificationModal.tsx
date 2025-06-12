@@ -8,7 +8,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { ConfirmationResult } from 'firebase/auth';
+import { ConfirmationResult, RecaptchaVerifier } from 'firebase/auth';
 
 interface PhoneVerificationModalProps {
   isOpen: boolean;
@@ -27,8 +27,9 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+  const [recaptchaVerifier, setRecaptchaVerifier] = useState<RecaptchaVerifier | null>(null);
   
-  const { setupRecaptcha, sendPhoneOTP, verifyPhoneOTP, currentUser } = useAuth();
+  const { setupRecaptcha, sendPhoneOTP, verifyPhoneOTP } = useAuth();
   const { toast } = useToast();
 
   const countryCodes = [
@@ -44,11 +45,25 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
     { code: '+65', country: 'Singapore' }
   ];
 
+  const initializeRecaptcha = () => {
+    try {
+      if (recaptchaVerifier) {
+        recaptchaVerifier.clear();
+      }
+      const verifier = setupRecaptcha('phone-verification-recaptcha-modal');
+      setRecaptchaVerifier(verifier);
+      return verifier;
+    } catch (error) {
+      console.error('Error initializing reCAPTCHA:', error);
+      throw error;
+    }
+  };
+
   const handleSendOTP = async () => {
-    if (!phoneNumber) {
+    if (!phoneNumber || phoneNumber.length < 10) {
       toast({
-        title: "Phone Number Required",
-        description: "Please enter your phone number",
+        title: "Invalid Phone Number",
+        description: "Please enter a valid phone number",
         variant: "destructive"
       });
       return;
@@ -58,8 +73,8 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
     setLoading(true);
     
     try {
-      const recaptchaVerifier = setupRecaptcha('phone-verification-recaptcha');
-      const result = await sendPhoneOTP(fullPhone, recaptchaVerifier);
+      const verifier = initializeRecaptcha();
+      const result = await sendPhoneOTP(fullPhone, verifier);
       setConfirmationResult(result);
       setStep(2);
       
@@ -92,13 +107,18 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
     setLoading(true);
     
     try {
-      // For existing Google users, we just verify the phone without creating new account
+      // For existing users, we just verify the phone without creating new account
       await verifyPhoneOTP(confirmationResult, otp);
       
       toast({
         title: "Phone Verified",
         description: "Your phone number has been verified successfully!"
       });
+      
+      // Clean up reCAPTCHA
+      if (recaptchaVerifier) {
+        recaptchaVerifier.clear();
+      }
       
       onSuccess();
       onClose();
@@ -119,11 +139,20 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
     setPhoneNumber('');
     setOtp('');
     setConfirmationResult(null);
+    if (recaptchaVerifier) {
+      recaptchaVerifier.clear();
+      setRecaptchaVerifier(null);
+    }
   };
 
   const handleClose = () => {
     resetModal();
     onClose();
+  };
+
+  const handleResendOTP = async () => {
+    setOtp('');
+    await handleSendOTP();
   };
 
   return (
@@ -164,7 +193,7 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
                     type="tel"
                     placeholder="Phone Number"
                     value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
                     className="flex-1"
                     required
                   />
@@ -173,7 +202,7 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
               
               <Button 
                 onClick={handleSendOTP} 
-                disabled={loading || !phoneNumber}
+                disabled={loading || !phoneNumber || phoneNumber.length < 10}
                 className="w-full"
               >
                 {loading ? 'Sending OTP...' : 'Send Verification Code'}
@@ -210,7 +239,7 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
                 <div className="text-center">
                   <Button 
                     variant="outline" 
-                    onClick={handleSendOTP}
+                    onClick={handleResendOTP}
                     disabled={loading}
                     className="text-sm"
                   >
@@ -223,7 +252,7 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
         </div>
 
         {/* reCAPTCHA container */}
-        <div id="phone-verification-recaptcha" className="hidden"></div>
+        <div id="phone-verification-recaptcha-modal" className="hidden"></div>
       </DialogContent>
     </Dialog>
   );

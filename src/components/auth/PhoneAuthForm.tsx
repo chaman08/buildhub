@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +9,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 import { Phone, User, Building2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { ConfirmationResult } from 'firebase/auth';
+import { ConfirmationResult, RecaptchaVerifier } from 'firebase/auth';
 
 type UserType = 'customer' | 'contractor' | '';
 
@@ -37,8 +38,9 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
   });
   const [loading, setLoading] = useState(false);
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+  const [recaptchaVerifier, setRecaptchaVerifier] = useState<RecaptchaVerifier | null>(null);
   
-  const { loginWithPhone, signupWithPhone, verifyPhoneOTP } = useAuth();
+  const { loginWithPhone, signupWithPhone, verifyPhoneOTP, setupRecaptcha } = useAuth();
   const { toast } = useToast();
 
   const countryCodes = [
@@ -63,13 +65,27 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const initializeRecaptcha = () => {
+    try {
+      if (recaptchaVerifier) {
+        recaptchaVerifier.clear();
+      }
+      const verifier = setupRecaptcha('recaptcha-container-phone');
+      setRecaptchaVerifier(verifier);
+      return verifier;
+    } catch (error) {
+      console.error('Error initializing reCAPTCHA:', error);
+      throw error;
+    }
+  };
+
   const handleSendOTP = async () => {
     const fullPhone = `${countryCode}${phoneNumber}`;
     
-    if (!phoneNumber) {
+    if (!phoneNumber || phoneNumber.length < 10) {
       toast({
-        title: "Phone Number Required",
-        description: "Please enter your phone number",
+        title: "Invalid Phone Number",
+        description: "Please enter a valid phone number",
         variant: "destructive"
       });
       return;
@@ -78,6 +94,7 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
     setLoading(true);
     
     try {
+      const verifier = initializeRecaptcha();
       let result: ConfirmationResult;
       
       if (isLogin) {
@@ -95,7 +112,6 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
         
         const selectedUserType = userType || preSelectedUserType;
         
-        // For signup we'll collect minimal information and let users complete profiles later
         result = await signupWithPhone(fullPhone, {
           fullName: formData.fullName || 'User',
           userType: selectedUserType as 'customer' | 'contractor',
@@ -109,12 +125,13 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
       
       toast({
         title: "OTP Sent",
-        description: `Verification code sent to ${fullPhone}`
+        description: `Verification code sent to ${fullPhone}`,
       });
     } catch (error: any) {
+      console.error('Phone OTP error:', error);
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to send OTP. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -150,8 +167,14 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
         description: isLogin ? "Welcome back!" : "Please complete your profile in the dashboard"
       });
       
+      // Clean up reCAPTCHA
+      if (recaptchaVerifier) {
+        recaptchaVerifier.clear();
+      }
+      
       onSuccess();
     } catch (error: any) {
+      console.error('Phone verification error:', error);
       toast({
         title: "Verification Failed",
         description: "Invalid OTP. Please try again.",
@@ -160,6 +183,10 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleResendOTP = async () => {
+    await handleSendOTP();
   };
 
   // Step 1: Phone number input
@@ -193,7 +220,7 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
                 type="tel"
                 placeholder="Phone Number"
                 value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
+                onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
                 className="flex-1"
                 required
               />
@@ -228,11 +255,14 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
           
           <Button 
             onClick={handleSendOTP} 
-            disabled={loading || !phoneNumber}
+            disabled={loading || !phoneNumber || phoneNumber.length < 10}
             className="w-full"
           >
             {loading ? 'Sending OTP...' : 'Send OTP'}
           </Button>
+          
+          {/* reCAPTCHA container */}
+          <div id="recaptcha-container-phone"></div>
         </CardContent>
       </Card>
     );
@@ -276,7 +306,7 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
         <div className="text-center">
           <Button 
             variant="outline" 
-            onClick={handleSendOTP}
+            onClick={handleResendOTP}
             disabled={loading}
             className="text-sm"
           >

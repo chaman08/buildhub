@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
   User, 
@@ -195,43 +194,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const setupRecaptcha = (elementId: string): RecaptchaVerifier => {
+    // Clear any existing recaptcha first
+    const existingContainer = document.getElementById(elementId);
+    if (existingContainer) {
+      existingContainer.innerHTML = '';
+    }
+    
     return new RecaptchaVerifier(auth, elementId, {
       size: 'invisible',
       callback: () => {
-        // reCAPTCHA solved
+        console.log('reCAPTCHA solved');
+      },
+      'expired-callback': () => {
+        console.log('reCAPTCHA expired');
       }
     });
   };
 
   const sendPhoneOTP = async (phoneNumber: string, recaptchaVerifier: RecaptchaVerifier): Promise<ConfirmationResult> => {
-    return await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
+    try {
+      console.log('Sending OTP to:', phoneNumber);
+      const result = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
+      console.log('OTP sent successfully');
+      return result;
+    } catch (error) {
+      console.error('Error sending OTP:', error);
+      throw error;
+    }
   };
 
   const verifyPhoneOTP = async (confirmationResult: ConfirmationResult, otp: string, userData?: Partial<UserProfile>): Promise<void> => {
-    const result = await confirmationResult.confirm(otp);
-    
-    if (userData && result.user) {
-      // New phone signup - create user profile
-      const profileData = await createUserProfile(result.user, {
-        ...userData,
-        mobile: result.user.phoneNumber || '',
-        isEmailVerified: false,
-        isPhoneVerified: true,
-        profileComplete: userData.profileComplete || false
-      });
+    try {
+      console.log('Verifying OTP:', otp);
+      const result = await confirmationResult.confirm(otp);
+      console.log('OTP verified successfully');
       
-      setUserProfile(profileData);
-    } else if (currentUser) {
-      // Update existing user profile to mark phone as verified and update mobile
-      const now = new Date();
-      const updateData = {
-        mobile: result.user.phoneNumber || currentUser.phoneNumber || '',
-        isPhoneVerified: true,
-        updatedAt: now
-      };
-      
-      await setDoc(doc(db, 'users', currentUser.uid), updateData, { merge: true });
-      await refreshUserProfile();
+      if (userData && result.user) {
+        // New phone signup - create user profile
+        const profileData = await createUserProfile(result.user, {
+          ...userData,
+          mobile: result.user.phoneNumber || '',
+          isEmailVerified: false,
+          isPhoneVerified: true,
+          profileComplete: userData.profileComplete || false
+        });
+        
+        setUserProfile(profileData);
+      } else if (currentUser) {
+        // Update existing user profile to mark phone as verified and update mobile
+        const now = new Date();
+        const updateData = {
+          mobile: result.user.phoneNumber || currentUser.phoneNumber || '',
+          isPhoneVerified: true,
+          updatedAt: now
+        };
+        
+        await setDoc(doc(db, 'users', currentUser.uid), updateData, { merge: true });
+        await refreshUserProfile();
+      }
+    } catch (error) {
+      console.error('Error verifying OTP:', error);
+      throw error;
     }
   };
 
