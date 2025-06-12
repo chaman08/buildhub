@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -7,8 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Phone, Mail, Calendar, DollarSign, CheckCircle, MapPin } from 'lucide-react';
+import { Phone, Mail, Calendar, DollarSign, CheckCircle, MapPin, PlusCircle } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
+import PostProjectDialog from '@/components/dashboard/PostProjectDialog';
 
 interface AcceptedProject {
   id: string;
@@ -31,6 +31,7 @@ const AcceptedProjects: React.FC = () => {
   const { currentUser } = useAuth();
   const [projects, setProjects] = useState<AcceptedProject[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showPostDialog, setShowPostDialog] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
@@ -151,8 +152,18 @@ const AcceptedProjects: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">My Projects</h2>
+        <Button 
+          onClick={() => setShowPostDialog(true)}
+          className="flex items-center gap-2"
+        >
+          <PlusCircle className="h-4 w-4" />
+          Post New Project
+        </Button>
+      </div>
+
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Accepted Projects</h2>
         <Badge variant="outline" className="text-sm">
           {projects.length} active projects
         </Badge>
@@ -270,6 +281,12 @@ const AcceptedProjects: React.FC = () => {
           ))}
         </div>
       )}
+
+      {/* Post Project Dialog */}
+      <PostProjectDialog
+        open={showPostDialog}
+        onOpenChange={setShowPostDialog}
+      />
     </div>
   );
 };

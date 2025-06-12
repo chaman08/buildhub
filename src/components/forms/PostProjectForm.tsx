@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,7 +19,7 @@ interface PostProjectFormProps {
 }
 
 const PostProjectForm: React.FC<PostProjectFormProps> = ({ onSuccess, onCancel }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -34,7 +33,7 @@ const PostProjectForm: React.FC<PostProjectFormProps> = ({ onSuccess, onCancel }
     startDate: '',
     expectedDuration: '',
     urgency: 'medium' as 'low' | 'medium' | 'high',
-    projectType: 'residential' as 'residential' | 'commercial' | 'industrial',
+    projectType: 'residential' as 'residential' | 'commercial' | 'industrial' | 'government',
     requiresPermits: false,
     materials: '',
     specialRequirements: ''
@@ -113,6 +112,7 @@ const PostProjectForm: React.FC<PostProjectFormProps> = ({ onSuccess, onCancel }
         materials: formData.materials,
         specialRequirements: formData.specialRequirements,
         postedBy: currentUser.uid,
+        postedByType: userProfile?.userType || 'customer',
         status: 'open',
         createdAt: new Date(),
         updatedAt: new Date()
@@ -122,7 +122,9 @@ const PostProjectForm: React.FC<PostProjectFormProps> = ({ onSuccess, onCancel }
       
       toast({
         title: "Project Posted Successfully!",
-        description: "Your project has been posted and contractors can now bid on it."
+        description: userProfile?.userType === 'contractor' 
+          ? "Your project has been posted as a contractor. Other contractors can now bid on it."
+          : "Your project has been posted and contractors can now bid on it."
       });
       
       onSuccess?.();
@@ -141,9 +143,13 @@ const PostProjectForm: React.FC<PostProjectFormProps> = ({ onSuccess, onCancel }
   return (
     <Card className="w-full max-w-4xl mx-auto">
       <CardHeader>
-        <CardTitle className="text-2xl font-bold text-center">Post a New Project</CardTitle>
+        <CardTitle className="text-2xl font-bold text-center">
+          {userProfile?.userType === 'contractor' ? 'Post a Project as Contractor' : 'Post a New Project'}
+        </CardTitle>
         <p className="text-center text-muted-foreground">
-          Describe your construction project and get competitive bids from qualified contractors
+          {userProfile?.userType === 'contractor' 
+            ? 'Post your construction project as a contractor and get competitive bids from other contractors'
+            : 'Describe your construction project and get competitive bids from qualified contractors'}
         </p>
       </CardHeader>
       <CardContent>
@@ -202,6 +208,7 @@ const PostProjectForm: React.FC<PostProjectFormProps> = ({ onSuccess, onCancel }
                     <SelectItem value="residential">Residential</SelectItem>
                     <SelectItem value="commercial">Commercial</SelectItem>
                     <SelectItem value="industrial">Industrial</SelectItem>
+                    <SelectItem value="government">Government</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -256,8 +263,8 @@ const PostProjectForm: React.FC<PostProjectFormProps> = ({ onSuccess, onCancel }
           {/* Budget and Timeline */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold flex items-center">
-              <DollarSign className="h-5 w-5 mr-2 text-green-600" />
-              Budget & Timeline
+              <DollarSign className="h-5 w-5 mr-2 text-blue-600" />
+              Budget and Timeline
             </h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -286,9 +293,9 @@ const PostProjectForm: React.FC<PostProjectFormProps> = ({ onSuccess, onCancel }
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="startDate">Preferred Start Date *</Label>
+                <Label htmlFor="startDate">Expected Start Date *</Label>
                 <Input
                   id="startDate"
                   name="startDate"
@@ -299,46 +306,59 @@ const PostProjectForm: React.FC<PostProjectFormProps> = ({ onSuccess, onCancel }
                 />
               </div>
               <div>
-                <Label htmlFor="expectedDuration">Expected Duration</Label>
+                <Label htmlFor="expectedDuration">Expected Duration *</Label>
                 <Input
                   id="expectedDuration"
                   name="expectedDuration"
                   value={formData.expectedDuration}
                   onChange={handleInputChange}
-                  placeholder="e.g., 2 weeks, 3 months"
+                  placeholder="e.g., 3 months, 6 weeks"
+                  required
                 />
               </div>
-              <div>
-                <Label htmlFor="urgency">Urgency Level</Label>
-                <Select value={formData.urgency} onValueChange={(value) => handleSelectChange('urgency', value)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Low - Flexible timeline</SelectItem>
-                    <SelectItem value="medium">Medium - Standard timeline</SelectItem>
-                    <SelectItem value="high">High - Urgent</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="urgency">Project Urgency *</Label>
+              <Select value={formData.urgency} onValueChange={(value) => handleSelectChange('urgency', value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low - Flexible Timeline</SelectItem>
+                  <SelectItem value="medium">Medium - Standard Timeline</SelectItem>
+                  <SelectItem value="high">High - Urgent</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
-          {/* Additional Details */}
+          {/* Additional Information */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold flex items-center">
-              <Clock className="h-5 w-5 mr-2 text-purple-600" />
-              Additional Details
+              <Clock className="h-5 w-5 mr-2 text-blue-600" />
+              Additional Information
             </h3>
             
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="requiresPermits"
+                checked={formData.requiresPermits}
+                onCheckedChange={(checked) => 
+                  setFormData(prev => ({ ...prev, requiresPermits: checked as boolean }))
+                }
+              />
+              <Label htmlFor="requiresPermits">This project requires permits</Label>
+            </div>
+
             <div>
-              <Label htmlFor="materials">Materials & Equipment</Label>
+              <Label htmlFor="materials">Materials to be Provided</Label>
               <Textarea
                 id="materials"
                 name="materials"
                 value={formData.materials}
                 onChange={handleInputChange}
-                placeholder="Specify if you'll provide materials or if contractor should include them in bid..."
+                placeholder="List any materials that will be provided for the project..."
                 rows={2}
               />
             </div>
@@ -350,43 +370,24 @@ const PostProjectForm: React.FC<PostProjectFormProps> = ({ onSuccess, onCancel }
                 name="specialRequirements"
                 value={formData.specialRequirements}
                 onChange={handleInputChange}
-                placeholder="Any special requirements, certifications needed, working hours restrictions, etc..."
+                placeholder="Any special requirements or considerations for the project..."
                 rows={2}
               />
             </div>
-
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="requiresPermits"
-                checked={formData.requiresPermits}
-                onCheckedChange={(checked) => 
-                  setFormData(prev => ({ ...prev, requiresPermits: checked === true }))
-                }
-              />
-              <Label htmlFor="requiresPermits" className="text-sm">
-                This project requires permits or special approvals
-              </Label>
-            </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t">
-            {onCancel && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onCancel}
-                className="sm:w-auto"
-              >
-                Cancel
-              </Button>
-            )}
+          {/* Form Actions */}
+          <div className="flex justify-end gap-4">
             <Button
-              type="submit"
-              disabled={loading || selectedCategories.length === 0}
-              className="sm:flex-1"
+              type="button"
+              variant="outline"
+              onClick={onCancel}
+              disabled={loading}
             >
-              {loading ? 'Posting Project...' : 'Post Project'}
+              Cancel
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? 'Posting...' : 'Post Project'}
             </Button>
           </div>
         </form>
