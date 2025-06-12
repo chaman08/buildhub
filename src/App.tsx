@@ -1,61 +1,62 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import Contact from "./pages/Contact";
-import About from "./pages/About";
-import NotFound from "./pages/NotFound";
-import { AuthProvider } from "./contexts/AuthContext";
-import { BookmarkProvider } from "./contexts/BookmarkContext";
-import Auth from "./pages/Auth";
-import VerificationPage from "./components/auth/VerificationPage";
-import Dashboard from "./pages/Dashboard";
-import ContractorDashboard from "./pages/ContractorDashboard";
-import { ProfilePage } from "./pages/ProfilePage";
-import Contractors from "./pages/Contractors";
-import ContractorProfile from "./pages/ContractorProfile";
-import Projects from "./pages/Projects";
-import ProjectDetail from "./pages/ProjectDetail";
-import Messages from "./pages/Messages";
-import AdminPanel from "./pages/AdminPanel";
-import Bookmarks from "./pages/Bookmarks";
+
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Toaster } from '@/components/ui/toaster';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import AuthProvider from '@/contexts/AuthContext';
+import { BookmarkProvider } from '@/contexts/BookmarkContext';
+
+// Import all pages
+import Index from '@/pages/Index';
+import About from '@/pages/About';
+import Contact from '@/pages/Contact';
+import Projects from '@/pages/Projects';
+import ProjectDetail from '@/pages/ProjectDetail';
+import Contractors from '@/pages/Contractors';
+import ContractorProfile from '@/pages/ContractorProfile';
+import ContractorServices from '@/pages/ContractorServices';
+import Auth from '@/pages/Auth';
+import Dashboard from '@/pages/Dashboard';
+import ContractorDashboard from '@/pages/ContractorDashboard';
+import ProfilePage from '@/pages/ProfilePage';
+import Messages from '@/pages/Messages';
+import Bookmarks from '@/pages/Bookmarks';
+import AdminPanel from '@/pages/AdminPanel';
+import NotFound from '@/pages/NotFound';
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <BookmarkProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/contact" element={<Contact />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/verify" element={<VerificationPage />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/contractor-dashboard" element={<ContractorDashboard />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/contractors" element={<Contractors />} />
-              <Route path="/contractor/:uid" element={<ContractorProfile />} />
-              <Route path="/projects" element={<Projects />} />
-              <Route path="/project/:projectId" element={<ProjectDetail />} />
-              <Route path="/messages" element={<Messages />} />
-              <Route path="/bookmarks" element={<Bookmarks />} />
-              <Route path="/admin-panel-secure-2024" element={<AdminPanel />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
-      </BookmarkProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-);
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <BookmarkProvider>
+          <Router>
+            <div className="App">
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/contact" element={<Contact />} />
+                <Route path="/projects" element={<Projects />} />
+                <Route path="/project/:id" element={<ProjectDetail />} />
+                <Route path="/contractors" element={<Contractors />} />
+                <Route path="/contractor/:id" element={<ContractorProfile />} />
+                <Route path="/contractor-services" element={<ContractorServices />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/contractor-dashboard" element={<ContractorDashboard />} />
+                <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/messages" element={<Messages />} />
+                <Route path="/bookmarks" element={<Bookmarks />} />
+                <Route path="/admin" element={<AdminPanel />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+              <Toaster />
+            </div>
+          </Router>
+        </BookmarkProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  );
+}
 
 export default App;
