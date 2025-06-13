@@ -230,15 +230,17 @@ const AcceptedProjects: React.FC = () => {
 
   const handleBidAction = async (bidId: string, action: 'accept' | 'reject') => {
     try {
+      const newStatus: 'accepted' | 'rejected' = action === 'accept' ? 'accepted' : 'rejected';
+      
       await updateDoc(doc(db, 'bids', bidId), {
-        status: action === 'accept' ? 'accepted' : 'rejected',
+        status: newStatus,
         updatedAt: new Date()
       });
 
       // Update local state
       if (selectedProjectForBids) {
         const updatedBids = projectBids[selectedProjectForBids.id].map(bid =>
-          bid.id === bidId ? { ...bid, status: action === 'accept' ? 'accepted' : 'rejected' } : bid
+          bid.id === bidId ? { ...bid, status: newStatus } : bid
         );
         setProjectBids({
           ...projectBids,
