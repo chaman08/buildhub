@@ -14,6 +14,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
+import PostProjectDialog from '@/components/dashboard/PostProjectDialog';
+import { createBidAcceptedNotification, createBidRejectedNotification } from '@/utils/notifications';
 
 interface AcceptedProject {
   id: string;
@@ -72,7 +74,7 @@ interface ProjectBid {
 }
 
 const AcceptedProjects: React.FC = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   const [acceptedProjects, setAcceptedProjects] = useState<AcceptedProject[]>([]);
   const [contractorProjects, setContractorProjects] = useState<ContractorProject[]>([]);
   const [projectBids, setProjectBids] = useState<{[projectId: string]: ProjectBid[]}>({});
@@ -82,6 +84,7 @@ const AcceptedProjects: React.FC = () => {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [selectedProjectForBids, setSelectedProjectForBids] = useState<ContractorProject | null>(null);
   const [showBidsDialog, setShowBidsDialog] = useState(false);
+  const [showPostDialog, setShowPostDialog] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
@@ -246,17 +249,37 @@ const AcceptedProjects: React.FC = () => {
           ...projectBids,
           [selectedProjectForBids.id]: updatedBids
         });
+
+        // Create notification for the contractor
+        const bid = updatedBids.find(b => b.id === bidId);
+        if (bid) {
+          if (action === 'accept') {
+            await createBidAcceptedNotification(
+              bid.contractorId,
+              selectedProjectForBids.id,
+              selectedProjectForBids.title,
+              userProfile?.fullName || 'Customer'
+            );
+          } else {
+            await createBidRejectedNotification(
+              bid.contractorId,
+              selectedProjectForBids.id,
+              selectedProjectForBids.title,
+              userProfile?.fullName || 'Customer'
+            );
+          }
+        }
       }
 
       toast({
-        title: action === 'accept' ? "Bid Accepted" : "Bid Rejected",
-        description: `The bid has been ${action}ed successfully.`
+        title: `Bid ${action === 'accept' ? 'Accepted' : 'Rejected'}`,
+        description: `The bid has been ${action === 'accept' ? 'accepted' : 'rejected'} successfully.`
       });
     } catch (error) {
-      console.error('Error updating bid:', error);
+      console.error('Error updating bid status:', error);
       toast({
         title: "Error",
-        description: "Failed to update bid. Please try again.",
+        description: "Failed to update bid status. Please try again.",
         variant: "destructive"
       });
     }
@@ -446,7 +469,7 @@ const AcceptedProjects: React.FC = () => {
         <TabsContent value="services" className="space-y-6">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-medium">My Posted Services</h3>
-            <Button onClick={() => window.location.hash = '#home'}>
+            <Button onClick={() => setShowPostDialog(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Post New Service
             </Button>
@@ -461,7 +484,7 @@ const AcceptedProjects: React.FC = () => {
                   </div>
                   <h3 className="text-lg font-medium text-gray-900">No Services Posted</h3>
                   <p className="text-gray-500">Start advertising your services to get more clients.</p>
-                  <Button onClick={() => window.location.hash = '#home'}>
+                  <Button onClick={() => setShowPostDialog(true)}>
                     <Plus className="h-4 w-4 mr-2" />
                     Post Your First Service
                   </Button>
@@ -804,6 +827,12 @@ const AcceptedProjects: React.FC = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Post Project Dialog */}
+      <PostProjectDialog
+        open={showPostDialog}
+        onOpenChange={setShowPostDialog}
+      />
     </div>
   );
 };

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -121,6 +120,9 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
       // For existing users, we just verify the phone without creating new account
       await verifyPhoneOTP(confirmationResult, otp);
       
+      // Wait for user profile to be updated
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       toast({
         title: "Phone Verified",
         description: "Your phone number has been verified successfully!"
@@ -131,13 +133,14 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
         recaptchaVerifier.clear();
       }
       
+      // Call success callback and close modal
       onSuccess();
       onClose();
     } catch (error: any) {
       console.error('Phone verification error:', error);
       toast({
         title: "Verification Failed",
-        description: "Invalid OTP. Please try again.",
+        description: error.message || "Invalid OTP. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -163,7 +166,22 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
 
   const handleResendOTP = async () => {
     setOtp('');
-    await handleSendOTP();
+    setLoading(true);
+    try {
+      await handleSendOTP();
+      toast({
+        title: "OTP Resent",
+        description: "A new verification code has been sent to your phone"
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to resend OTP. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

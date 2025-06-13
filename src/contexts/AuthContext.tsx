@@ -377,46 +377,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Verifying OTP:', otp);
       const result = await confirmationResult.confirm(otp);
       console.log('OTP verified successfully, user:', result.user);
-      
-      if (userData && result.user) {
-        // New phone signup - create user profile
-        console.log('Creating new user profile for phone signup');
-        const profileData = await createUserProfile(result.user, {
-          ...userData,
-          mobile: result.user.phoneNumber || '',
-          isEmailVerified: false,
-          isPhoneVerified: true,
-          profileComplete: userData.profileComplete || false
-        });
-        
-        setUserProfile(profileData);
-      } else if (currentUser && result.user) {
-        // Update existing user profile to mark phone as verified and update mobile
-        console.log('Updating existing user profile with phone verification');
-        const now = new Date();
-        
-        // Format phone number properly
-        const phoneNumber = result.user.phoneNumber || currentUser.phoneNumber || '';
-        console.log('Phone number to update:', phoneNumber);
-        
-        const updateData = {
-          mobile: phoneNumber,
-          isPhoneVerified: true,
-          updatedAt: now
-        };
-        
-        await setDoc(doc(db, 'users', currentUser.uid), updateData, { merge: true });
-        console.log('Phone verification update saved to Firestore');
-        
-        // Refresh user profile to reflect changes
-        await refreshUserProfile();
-      } else {
-        console.error('No current user found during phone verification');
-        throw new Error('No authenticated user found');
+
+      if (!result.user) {
+        throw new Error('No user found after OTP verification');
       }
-    } catch (error) {
+
+      // Update user profile with phone verification status
+      const userRef = doc(db, 'users', result.user.uid);
+      const userDoc = await getDoc(userRef);
+
+      if (userDoc.exists()) {
+        // Update existing user
+        await updateDoc(userRef, {
+          isPhoneVerified: true,
+          updatedAt: new Date()
+        });
+
+        // Refresh user profile
+        await refreshUserProfile();
+      } else if (userData) {
+        // Create new user profile
+        await createUserProfile(result.user, {
+          ...userData,
+          isPhoneVerified: true
+        });
+      }
+
+      // Set persistence to local
+      await setPersistence(auth, browserLocalPersistence);
+
+      // Update current user state
+      setCurrentUser(result.user);
+    } catch (error: any) {
       console.error('Error verifying OTP:', error);
-      throw error;
+      throw new Error(error.message || 'Failed to verify OTP');
     }
   };
 

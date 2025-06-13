@@ -3,10 +3,12 @@ import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useContractorRating } from '@/hooks/useContractorRating';
+import { useNotifications } from '@/hooks/useNotifications';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { FileText, CheckCircle, Clock, Star, Bell } from 'lucide-react';
+import { FileText, CheckCircle, Clock, Star, Bell, MessageCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface DashboardStats {
   bidsPlaced: number;
@@ -14,23 +16,15 @@ interface DashboardStats {
   ongoingProjects: number;
 }
 
-interface Notification {
-  id: string;
-  message: string;
-  type: 'bid_update' | 'project_update' | 'payment';
-  createdAt: any;
-  read: boolean;
-}
-
 const ContractorHome: React.FC = () => {
   const { currentUser, userProfile } = useAuth();
   const { rating, totalRatings, loading: ratingLoading } = useContractorRating(currentUser?.uid || '');
+  const { notifications, loading: notificationsLoading, markAsRead, markAllAsRead } = useNotifications(currentUser?.uid || '');
   const [stats, setStats] = useState<DashboardStats>({
     bidsPlaced: 0,
     projectsAccepted: 0,
     ongoingProjects: 0
   });
-  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -61,25 +55,6 @@ const ContractorHome: React.FC = () => {
         projectsAccepted,
         ongoingProjects
       });
-
-      // Mock notifications - in real app, fetch from Firestore
-      setNotifications([
-        {
-          id: '1',
-          message: 'Your bid for "Residential Construction" has been shortlisted',
-          type: 'bid_update',
-          createdAt: new Date(),
-          read: false
-        },
-        {
-          id: '2',
-          message: 'Project "Office Interior" milestone payment released',
-          type: 'payment',
-          createdAt: new Date(),
-          read: false
-        }
-      ]);
-
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
@@ -92,7 +67,20 @@ const ContractorHome: React.FC = () => {
       case 'bid_update': return <FileText className="h-4 w-4 text-blue-600" />;
       case 'project_update': return <CheckCircle className="h-4 w-4 text-green-600" />;
       case 'payment': return <Star className="h-4 w-4 text-yellow-600" />;
+      case 'message': return <MessageCircle className="h-4 w-4 text-purple-600" />;
+      case 'review': return <Star className="h-4 w-4 text-orange-600" />;
       default: return <Bell className="h-4 w-4 text-gray-600" />;
+    }
+  };
+
+  const handleNotificationClick = async (notification: any) => {
+    if (!notification.read) {
+      await markAsRead(notification.id);
+    }
+    
+    // Navigate based on notification type and data
+    if (notification.projectId) {
+      window.open(`/project/${notification.projectId}`, '_blank');
     }
   };
 
@@ -189,29 +177,41 @@ const ContractorHome: React.FC = () => {
 
       {/* Recent Notifications */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <Bell className="h-5 w-5" />
             Recent Notifications
           </CardTitle>
+          {notifications.some(n => !n.read) && (
+            <Button variant="ghost" size="sm" onClick={markAllAsRead}>
+              Mark all as read
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
-          {notifications.length === 0 ? (
+          {notificationsLoading ? (
+            <div className="animate-pulse space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-16 bg-gray-100 rounded-lg"></div>
+              ))}
+            </div>
+          ) : notifications.length === 0 ? (
             <p className="text-gray-500 text-center py-4">No new notifications</p>
           ) : (
             <div className="space-y-3">
               {notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={`flex items-start gap-3 p-3 rounded-lg border ${
+                  className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-gray-50 transition-colors ${
                     !notification.read ? 'bg-blue-50 border-blue-200' : 'bg-gray-50'
                   }`}
+                  onClick={() => handleNotificationClick(notification)}
                 >
                   {getNotificationIcon(notification.type)}
                   <div className="flex-1">
                     <p className="text-sm">{notification.message}</p>
                     <p className="text-xs text-gray-500 mt-1">
-                      {new Date(notification.createdAt).toLocaleDateString()}
+                      {new Date(notification.createdAt?.toDate()).toLocaleDateString()}
                     </p>
                   </div>
                   {!notification.read && (

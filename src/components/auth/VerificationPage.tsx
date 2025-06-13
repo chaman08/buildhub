@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
@@ -42,6 +41,7 @@ const VerificationPage: React.FC = () => {
   }, []);
 
   const handleResendEmail = async () => {
+    setLoading(true);
     try {
       await sendEmailVerification();
       toast({
@@ -51,9 +51,11 @@ const VerificationPage: React.FC = () => {
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to resend verification email. Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -101,16 +103,23 @@ const VerificationPage: React.FC = () => {
     setLoading(true);
     try {
       await verifyPhoneOTP(confirmationResult, phoneOtp);
+      
+      // Wait for user profile to be updated
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       setPhoneVerified(true);
       toast({
         title: "Phone Verified",
         description: "Your phone number has been verified successfully"
       });
+      
+      // Refresh user profile to get updated verification status
+      await refreshUserProfile();
     } catch (error: any) {
       console.error('Phone verification error:', error);
       toast({
         title: "Verification Failed",
-        description: "Invalid OTP. Please try again.",
+        description: error.message || "Invalid OTP. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -119,7 +128,22 @@ const VerificationPage: React.FC = () => {
   };
 
   const handleRefreshEmail = async () => {
-    await refreshUserProfile();
+    setLoading(true);
+    try {
+      await refreshUserProfile();
+      toast({
+        title: "Profile Updated",
+        description: "Your verification status has been updated"
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to refresh verification status. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!userProfile) return null;
