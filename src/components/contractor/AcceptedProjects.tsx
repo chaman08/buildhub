@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -8,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Eye, Edit, Calendar, DollarSign, CheckCircle, Clock, Star, AlertCircle, Trash2, Plus } from 'lucide-react';
+import { Eye, Edit, Calendar, DollarSign, CheckCircle, Clock, Star, AlertCircle, Trash2, Plus, Users, FileText } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -58,14 +57,31 @@ interface ContractorProject {
   inquiries?: number;
 }
 
+interface ProjectBid {
+  id: string;
+  projectId: string;
+  contractorId: string;
+  contractorName: string;
+  contractorEmail: string;
+  contractorPhone: string;
+  priceQuoted: number;
+  timeline: string;
+  proposal: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  createdAt: any;
+}
+
 const AcceptedProjects: React.FC = () => {
   const { currentUser } = useAuth();
   const [acceptedProjects, setAcceptedProjects] = useState<AcceptedProject[]>([]);
   const [contractorProjects, setContractorProjects] = useState<ContractorProject[]>([]);
+  const [projectBids, setProjectBids] = useState<{[projectId: string]: ProjectBid[]}>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingProject, setEditingProject] = useState<ContractorProject | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [selectedProjectForBids, setSelectedProjectForBids] = useState<ContractorProject | null>(null);
+  const [showBidsDialog, setShowBidsDialog] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
@@ -107,8 +123,25 @@ const AcceptedProjects: React.FC = () => {
         ...doc.data()
       })) as ContractorProject[];
 
+      // Fetch bids for each contractor project
+      const bidsData: {[projectId: string]: ProjectBid[]} = {};
+      for (const project of contractorData) {
+        const bidsQuery = query(
+          collection(db, 'bids'),
+          where('projectId', '==', project.id),
+          orderBy('createdAt', 'desc')
+        );
+        
+        const bidsSnapshot = await getDocs(bidsQuery);
+        bidsData[project.id] = bidsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as ProjectBid[];
+      }
+
       setAcceptedProjects(acceptedData);
       setContractorProjects(contractorData);
+      setProjectBids(bidsData);
     } catch (error: any) {
       console.error('Error fetching projects:', error);
       setError('Failed to load projects. Please try again.');
@@ -137,10 +170,10 @@ const AcceptedProjects: React.FC = () => {
           max: Number(formData.get('priceMax'))
         },
         location: formData.get('location') as string,
-        serviceType: formData.get('serviceType') as string,
+        serviceType: formData.get('serviceType') as 'fixed' | 'hourly',
         availability: formData.get('availability') as string,
         experience: formData.get('experience') as string,
-        status: formData.get('status') as string,
+        status: formData.get('status') as 'active' | 'paused' | 'completed',
         updatedAt: new Date()
       };
 
@@ -190,6 +223,43 @@ const AcceptedProjects: React.FC = () => {
     }
   };
 
+  const handleViewBids = (project: ContractorProject) => {
+    setSelectedProjectForBids(project);
+    setShowBidsDialog(true);
+  };
+
+  const handleBidAction = async (bidId: string, action: 'accept' | 'reject') => {
+    try {
+      await updateDoc(doc(db, 'bids', bidId), {
+        status: action === 'accept' ? 'accepted' : 'rejected',
+        updatedAt: new Date()
+      });
+
+      // Update local state
+      if (selectedProjectForBids) {
+        const updatedBids = projectBids[selectedProjectForBids.id].map(bid =>
+          bid.id === bidId ? { ...bid, status: action === 'accept' ? 'accepted' : 'rejected' } : bid
+        );
+        setProjectBids({
+          ...projectBids,
+          [selectedProjectForBids.id]: updatedBids
+        });
+      }
+
+      toast({
+        title: action === 'accept' ? "Bid Accepted" : "Bid Rejected",
+        description: `The bid has been ${action}ed successfully.`
+      });
+    } catch (error) {
+      console.error('Error updating bid:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update bid. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const formatBudget = (amount: number) => {
     if (!amount || isNaN(amount)) return '₹0';
     if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)} Cr`;
@@ -214,6 +284,8 @@ const AcceptedProjects: React.FC = () => {
       case 'completed': return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'in_progress': return 'bg-purple-100 text-purple-800 border-purple-200';
       case 'accepted': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+      case 'pending': return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'rejected': return 'bg-red-100 text-red-800 border-red-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
@@ -225,6 +297,8 @@ const AcceptedProjects: React.FC = () => {
       case 'completed': return <Star className="h-4 w-4" />;
       case 'in_progress': return <Clock className="h-4 w-4" />;
       case 'accepted': return <CheckCircle className="h-4 w-4" />;
+      case 'pending': return <Clock className="h-4 w-4" />;
+      case 'rejected': return <AlertCircle className="h-4 w-4" />;
       default: return <Clock className="h-4 w-4" />;
     }
   };
@@ -407,64 +481,83 @@ const AcceptedProjects: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {contractorProjects.map((project) => (
-                      <TableRow key={project.id}>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{project.title}</div>
-                            <div className="text-sm text-gray-500 line-clamp-2">
-                              {project.description}
+                    {contractorProjects.map((project) => {
+                      const bids = projectBids[project.id] || [];
+                      const pendingBids = bids.filter(bid => bid.status === 'pending').length;
+                      
+                      return (
+                        <TableRow key={project.id}>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{project.title}</div>
+                              <div className="text-sm text-gray-500 line-clamp-2">
+                                {project.description}
+                              </div>
                             </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{project.category}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <span className="font-semibold text-green-600">
-                            {formatBudget(project.priceRange.min)} - {formatBudget(project.priceRange.max)}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={getStatusColor(project.status)} variant="outline">
-                            {getStatusIcon(project.status)}
-                            <span className="ml-1">{project.status}</span>
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm text-gray-500">
-                            <div>Views: {project.views || 0}</div>
-                            <div>Inquiries: {project.inquiries || 0}</div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => window.open(`/contractor-services`, '_blank')}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => handleEditContractorProject(project)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="text-red-600 hover:text-red-700"
-                              onClick={() => handleDeleteContractorProject(project.id, project.title)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{project.category}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-semibold text-green-600">
+                              {formatBudget(project.priceRange.min)} - {formatBudget(project.priceRange.max)}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={getStatusColor(project.status)} variant="outline">
+                              {getStatusIcon(project.status)}
+                              <span className="ml-1">{project.status}</span>
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm text-gray-500">
+                              <div>Views: {project.views || 0}</div>
+                              <div>Total Bids: {bids.length}</div>
+                              {pendingBids > 0 && (
+                                <div className="text-orange-600 font-medium">
+                                  {pendingBids} pending
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => window.open(`/contractor-services`, '_blank')}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleViewBids(project)}
+                                className={pendingBids > 0 ? 'border-orange-500 text-orange-600' : ''}
+                              >
+                                <Users className="h-4 w-4" />
+                                {bids.length > 0 && <span className="ml-1">{bids.length}</span>}
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleEditContractorProject(project)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="text-red-600 hover:text-red-700"
+                                onClick={() => handleDeleteContractorProject(project.id, project.title)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </CardContent>
@@ -616,6 +709,96 @@ const AcceptedProjects: React.FC = () => {
                 <Button type="submit" className="w-full sm:w-auto">Update Service</Button>
               </div>
             </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Bids Dialog */}
+      <Dialog open={showBidsDialog} onOpenChange={setShowBidsDialog}>
+        <DialogContent className="max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Bids for "{selectedProjectForBids?.title}"
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedProjectForBids && (
+            <div className="space-y-4">
+              {projectBids[selectedProjectForBids.id]?.length === 0 ? (
+                <div className="text-center py-8">
+                  <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900">No Bids Yet</h3>
+                  <p className="text-gray-500">No one has bid on this project yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {projectBids[selectedProjectForBids.id]?.map((bid) => (
+                    <Card key={bid.id} className="border">
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <h4 className="font-medium">{bid.contractorName}</h4>
+                            <p className="text-sm text-gray-500">{bid.contractorEmail}</p>
+                            <p className="text-sm text-gray-500">{bid.contractorPhone}</p>
+                          </div>
+                          <Badge className={getStatusColor(bid.status)} variant="outline">
+                            {getStatusIcon(bid.status)}
+                            <span className="ml-1">{bid.status}</span>
+                          </Badge>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                          <div className="flex items-center gap-2">
+                            <DollarSign className="h-4 w-4 text-green-600" />
+                            <span className="font-semibold text-green-600">
+                              {formatBudget(bid.priceQuoted)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-gray-500" />
+                            <span>Timeline: {bid.timeline}</span>
+                          </div>
+                        </div>
+                        
+                        <div className="mb-4">
+                          <h5 className="font-medium mb-2">Proposal:</h5>
+                          <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded">
+                            {bid.proposal}
+                          </p>
+                        </div>
+                        
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-500">
+                            Submitted: {formatDate(bid.createdAt)}
+                          </span>
+                          
+                          {bid.status === 'pending' && (
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleBidAction(bid.id, 'accept')}
+                                className="bg-green-600 hover:bg-green-700"
+                              >
+                                Accept
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleBidAction(bid.id, 'reject')}
+                                className="text-red-600 border-red-600 hover:bg-red-50"
+                              >
+                                Reject
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </DialogContent>
       </Dialog>
