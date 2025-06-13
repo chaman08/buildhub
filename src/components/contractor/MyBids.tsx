@@ -46,6 +46,7 @@ const MyBids: React.FC = () => {
     try {
       console.log('Fetching contractor bids for user:', currentUser.uid);
       setError(null);
+      setLoading(true);
       
       const bidsQuery = query(
         collection(db, 'bids'),
@@ -59,6 +60,7 @@ const MyBids: React.FC = () => {
       if (snapshot.empty) {
         console.log('No bids found for contractor:', currentUser.uid);
         setBids([]);
+        setLoading(false);
         return;
       }
 
@@ -67,9 +69,15 @@ const MyBids: React.FC = () => {
           const bidData = bidDoc.data();
           console.log('Processing bid:', bidDoc.id, bidData);
           
+          // Validate required fields
+          if (!bidData.projectId) {
+            console.error('Missing projectId for bid:', bidDoc.id);
+            return null;
+          }
+
           let enhancedBidData: Bid = {
             id: bidDoc.id,
-            projectId: bidData.projectId || '',
+            projectId: bidData.projectId,
             projectTitle: bidData.projectTitle || '',
             contractorName: bidData.contractorName || '',
             contractorEmail: bidData.contractorEmail || '',
@@ -87,40 +95,62 @@ const MyBids: React.FC = () => {
             customerPhone: bidData.customerPhone || '',
           };
 
-          // If projectTitle is not in bid data, fetch from project
-          if (!bidData.projectTitle && bidData.projectId) {
-            try {
+          try {
+            // Fetch project details if not in bid data
+            if (!bidData.projectTitle) {
               const projectDoc = await getDoc(doc(db, 'projects', bidData.projectId));
-              if (projectDoc.exists()) {
-                const projectData = projectDoc.data();
-                enhancedBidData.projectTitle = projectData.title;
-                
-                // Fetch customer details from project's postedBy
-                if (projectData.postedBy) {
+              if (!projectDoc.exists()) {
+                console.error('Project not found for bid:', bidDoc.id);
+                enhancedBidData.projectTitle = 'Project Not Found';
+                return enhancedBidData;
+              }
+
+              const projectData = projectDoc.data();
+              enhancedBidData.projectTitle = projectData.title || 'Untitled Project';
+              
+              // Fetch customer details
+              if (projectData.postedBy) {
+                try {
                   const customerDoc = await getDoc(doc(db, 'users', projectData.postedBy));
                   if (customerDoc.exists()) {
                     const customerData = customerDoc.data();
-                    enhancedBidData.customerName = customerData.fullName;
-                    enhancedBidData.customerEmail = customerData.email;
-                    enhancedBidData.customerPhone = customerData.mobile;
+                    enhancedBidData.customerName = customerData.fullName || 'Unknown Customer';
+                    enhancedBidData.customerEmail = customerData.email || '';
+                    enhancedBidData.customerPhone = customerData.mobile || '';
                   }
+                } catch (error) {
+                  console.error('Error fetching customer details:', error);
+                  // Continue with bid data even if customer details fail
                 }
               }
-            } catch (error) {
-              console.error('Error fetching project details for bid:', error);
-              enhancedBidData.projectTitle = 'Project Not Found';
             }
+          } catch (error) {
+            console.error('Error fetching project details for bid:', error);
+            enhancedBidData.projectTitle = 'Error Loading Project';
           }
           
           return enhancedBidData;
         })
       );
       
-      console.log('Final processed bids:', bidsData);
-      setBids(bidsData);
-    } catch (error) {
+      // Filter out any null bids (from validation failures)
+      const validBids = bidsData.filter(bid => bid !== null) as Bid[];
+      console.log('Final processed bids:', validBids.length);
+      
+      if (validBids.length === 0) {
+        setError('No valid bids found. Please try again later.');
+      } else {
+        setBids(validBids);
+      }
+    } catch (error: any) {
       console.error('Error fetching contractor bids:', error);
-      setError('Failed to load bids. Please try again.');
+      
+      // Handle index error specifically
+      if (error.code === 'failed-precondition' && error.message.includes('requires an index')) {
+        setError('The bids system is being updated. Please try again in a few minutes.');
+      } else {
+        setError('Failed to load bids. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
