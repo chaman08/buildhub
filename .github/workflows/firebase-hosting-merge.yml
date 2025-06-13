@@ -30,6 +30,6 @@ jobs:
       - name: Deploy to Firebase
         run: |
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_buildhub }}' > serviceAccountKey.json
-          firebase deploy --only hosting --project buildhub-9fe45 --token "$(firebase login:ci)"
+          firebase deploy --only hosting:buildhub-9fe45 --project buildhub-9fe45
         env:
           GOOGLE_APPLICATION_CREDENTIALS: serviceAccountKey.json
