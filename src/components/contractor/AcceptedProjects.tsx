@@ -1,130 +1,190 @@
+
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Phone, Mail, Calendar, DollarSign, CheckCircle, MapPin, PlusCircle } from 'lucide-react';
-import { toast } from '@/components/ui/use-toast';
-import PostProjectDialog from '@/components/dashboard/PostProjectDialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Eye, Edit, Calendar, DollarSign, CheckCircle, Clock, Star, AlertCircle, Trash2, Plus } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from '@/hooks/use-toast';
 
 interface AcceptedProject {
   id: string;
-  bidId: string;
   projectId: string;
   projectTitle: string;
-  projectDescription: string;
-  clientName: string;
-  clientEmail: string;
-  clientPhone: string;
-  quotedPrice: number;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  priceQuoted: number;
   timeline: string;
-  startDate: string;
-  location: string;
   status: 'accepted' | 'in_progress' | 'completed';
-  acceptedAt: any;
+  startDate?: string;
+  completionDate?: string;
+  notes?: string;
+}
+
+interface ContractorProject {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  priceRange: {
+    min: number;
+    max: number;
+  };
+  location: string;
+  serviceType: 'fixed' | 'hourly';
+  availability: string;
+  experience: string;
+  portfolio: string[];
+  contactInfo: {
+    phone: string;
+    email: string;
+    whatsapp?: string;
+  };
+  status: 'active' | 'paused' | 'completed';
+  postedBy: string;
+  createdAt: any;
+  updatedAt: any;
+  views?: number;
+  inquiries?: number;
 }
 
 const AcceptedProjects: React.FC = () => {
   const { currentUser } = useAuth();
-  const [projects, setProjects] = useState<AcceptedProject[]>([]);
+  const [acceptedProjects, setAcceptedProjects] = useState<AcceptedProject[]>([]);
+  const [contractorProjects, setContractorProjects] = useState<ContractorProject[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showPostDialog, setShowPostDialog] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [editingProject, setEditingProject] = useState<ContractorProject | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
-      fetchAcceptedProjects();
+      fetchProjects();
     }
   }, [currentUser]);
 
-  const fetchAcceptedProjects = async () => {
+  const fetchProjects = async () => {
     if (!currentUser) return;
 
     try {
-      console.log('Fetching accepted projects...');
-      
-      // Get accepted bids
-      const bidsQuery = query(
+      setLoading(true);
+      setError(null);
+
+      // Fetch accepted projects (from bids)
+      const acceptedBidsQuery = query(
         collection(db, 'bids'),
         where('contractorId', '==', currentUser.uid),
-        where('status', '==', 'accepted')
+        where('status', '==', 'accepted'),
+        orderBy('createdAt', 'desc')
       );
       
-      const bidsSnapshot = await getDocs(bidsQuery);
-      const acceptedProjectsData = await Promise.all(
-        bidsSnapshot.docs.map(async (bidDoc) => {
-          const bidData = bidDoc.data();
-          
-          try {
-            // Fetch project details
-            const projectDoc = await getDoc(doc(db, 'projects', bidData.projectId));
-            const projectData = projectDoc.exists() ? projectDoc.data() : null;
-            
-            // Fetch client details
-            const clientDoc = await getDoc(doc(db, 'users', projectData?.postedBy || ''));
-            const clientData = clientDoc.exists() ? clientDoc.data() : null;
-            
-            return {
-              id: bidDoc.id,
-              bidId: bidDoc.id,
-              projectId: bidData.projectId,
-              projectTitle: projectData?.title || 'Unknown Project',
-              projectDescription: projectData?.description || '',
-              clientName: clientData?.fullName || 'Unknown Client',
-              clientEmail: clientData?.email || '',
-              clientPhone: clientData?.mobile || '',
-              quotedPrice: bidData.priceQuoted,
-              timeline: bidData.timeline,
-              startDate: projectData?.startDate || '',
-              location: projectData?.location || '',
-              status: bidData.projectStatus || 'accepted',
-              acceptedAt: bidData.updatedAt
-            };
-          } catch (error) {
-            console.error('Error fetching project details:', error);
-            return null;
-          }
-        })
+      const acceptedSnapshot = await getDocs(acceptedBidsQuery);
+      const acceptedData = acceptedSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as AcceptedProject[];
+
+      // Fetch contractor posted projects
+      const contractorProjectsQuery = query(
+        collection(db, 'contractor_projects'),
+        where('postedBy', '==', currentUser.uid),
+        orderBy('createdAt', 'desc')
       );
       
-      const validProjects = acceptedProjectsData.filter(project => project !== null);
-      console.log('Accepted projects fetched:', validProjects.length);
-      setProjects(validProjects as AcceptedProject[]);
-    } catch (error) {
-      console.error('Error fetching accepted projects:', error);
+      const contractorSnapshot = await getDocs(contractorProjectsQuery);
+      const contractorData = contractorSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as ContractorProject[];
+
+      setAcceptedProjects(acceptedData);
+      setContractorProjects(contractorData);
+    } catch (error: any) {
+      console.error('Error fetching projects:', error);
+      setError('Failed to load projects. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const markAsCompleted = async (project: AcceptedProject) => {
+  const handleEditContractorProject = (project: ContractorProject) => {
+    setEditingProject(project);
+    setShowEditDialog(true);
+  };
+
+  const handleUpdateContractorProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProject) return;
+
     try {
-      const bidRef = doc(db, 'bids', project.bidId);
-      await updateDoc(bidRef, {
-        projectStatus: 'completed',
-        completedAt: new Date()
-      });
+      const formData = new FormData(e.target as HTMLFormElement);
+      const updatedData = {
+        title: formData.get('title') as string,
+        description: formData.get('description') as string,
+        category: formData.get('category') as string,
+        priceRange: {
+          min: Number(formData.get('priceMin')),
+          max: Number(formData.get('priceMax'))
+        },
+        location: formData.get('location') as string,
+        serviceType: formData.get('serviceType') as string,
+        availability: formData.get('availability') as string,
+        experience: formData.get('experience') as string,
+        status: formData.get('status') as string,
+        updatedAt: new Date()
+      };
+
+      await updateDoc(doc(db, 'contractor_projects', editingProject.id), updatedData);
       
-      // Update local state
-      setProjects(prev => 
-        prev.map(p => 
-          p.id === project.id 
-            ? { ...p, status: 'completed' as const }
-            : p
-        )
-      );
+      setContractorProjects(contractorProjects.map(p => 
+        p.id === editingProject.id ? { ...p, ...updatedData } : p
+      ));
+      
+      setShowEditDialog(false);
+      setEditingProject(null);
       
       toast({
-        title: "Project Marked as Completed",
-        description: "The project has been marked as completed successfully.",
+        title: "Project Updated",
+        description: "Your service project has been updated successfully."
       });
     } catch (error) {
-      console.error('Error marking project as completed:', error);
+      console.error('Error updating project:', error);
       toast({
         title: "Error",
-        description: "Failed to mark project as completed. Please try again.",
+        description: "Failed to update project. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteContractorProject = async (projectId: string, projectTitle: string) => {
+    if (!confirm(`Are you sure you want to delete "${projectTitle}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await deleteDoc(doc(db, 'contractor_projects', projectId));
+      setContractorProjects(contractorProjects.filter(p => p.id !== projectId));
+      
+      toast({
+        title: "Project Deleted",
+        description: "Your service project has been deleted successfully."
+      });
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete project. Please try again.",
         variant: "destructive"
       });
     }
@@ -137,156 +197,428 @@ const AcceptedProjects: React.FC = () => {
     return `₹${amount.toLocaleString('en-IN')}`;
   };
 
+  const formatDate = (timestamp: any) => {
+    if (!timestamp) return 'N/A';
+    try {
+      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+      return date.toLocaleDateString('en-IN');
+    } catch {
+      return 'N/A';
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'accepted': return 'bg-blue-100 text-blue-800';
-      case 'in_progress': return 'bg-yellow-100 text-yellow-800';
-      case 'completed': return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'active': return 'bg-green-100 text-green-800 border-green-200';
+      case 'paused': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'completed': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'in_progress': return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'accepted': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'active': return <CheckCircle className="h-4 w-4" />;
+      case 'paused': return <Clock className="h-4 w-4" />;
+      case 'completed': return <Star className="h-4 w-4" />;
+      case 'in_progress': return <Clock className="h-4 w-4" />;
+      case 'accepted': return <CheckCircle className="h-4 w-4" />;
+      default: return <Clock className="h-4 w-4" />;
     }
   };
 
   if (loading) {
-    return <div>Loading your projects...</div>;
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center space-y-4">
+          <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto"></div>
+          <p>Loading your projects...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12">
+          <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+          <h3 className="text-lg font-medium text-red-700 mb-2">Error Loading Projects</h3>
+          <p className="text-red-600 mb-4">{error}</p>
+          <Button onClick={fetchProjects}>Try Again</Button>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">My Projects</h2>
-        <Button 
-          onClick={() => setShowPostDialog(true)}
-          className="flex items-center gap-2"
-        >
-          <PlusCircle className="h-4 w-4" />
-          Post New Project
-        </Button>
-      </div>
-
       <div className="flex items-center justify-between">
-        <Badge variant="outline" className="text-sm">
-          {projects.length} active projects
-        </Badge>
+        <h2 className="text-2xl font-bold text-gray-900">My Projects</h2>
+        <div className="flex gap-2">
+          <Badge variant="outline" className="text-green-600 border-green-600">
+            {acceptedProjects.length} accepted contracts
+          </Badge>
+          <Badge variant="outline" className="text-blue-600 border-blue-600">
+            {contractorProjects.filter(p => p.status === 'active').length} active services
+          </Badge>
+        </div>
       </div>
 
-      {projects.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <div className="text-center space-y-4">
-              <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
-                <CheckCircle className="h-8 w-8 text-gray-400" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-900">No Accepted Projects</h3>
-              <p className="text-gray-500">Your accepted project bids will appear here.</p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {projects.map((project) => (
-            <Card key={project.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-lg line-clamp-2">
-                    {project.projectTitle}
-                  </CardTitle>
-                  <Badge className={getStatusColor(project.status)} variant="secondary">
-                    {project.status === 'in_progress' ? 'In Progress' : project.status.charAt(0).toUpperCase() + project.status.slice(1)}
-                  </Badge>
-                </div>
-              </CardHeader>
-              
-              <CardContent className="space-y-4">
-                <p className="text-gray-600 text-sm line-clamp-2">
-                  {project.projectDescription}
-                </p>
+      <Tabs defaultValue="accepted" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="accepted">Accepted Contracts</TabsTrigger>
+          <TabsTrigger value="services">My Services</TabsTrigger>
+        </TabsList>
 
-                {/* Project Details */}
-                <div className="grid grid-cols-1 gap-3 text-sm">
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-green-600" />
-                    <span className="font-semibold text-green-600">
-                      {formatBudget(project.quotedPrice)}
-                    </span>
+        <TabsContent value="accepted" className="space-y-6">
+          {acceptedProjects.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <div className="text-center space-y-4">
+                  <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+                    <CheckCircle className="h-8 w-8 text-gray-400" />
                   </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-gray-500" />
-                    <span>Timeline: {project.timeline}</span>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-gray-500" />
-                    <span>{project.location}</span>
-                  </div>
-                </div>
-
-                {/* Client Information */}
-                <div className="bg-gray-50 p-3 rounded-lg">
-                  <h4 className="font-medium text-sm mb-2">Client Information</h4>
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback className="text-xs">
-                        {project.clientName.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">{project.clientName}</p>
-                      <div className="flex gap-3 mt-1">
-                        {project.clientPhone && (
-                          <a 
-                            href={`tel:${project.clientPhone}`}
-                            className="text-blue-600 hover:text-blue-700"
-                          >
-                            <Phone className="h-4 w-4" />
-                          </a>
-                        )}
-                        {project.clientEmail && (
-                          <a 
-                            href={`mailto:${project.clientEmail}`}
-                            className="text-blue-600 hover:text-blue-700"
-                          >
-                            <Mail className="h-4 w-4" />
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-2 pt-4 border-t">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex-1"
-                    onClick={() => window.open(`/project/${project.projectId}`, '_blank')}
-                  >
-                    View Project
+                  <h3 className="text-lg font-medium text-gray-900">No Accepted Projects</h3>
+                  <p className="text-gray-500">You haven't won any contracts yet. Keep bidding on tenders!</p>
+                  <Button onClick={() => window.location.hash = '#tenders'}>
+                    Browse Tenders
                   </Button>
-                  
-                  {project.status !== 'completed' && (
-                    <Button 
-                      size="sm" 
-                      className="flex-1"
-                      onClick={() => markAsCompleted(project)}
-                    >
-                      <CheckCircle className="h-4 w-4 mr-1" />
-                      Mark Complete
-                    </Button>
-                  )}
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
-      )}
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Accepted Contracts</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Project</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Timeline</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {acceptedProjects.map((project) => (
+                      <TableRow key={project.id}>
+                        <TableCell>
+                          <div className="font-medium">{project.projectTitle}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{project.customerName}</div>
+                            <div className="text-sm text-gray-500">{project.customerEmail}</div>
+                            {project.customerPhone && (
+                              <div className="text-sm text-gray-500">{project.customerPhone}</div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-semibold text-green-600">
+                            {formatBudget(project.priceQuoted)}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-4 w-4 text-gray-400" />
+                            {project.timeline}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getStatusColor(project.status)} variant="outline">
+                            {getStatusIcon(project.status)}
+                            <span className="ml-1">{project.status.replace('_', ' ')}</span>
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => window.open(`/project/${project.projectId}`, '_blank')}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {project.customerPhone && (
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => window.open(`tel:${project.customerPhone}`)}
+                              >
+                                📞
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
 
-      {/* Post Project Dialog */}
-      <PostProjectDialog
-        open={showPostDialog}
-        onOpenChange={setShowPostDialog}
-      />
+        <TabsContent value="services" className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium">My Posted Services</h3>
+            <Button onClick={() => window.location.hash = '#home'}>
+              <Plus className="h-4 w-4 mr-2" />
+              Post New Service
+            </Button>
+          </div>
+
+          {contractorProjects.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <div className="text-center space-y-4">
+                  <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+                    <Plus className="h-8 w-8 text-gray-400" />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900">No Services Posted</h3>
+                  <p className="text-gray-500">Start advertising your services to get more clients.</p>
+                  <Button onClick={() => window.location.hash = '#home'}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Post Your First Service
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Service</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Price Range</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Stats</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {contractorProjects.map((project) => (
+                      <TableRow key={project.id}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{project.title}</div>
+                            <div className="text-sm text-gray-500 line-clamp-2">
+                              {project.description}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{project.category}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-semibold text-green-600">
+                            {formatBudget(project.priceRange.min)} - {formatBudget(project.priceRange.max)}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getStatusColor(project.status)} variant="outline">
+                            {getStatusIcon(project.status)}
+                            <span className="ml-1">{project.status}</span>
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm text-gray-500">
+                            <div>Views: {project.views || 0}</div>
+                            <div>Inquiries: {project.inquiries || 0}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => window.open(`/contractor-services`, '_blank')}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleEditContractorProject(project)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="text-red-600 hover:text-red-700"
+                              onClick={() => handleDeleteContractorProject(project.id, project.title)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* Edit Service Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Service</DialogTitle>
+          </DialogHeader>
+          {editingProject && (
+            <form onSubmit={handleUpdateContractorProject} className="space-y-4">
+              <div>
+                <Label htmlFor="title">Service Title</Label>
+                <Input
+                  id="title"
+                  name="title"
+                  defaultValue={editingProject.title}
+                  required
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  name="description"
+                  defaultValue={editingProject.description}
+                  rows={4}
+                  required
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="category">Category</Label>
+                  <Select name="category" defaultValue={editingProject.category}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Construction">Construction</SelectItem>
+                      <SelectItem value="Plumbing">Plumbing</SelectItem>
+                      <SelectItem value="Electrical">Electrical</SelectItem>
+                      <SelectItem value="Carpentry">Carpentry</SelectItem>
+                      <SelectItem value="Painting">Painting</SelectItem>
+                      <SelectItem value="Renovation">Renovation</SelectItem>
+                      <SelectItem value="Landscaping">Landscaping</SelectItem>
+                      <SelectItem value="Interior Design">Interior Design</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="location">Location</Label>
+                  <Input
+                    id="location"
+                    name="location"
+                    defaultValue={editingProject.location}
+                    required
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="priceMin">Min Price (₹)</Label>
+                  <Input
+                    id="priceMin"
+                    name="priceMin"
+                    type="number"
+                    defaultValue={editingProject.priceRange.min}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="priceMax">Max Price (₹)</Label>
+                  <Input
+                    id="priceMax"
+                    name="priceMax"
+                    type="number"
+                    defaultValue={editingProject.priceRange.max}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="serviceType">Service Type</Label>
+                  <Select name="serviceType" defaultValue={editingProject.serviceType}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="fixed">Fixed Price</SelectItem>
+                      <SelectItem value="hourly">Hourly Rate</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="status">Status</Label>
+                  <Select name="status" defaultValue={editingProject.status}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="paused">Paused</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="availability">Availability</Label>
+                  <Input
+                    id="availability"
+                    name="availability"
+                    defaultValue={editingProject.availability}
+                    placeholder="e.g., Mon-Fri 9AM-6PM"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="experience">Experience</Label>
+                  <Input
+                    id="experience"
+                    name="experience"
+                    defaultValue={editingProject.experience}
+                    placeholder="e.g., 5+ years"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex flex-col-reverse sm:flex-row gap-2 pt-4">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setShowEditDialog(false)}
+                  className="w-full sm:w-auto"
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" className="w-full sm:w-auto">Update Service</Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
