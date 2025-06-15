@@ -140,57 +140,85 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const userDoc = await getDoc(userRef);
     
     if (!userDoc.exists()) {
-      // Validate required fields
-      if (!additionalData.fullName || !additionalData.mobile) {
-        throw new Error('Full name and mobile number are required');
-      }
-
-      if (!validatePhoneNumber(additionalData.mobile)) {
-        throw new Error('Invalid phone number format. Please use format: +91XXXXXXXXXX');
-      }
-
-      if (additionalData.email && !validateEmail(additionalData.email)) {
-        throw new Error('Invalid email format');
-      }
-
-      if (additionalData.userType === 'contractor') {
-        if (!additionalData.companyName || !additionalData.serviceCategory) {
-          throw new Error('Company name and service category are required for contractors');
-        }
-
-        if (!validateCompanyName(additionalData.companyName)) {
-          throw new Error('Company name must be between 2 and 100 characters');
-        }
-
-        if (!validateServiceCategory(additionalData.serviceCategory)) {
-          throw new Error('Invalid service category');
-        }
-      }
-
-      const now = new Date();
-      const profileData: UserProfile = {
-        uid: user.uid,
-        email: user.email || '',
-        fullName: additionalData.fullName,
-        userType: additionalData.userType || 'customer',
-        mobile: additionalData.mobile,
-        city: additionalData.city || '',
-        occupation: additionalData.occupation || '',
-        profilePicture: additionalData.profilePicture || user.photoURL || '',
-        isEmailVerified: user.emailVerified,
-        isPhoneVerified: additionalData.isPhoneVerified || false,
-        isDocumentVerified: false,
-        isAdmin: false,
-        profileComplete: additionalData.profileComplete || false,
-        createdAt: now,
-        updatedAt: now,
-        lastLoginAt: now,
-        loginCount: 1,
-        ...additionalData
-      };
+      // For Google sign-in, we'll create a basic profile first
+      const isGoogleUser = user.providerData.some(provider => provider.providerId === 'google.com');
       
-      await setDoc(userRef, profileData);
-      return profileData;
+      if (isGoogleUser) {
+        const now = new Date();
+        const profileData: UserProfile = {
+          uid: user.uid,
+          email: user.email || '',
+          fullName: user.displayName || '',
+          userType: 'customer', // Default to customer, will be updated later
+          mobile: '', // Will be updated in profile completion
+          city: '', // Will be updated in profile completion
+          profilePicture: user.photoURL || '',
+          isEmailVerified: true,
+          isPhoneVerified: false,
+          isDocumentVerified: false,
+          isAdmin: false,
+          profileComplete: false,
+          createdAt: now,
+          updatedAt: now,
+          lastLoginAt: now,
+          loginCount: 1
+        };
+        
+        await setDoc(userRef, profileData);
+        return profileData;
+      } else {
+        // For regular sign-up, validate required fields
+        if (!additionalData.fullName || !additionalData.mobile) {
+          throw new Error('Full name and mobile number are required');
+        }
+
+        if (!validatePhoneNumber(additionalData.mobile)) {
+          throw new Error('Invalid phone number format. Please use format: +91XXXXXXXXXX');
+        }
+
+        if (additionalData.email && !validateEmail(additionalData.email)) {
+          throw new Error('Invalid email format');
+        }
+
+        if (additionalData.userType === 'contractor') {
+          if (!additionalData.companyName || !additionalData.serviceCategory) {
+            throw new Error('Company name and service category are required for contractors');
+          }
+
+          if (!validateCompanyName(additionalData.companyName)) {
+            throw new Error('Company name must be between 2 and 100 characters');
+          }
+
+          if (!validateServiceCategory(additionalData.serviceCategory)) {
+            throw new Error('Invalid service category');
+          }
+        }
+
+        const now = new Date();
+        const profileData: UserProfile = {
+          uid: user.uid,
+          email: user.email || '',
+          fullName: additionalData.fullName,
+          userType: additionalData.userType || 'customer',
+          mobile: additionalData.mobile,
+          city: additionalData.city || '',
+          occupation: additionalData.occupation || '',
+          profilePicture: additionalData.profilePicture || user.photoURL || '',
+          isEmailVerified: user.emailVerified,
+          isPhoneVerified: additionalData.isPhoneVerified || false,
+          isDocumentVerified: false,
+          isAdmin: false,
+          profileComplete: additionalData.profileComplete || false,
+          createdAt: now,
+          updatedAt: now,
+          lastLoginAt: now,
+          loginCount: 1,
+          ...additionalData
+        };
+        
+        await setDoc(userRef, profileData);
+        return profileData;
+      }
     }
     
     // Update last login for existing user
@@ -257,24 +285,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       console.log('Google sign-in successful, email verified status:', result.user.emailVerified);
       
-      // Create or update user profile
+      // Create initial user profile with Google data
       const profileData = await createUserProfile(result.user, {
+        fullName: result.user.displayName || '',
+        email: result.user.email || '',
+        profilePicture: result.user.photoURL || '',
         isEmailVerified: true,
         isPhoneVerified: false,
-        profileComplete: false
+        profileComplete: false,
+        userType: 'customer', // Default to customer, will be updated later
+        mobile: '', // Will be updated in profile completion
+        city: '', // Will be updated in profile completion
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        lastLoginAt: new Date(),
+        loginCount: 1
       });
       
-      if (profileData.isEmailVerified !== true) {
-        console.log('Updating existing Google user email verification status');
-        await setDoc(doc(db, 'users', result.user.uid), {
-          isEmailVerified: true,
-          updatedAt: new Date()
-        }, { merge: true });
-        
-        profileData.isEmailVerified = true;
-      }
-      
       setUserProfile(profileData);
+      return profileData;
     } catch (error: any) {
       if (error.code === 'auth/popup-closed-by-user') {
         throw new Error('Sign-in was cancelled. Please try again.');
@@ -356,6 +385,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       },
       'expired-callback': () => {
         console.log('reCAPTCHA expired');
+        // Clear the container and reinitialize if needed
+        if (existingContainer) {
+          existingContainer.innerHTML = '';
+        }
       }
     });
   };

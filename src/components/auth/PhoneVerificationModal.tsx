@@ -54,6 +54,11 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
       return verifier;
     } catch (error) {
       console.error('Error initializing reCAPTCHA:', error);
+      toast({
+        title: "Error",
+        description: "Failed to initialize verification. Please refresh the page and try again.",
+        variant: "destructive"
+      });
       throw error;
     }
   };
@@ -73,6 +78,7 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
     setLoading(true);
     
     try {
+      // Initialize reCAPTCHA before sending OTP
       const verifier = initializeRecaptcha();
       const result = await sendPhoneOTP(fullPhone, verifier);
       setConfirmationResult(result);
@@ -84,11 +90,25 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
       });
     } catch (error: any) {
       console.error('Phone OTP error:', error);
+      let errorMessage = "Failed to send OTP. Please try again.";
+      
+      if (error.code === 'auth/invalid-app-credential') {
+        errorMessage = "Verification failed. Please refresh the page and try again.";
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = "Too many attempts. Please try again later.";
+      }
+      
       toast({
         title: "Error",
-        description: error.message || "Failed to send OTP. Please try again.",
+        description: errorMessage,
         variant: "destructive"
       });
+      
+      // Reset reCAPTCHA on error
+      if (recaptchaVerifier) {
+        recaptchaVerifier.clear();
+        setRecaptchaVerifier(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -188,13 +208,11 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>
-            {step === 1 ? 'Verify Phone Number' : 'Enter Verification Code'}
-          </DialogTitle>
+          <DialogTitle>Phone Verification</DialogTitle>
           <DialogDescription>
             {step === 1 
-              ? 'Please enter your phone number to receive a verification code'
-              : `Enter the 6-digit code sent to ${countryCode}${phoneNumber}`
+              ? "Enter your phone number to receive a verification code"
+              : "Enter the 6-digit code sent to your phone"
             }
           </DialogDescription>
         </DialogHeader>

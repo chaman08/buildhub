@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +10,8 @@ import { User, Building2, Mail, Phone, CheckCircle, Star, Briefcase } from 'luci
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import PhoneAuthForm from './PhoneAuthForm';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 interface SignupFormProps {
   onSuccess: () => void;
@@ -35,7 +36,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
   });
   const [loading, setLoading] = useState(false);
   
-  const { signup, signInWithGoogle } = useAuth();
+  const { signup, signInWithGoogle, currentUser } = useAuth();
   const { toast } = useToast();
 
   const countryCodes = [
@@ -60,12 +61,12 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
     setGoogleLoading(true);
     
     try {
-      await signInWithGoogle();
+      const profileData = await signInWithGoogle();
+      setStep(1);
       toast({
-        title: "Welcome to BuildHub!",
-        description: "Account created successfully with Google. Please complete your profile."
+        title: "Google Authentication Successful",
+        description: "Please select your account type to continue"
       });
-      onSuccess();
     } catch (error: any) {
       toast({
         title: "Google Sign-up Failed",
@@ -77,18 +78,18 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleUserTypeSelection = async (selectedType: 'customer' | 'contractor') => {
+    setUserType(selectedType);
+    setStep(2);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleGoogleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Ensure userType is valid before proceeding
-    if (!userType || (userType !== 'customer' && userType !== 'contractor')) {
+    if (!userType) {
       toast({
-        title: "Invalid User Type",
-        description: "Please select a valid account type",
+        title: "Account Type Required",
+        description: "Please select an account type",
         variant: "destructive"
       });
       return;
@@ -102,20 +103,11 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
       });
       return;
     }
-    
-    if (formData.password !== formData.confirmPassword) {
-      toast({
-        title: "Password Mismatch",
-        description: "Passwords do not match",
-        variant: "destructive"
-      });
-      return;
-    }
 
-    if (formData.password.length < 6) {
+    if (!currentUser) {
       toast({
-        title: "Weak Password",
-        description: "Password must be at least 6 characters long",
+        title: "Authentication Error",
+        description: "Please try signing in again",
         variant: "destructive"
       });
       return;
@@ -124,36 +116,42 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
     setLoading(true);
     
     try {
-      const fullMobile = `${countryCode}${formData.mobile}`;
       const userData = {
-        fullName: formData.fullName,
-        userType, // Now TypeScript knows this is 'customer' | 'contractor'
-        mobile: fullMobile,
+        userType,
+        mobile: `${countryCode}${formData.mobile}`,
         city: formData.city,
         ...(userType === 'contractor' && {
           companyName: formData.companyName,
           serviceCategory: formData.serviceCategory,
           experience: parseInt(formData.experience) || 0
-        })
+        }),
+        profileComplete: true,
+        updatedAt: new Date()
       };
 
-      await signup(formData.email, formData.password, userData);
+      // Update the user profile in Firestore
+      const userRef = doc(db, 'users', currentUser.uid);
+      await setDoc(userRef, userData, { merge: true });
       
       toast({
-        title: "Account Created!",
-        description: "Please verify your email or phone number to continue"
+        title: "Profile Updated!",
+        description: "Your profile has been updated successfully"
       });
       
       onSuccess();
     } catch (error: any) {
       toast({
-        title: "Signup Failed",
+        title: "Profile Update Failed",
         description: error.message,
         variant: "destructive"
       });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   if (step === 1) {
@@ -199,7 +197,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
             
             {/* Customer Card */}
             <div 
-              onClick={() => { setUserType('customer'); setStep(2); }}
+              onClick={() => handleUserTypeSelection('customer')}
               className="group relative p-6 border-2 border-gray-200 rounded-xl cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-all duration-200"
             >
               <div className="flex items-start space-x-4">
@@ -234,7 +232,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
             
             {/* Contractor Card */}
             <div 
-              onClick={() => { setUserType('contractor'); setStep(2); }}
+              onClick={() => handleUserTypeSelection('contractor')}
               className="group relative p-6 border-2 border-gray-200 rounded-xl cursor-pointer hover:border-green-400 hover:bg-green-50/50 transition-all duration-200"
             >
               <div className="flex items-start space-x-4">
@@ -293,32 +291,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
           </TabsList>
           
           <TabsContent value="email" className="space-y-4">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="fullName">
-                  {userType === 'contractor' ? 'Full Name / Company Name' : 'Full Name'}
-                </Label>
-                <Input
-                  id="fullName"
-                  name="fullName"
-                  value={formData.fullName}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="email">Email Address</Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-              
+            <form onSubmit={handleGoogleProfileUpdate} className="space-y-4">
               <div>
                 <Label htmlFor="mobile">Mobile Number</Label>
                 <div className="flex space-x-2">
@@ -348,30 +321,6 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
               </div>
               
               <div>
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  name="password"
-                  type="password"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <Input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type="password"
-                  value={formData.confirmPassword}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-              
-              <div>
                 <Label htmlFor="city">City</Label>
                 <Input
                   id="city"
@@ -384,6 +333,17 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
               
               {userType === 'contractor' && (
                 <>
+                  <div>
+                    <Label htmlFor="companyName">Company Name</Label>
+                    <Input
+                      id="companyName"
+                      name="companyName"
+                      value={formData.companyName}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                  
                   <div>
                     <Label htmlFor="serviceCategory">Service Category</Label>
                     <Select value={formData.serviceCategory} onValueChange={(value) => setFormData({ ...formData, serviceCategory: value })}>
@@ -414,16 +374,16 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
               )}
               
               <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="terms" 
+                <Checkbox
+                  id="terms"
                   checked={acceptedTerms}
                   onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
                 />
                 <Label htmlFor="terms" className="text-sm">
                   I agree to the{' '}
-                  <a 
-                    href="https://drive.google.com/file/d/1VzaXqpnWkhiDGE0HVEpxpEGR003lK7VA/uc?export=download" 
-                    target="_blank" 
+                  <a
+                    href="/terms"
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:underline"
                   >
@@ -437,7 +397,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
                   Back
                 </Button>
                 <Button type="submit" disabled={loading || !acceptedTerms} className="flex-1">
-                  {loading ? 'Creating Account...' : 'Create Account'}
+                  {loading ? 'Updating Profile...' : 'Complete Profile'}
                 </Button>
               </div>
             </form>
