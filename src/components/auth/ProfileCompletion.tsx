@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import PhoneVerificationModal from './PhoneVerificationModal';
+import { useNavigate } from 'react-router-dom';
 
 const ProfileCompletion: React.FC = () => {
   const { userProfile, currentUser, refreshUserProfile, markProfileComplete } = useAuth();
@@ -25,6 +26,7 @@ const ProfileCompletion: React.FC = () => {
     serviceCategory: '',
     experience: ''
   });
+  const navigate = useNavigate();
 
   const serviceCategories = [
     'Civil Construction', 'Electrical', 'Plumbing', 'Painting', 'Carpentry',
@@ -93,10 +95,7 @@ const ProfileCompletion: React.FC = () => {
   const handleCompleteProfile = async () => {
     if (!currentUser || !userProfile) return;
 
-    // For Google users, we don't require phone verification
-    const isGoogleUser = userProfile.isEmailVerified && !userProfile.mobile;
-    
-    // Only check phone verification for non-Google users
+    // Only require phone verification for non-Google users
     if (!isGoogleUser && !userProfile.isPhoneVerified) {
       toast({
         title: "Phone Verification Required",
@@ -145,7 +144,12 @@ const ProfileCompletion: React.FC = () => {
         description: "Your profile is now complete. Redirecting to dashboard..."
       });
       
-      // Redirect will be handled by the Auth page useEffect
+      // Navigate to the correct dashboard based on userType
+      if (formData.userType === 'contractor') {
+        navigate('/contractor-dashboard');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (error: any) {
       console.error('Error completing profile:', error);
       toast({
@@ -166,6 +170,9 @@ const ProfileCompletion: React.FC = () => {
 
   if (!userProfile) return <div>Loading...</div>;
 
+  // Check if user signed up with Google
+  const isGoogleUser = currentUser?.providerData?.some((provider: any) => provider.providerId === 'google.com');
+
   return (
     <div className="max-w-2xl mx-auto">
       <Card>
@@ -176,34 +183,36 @@ const ProfileCompletion: React.FC = () => {
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Phone Verification Status */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <Phone className="h-5 w-5 text-blue-600" />
-                <div>
-                  <h3 className="font-semibold text-blue-900">Phone Verification</h3>
-                  <p className="text-sm text-blue-700">
-                    {userProfile.isPhoneVerified 
-                      ? "Your phone number is verified" 
-                      : "Phone verification is required"
-                    }
-                  </p>
+          {/* Phone Verification Status - Only show if not Google user */}
+          {!isGoogleUser && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <Phone className="h-5 w-5 text-blue-600" />
+                  <div>
+                    <h3 className="font-semibold text-blue-900">Phone Verification</h3>
+                    <p className="text-sm text-blue-700">
+                      {userProfile.isPhoneVerified 
+                        ? "Your phone number is verified" 
+                        : "Phone verification is required"
+                      }
+                    </p>
+                  </div>
                 </div>
+                {userProfile.isPhoneVerified ? (
+                  <CheckCircle className="h-6 w-6 text-green-600" />
+                ) : (
+                  <Button 
+                    onClick={() => setShowPhoneVerification(true)}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Verify Phone
+                  </Button>
+                )}
               </div>
-              {userProfile.isPhoneVerified ? (
-                <CheckCircle className="h-6 w-6 text-green-600" />
-              ) : (
-                <Button 
-                  onClick={() => setShowPhoneVerification(true)}
-                  variant="outline"
-                  size="sm"
-                >
-                  Verify Phone
-                </Button>
-              )}
             </div>
-          </div>
+          )}
 
           {/* Profile Form */}
           <div className="space-y-4">
@@ -291,18 +300,20 @@ const ProfileCompletion: React.FC = () => {
 
           {/* Action Buttons */}
           <div className="flex flex-col space-y-3">
-            <Button 
-              onClick={handleSaveProfile}
-              disabled={loading}
-              variant="outline"
-              className="w-full"
-            >
-              {loading ? 'Saving...' : 'Save Profile'}
-            </Button>
-
+            {/* Only show Save Profile button if not Google user */}
+            {!isGoogleUser && (
+              <Button 
+                onClick={handleSaveProfile}
+                disabled={loading}
+                variant="outline"
+                className="w-full"
+              >
+                {loading ? 'Saving...' : 'Save Profile'}
+              </Button>
+            )}
             <Button 
               onClick={handleCompleteProfile}
-              disabled={(!userProfile.isPhoneVerified && !userProfile.isEmailVerified) || !formData.city || !formData.userType || 
+              disabled={(!isGoogleUser && !userProfile.isPhoneVerified) || !formData.city || !formData.userType || 
                 (formData.userType === 'contractor' && (!formData.companyName || !formData.serviceCategory))}
               className="w-full"
             >
@@ -310,7 +321,8 @@ const ProfileCompletion: React.FC = () => {
             </Button>
           </div>
 
-          {!userProfile.isPhoneVerified && !userProfile.isEmailVerified && (
+          {/* Only show phone verification required message if not Google user */}
+          {!isGoogleUser && !userProfile.isPhoneVerified && (
             <p className="text-sm text-muted-foreground text-center">
               Phone verification is required to complete your profile
             </p>
@@ -318,12 +330,14 @@ const ProfileCompletion: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Phone Verification Modal */}
-      <PhoneVerificationModal
-        isOpen={showPhoneVerification}
-        onClose={() => setShowPhoneVerification(false)}
-        onSuccess={handlePhoneVerificationSuccess}
-      />
+      {/* Phone Verification Modal - Only show if not Google user */}
+      {!isGoogleUser && (
+        <PhoneVerificationModal
+          isOpen={showPhoneVerification}
+          onClose={() => setShowPhoneVerification(false)}
+          onSuccess={handlePhoneVerificationSuccess}
+        />
+      )}
     </div>
   );
 };

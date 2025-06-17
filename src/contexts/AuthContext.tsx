@@ -286,17 +286,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       console.log('Google sign-in successful, email verified status:', result.user.emailVerified);
       
-      // Create complete user profile with Google data
+      // Create initial user profile with Google data
       const profileData = await createUserProfile(result.user, {
         fullName: result.user.displayName || '',
         email: result.user.email || '',
         profilePicture: result.user.photoURL || '',
         isEmailVerified: true,
         isPhoneVerified: false,
-        profileComplete: true, // Set to true immediately
-        userType: 'customer', // Default to customer
-        mobile: '', // Can be updated later
-        city: '', // Can be updated later
+        profileComplete: false,
+        userType: 'customer', // Default to customer, will be updated later
+        mobile: '', // Will be updated in profile completion
+        city: '', // Will be updated in profile completion
         createdAt: new Date(),
         updatedAt: new Date(),
         lastLoginAt: new Date(),
@@ -465,7 +465,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isVerificationComplete = (): boolean => {
     if (!userProfile) return false;
-    // Return true if either email or phone is verified
     return userProfile.isEmailVerified || userProfile.isPhoneVerified;
   };
 

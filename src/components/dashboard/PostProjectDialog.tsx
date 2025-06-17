@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,7 +14,7 @@ interface PostProjectDialogProps {
 }
 
 const PostProjectDialog = ({ open, onOpenChange, onProjectPosted }: PostProjectDialogProps) => {
-  const { currentUser, isVerificationComplete } = useAuth();
+  const { currentUser } = useAuth();
   const { isProfileComplete, loading } = useProfileCompletion();
   const navigate = useNavigate();
   
@@ -21,19 +22,6 @@ const PostProjectDialog = ({ open, onOpenChange, onProjectPosted }: PostProjectD
   if (!currentUser) {
     navigate('/auth');
     return null;
-  }
-  
-  // If user is not verified (neither email nor phone), show the profile completion prompt
-  if (!isVerificationComplete()) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md">
-          <ProfileCompletionRequired 
-            message="You need to verify your email or phone number before posting a project."
-          />
-        </DialogContent>
-      </Dialog>
-    );
   }
   
   // If still loading profile completion status
@@ -44,6 +32,19 @@ const PostProjectDialog = ({ open, onOpenChange, onProjectPosted }: PostProjectD
           <div className="flex items-center justify-center p-6">
             <div className="text-center">Loading...</div>
           </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+  
+  // If profile is incomplete, show the profile completion prompt
+  if (!isProfileComplete) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-md">
+          <ProfileCompletionRequired 
+            message="You need to complete your profile before posting a project."
+          />
         </DialogContent>
       </Dialog>
     );
