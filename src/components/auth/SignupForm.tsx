@@ -65,10 +65,9 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
     setGoogleLoading(true);
     try {
       await signInWithGoogle();
-      setStep(1);
       toast({
         title: "Google Authentication Successful",
-        description: "Please select your account type to continue"
+        description: "Please complete your profile to continue"
       });
     } catch (error: any) {
       console.error('Google signup error:', error);
@@ -80,11 +79,6 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
     } finally {
       setGoogleLoading(false);
     }
-  };
-
-  const handleUserTypeSelection = (type: 'customer' | 'contractor') => {
-    setUserType(type);
-    setStep(2);
   };
 
   const handleGoogleProfileUpdate = async (e: React.FormEvent) => {
@@ -227,41 +221,6 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
       setLoading(false);
     }
   };
-
-  // Step 1: User Type Selection (for Google Sign-up)
-  if (currentUser && step === 1) {
-    return (
-      <Card className="w-full max-w-md mx-auto">
-        <CardHeader>
-          <CardTitle className="text-center">Select Account Type</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Button
-              type="button"
-              variant={userType === 'customer' ? 'default' : 'outline'}
-              onClick={() => handleUserTypeSelection('customer')}
-              className="h-auto p-4 flex flex-col items-center"
-            >
-              <User className="h-6 w-6 mb-2" />
-              <span>Customer</span>
-              <span className="text-xs text-muted-foreground mt-1">I want to hire contractors</span>
-            </Button>
-            <Button
-              type="button"
-              variant={userType === 'contractor' ? 'default' : 'outline'}
-              onClick={() => handleUserTypeSelection('contractor')}
-              className="h-auto p-4 flex flex-col items-center"
-            >
-              <Building2 className="h-6 w-6 mb-2" />
-              <span>Contractor</span>
-              <span className="text-xs text-muted-foreground mt-1">I want to offer services</span>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
 
   // Step 2: Profile Completion (for Google Sign-up)
   if (currentUser && step === 2) {

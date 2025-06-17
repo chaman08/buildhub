@@ -63,8 +63,8 @@ interface AuthContextType {
   sendEmailVerification: () => Promise<void>;
   refreshUserProfile: () => Promise<void>;
   setupRecaptcha: (elementId: string) => RecaptchaVerifier;
-  sendPhoneOTP: (phoneNumber: string, recaptchaVerifier: RecaptchaVerifier) => Promise<ConfirmationResult>;
-  verifyPhoneOTP: (confirmationResult: ConfirmationResult, otp: string, userData?: Partial<UserProfile>) => Promise<void>;
+  sendPhoneOTP: (phoneNumber: string) => Promise<void>;
+  verifyPhoneOTP: (otp: string) => Promise<void>;
   isVerificationComplete: () => boolean;
   isAdmin: () => boolean;
   isProfileComplete: () => boolean;
@@ -111,6 +111,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [loginAttempts, setLoginAttempts] = useState<{[key: string]: number}>({});
   const [lastLoginAttempt, setLastLoginAttempt] = useState<{[key: string]: Date}>({});
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
 
   // Rate limiting check
   const checkRateLimit = (email: string): boolean => {
@@ -149,7 +150,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           uid: user.uid,
           email: user.email || '',
           fullName: user.displayName || '',
-          userType: 'customer', // Default to customer, will be updated later
+          userType: 'customer', // Set default user type
           mobile: '', // Will be updated in profile completion
           city: '', // Will be updated in profile completion
           profilePicture: user.photoURL || '',
@@ -393,57 +394,72 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
-  const sendPhoneOTP = async (phoneNumber: string, recaptchaVerifier: RecaptchaVerifier): Promise<ConfirmationResult> => {
+  const sendPhoneOTP = async (phoneNumber: string): Promise<void> => {
+    if (!currentUser) throw new Error('No user logged in');
+    
     try {
+      // Initialize reCAPTCHA verifier
+      const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        size: 'invisible',
+        callback: () => {
+          console.log('reCAPTCHA solved');
+        },
+        'expired-callback': () => {
+          console.log('reCAPTCHA expired');
+        }
+      });
+
+      // Set the app verification disabled for testing
+      // Note: Remove this in production
+      (window as any).firebase.auth().settings.appVerificationDisabledForTesting = true;
+
       console.log('Sending OTP to:', phoneNumber);
-      const result = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
-      console.log('OTP sent successfully');
-      return result;
-    } catch (error) {
+      const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
+      setConfirmationResult(confirmationResult);
+      
+      // Clean up the reCAPTCHA verifier
+      recaptchaVerifier.clear();
+    } catch (error: any) {
       console.error('Error sending OTP:', error);
+      // Clean up the reCAPTCHA verifier on error
+      const recaptchaContainer = document.getElementById('recaptcha-container');
+      if (recaptchaContainer) {
+        recaptchaContainer.innerHTML = '';
+      }
       throw error;
     }
   };
 
-  const verifyPhoneOTP = async (confirmationResult: ConfirmationResult, otp: string, userData?: Partial<UserProfile>): Promise<void> => {
+  const verifyPhoneOTP = async (otp: string): Promise<void> => {
+    if (!currentUser || !confirmationResult) {
+      throw new Error('No confirmation result available');
+    }
+
     try {
-      console.log('Verifying OTP:', otp);
       const result = await confirmationResult.confirm(otp);
-      console.log('OTP verified successfully, user:', result.user);
-
-      if (!result.user) {
-        throw new Error('No user found after OTP verification');
-      }
-
-      // Update user profile with phone verification status
-      const userRef = doc(db, 'users', result.user.uid);
+      console.log('Phone verification successful:', result);
+      
+      // Get the current user's ID from Google auth
+      const currentUserId = currentUser.uid;
+      
+      // Update the user profile in Firestore
+      const userRef = doc(db, 'users', currentUserId);
       const userDoc = await getDoc(userRef);
-
+      
       if (userDoc.exists()) {
-        // Update existing user
         await updateDoc(userRef, {
           isPhoneVerified: true,
           updatedAt: new Date()
         });
-
-        // Refresh user profile
+        
+        // Refresh the user profile
         await refreshUserProfile();
-      } else if (userData) {
-        // Create new user profile
-        await createUserProfile(result.user, {
-          ...userData,
-          isPhoneVerified: true
-        });
+      } else {
+        throw new Error('User profile not found');
       }
-
-      // Set persistence to local
-      await setPersistence(auth, browserLocalPersistence);
-
-      // Update current user state
-      setCurrentUser(result.user);
     } catch (error: any) {
       console.error('Error verifying OTP:', error);
-      throw new Error(error.message || 'Failed to verify OTP');
+      throw error;
     }
   };
 

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -105,8 +104,39 @@ const ProfileCompletion: React.FC = () => {
       return;
     }
 
+    // Validate required fields
+    if (!formData.city || !formData.userType) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (formData.userType === 'contractor' && (!formData.companyName || !formData.serviceCategory)) {
+      toast({
+        title: "Missing Information", 
+        description: "Contractors must provide company name and service category",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
+      // First save the profile data
+      const userRef = doc(db, 'users', currentUser.uid);
+      const updateData = {
+        ...formData,
+        experience: formData.experience ? parseInt(formData.experience) : 0,
+        updatedAt: new Date()
+      };
+
+      await updateDoc(userRef, updateData);
+      
+      // Then mark the profile as complete
       await markProfileComplete();
+      
       toast({
         title: "Profile Complete!",
         description: "Your profile is now complete. Redirecting to dashboard..."
@@ -269,7 +299,8 @@ const ProfileCompletion: React.FC = () => {
 
             <Button 
               onClick={handleCompleteProfile}
-              disabled={!userProfile.isPhoneVerified}
+              disabled={!userProfile.isPhoneVerified || !formData.city || !formData.userType || 
+                (formData.userType === 'contractor' && (!formData.companyName || !formData.serviceCategory))}
               className="w-full"
             >
               Complete Profile & Continue

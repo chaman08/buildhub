@@ -19,8 +19,11 @@ const Auth: React.FC = () => {
     }
   }, [location.state]);
 
+  // Handle navigation after auth state changes
   useEffect(() => {
-    if (currentUser && userProfile) {
+    const handleNavigation = async () => {
+      if (!currentUser || !userProfile) return;
+
       // Check if Google user needs to complete profile
       if (!userProfile.mobile) {
         // Show profile completion, don't navigate
@@ -38,12 +41,10 @@ const Auth: React.FC = () => {
       } else {
         navigate('/verify');
       }
-    }
-  }, [currentUser, userProfile, navigate, isVerificationComplete]);
+    };
 
-  const handleAuthSuccess = () => {
-    // Navigation will be handled by the useEffect above
-  };
+    handleNavigation();
+  }, [currentUser, userProfile, navigate, isVerificationComplete]);
 
   // Show profile completion for Google users with incomplete profiles
   if (currentUser && userProfile && !userProfile.mobile) {
@@ -63,12 +64,9 @@ const Auth: React.FC = () => {
       <div className="pt-20 pb-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md mx-auto">
           {isLogin ? (
-            <LoginForm 
-              onSuccess={handleAuthSuccess}
-              onSwitchToSignup={() => setIsLogin(false)}
-            />
+            <LoginForm onSuccess={() => setIsLogin(false)} />
           ) : (
-            <SignupForm onSuccess={handleAuthSuccess} />
+            <SignupForm onSuccess={() => setIsLogin(true)} />
           )}
           
           {!isLogin && (
