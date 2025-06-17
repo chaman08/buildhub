@@ -1,10 +1,12 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Home, Users, Briefcase, LogIn, FileText, MessageSquare, User, PlusCircle } from 'lucide-react';
+import { usePostProject } from '@/hooks/usePostProject';
 
 const BottomNav = () => {
   const { currentUser, userProfile } = useAuth();
   const location = useLocation();
+  const { handlePostProject } = usePostProject();
 
   const isActive = (path: string) => {
     return location.pathname === path;
@@ -78,10 +80,14 @@ const BottomNav = () => {
           <Users className="h-6 w-6" />
           <span className="text-xs mt-1">Contractors</span>
         </Link>
-        <Link to="/dashboard" className={`flex flex-col items-center ${getActiveClass('/dashboard')}`}>
+        <button
+          type="button"
+          onClick={handlePostProject}
+          className="flex flex-col items-center focus:outline-none"
+        >
           <PlusCircle className="h-6 w-6" />
           <span className="text-xs mt-1">Post Project</span>
-        </Link>
+        </button>
         <Link to="/messages" className={`flex flex-col items-center ${getActiveClass('/messages')}`}>
           <MessageSquare className="h-6 w-6" />
           <span className="text-xs mt-1">Messages</span>
