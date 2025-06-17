@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import Header from '@/components/Header';
@@ -37,6 +36,7 @@ const ContractorProfile = () => {
   const [error, setError] = useState<string | null>(null);
   const { currentUser } = useAuth();
   const { isContractorBookmarked, toggleContractorBookmark } = useBookmarks();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (uid) {
@@ -187,7 +187,16 @@ const ContractorProfile = () => {
                     <Mail className="h-4 w-4 mr-2" />
                     Email
                   </Button>
-                  <Button variant="outline">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      if (!currentUser) {
+                        navigate('/auth');
+                      } else {
+                        navigate('/messages', { state: { recipientId: contractor.uid, recipientName: contractor.fullName, recipientType: 'contractor' } });
+                      }
+                    }}
+                  >
                     <MessageCircle className="h-4 w-4 mr-2" />
                     Message
                   </Button>

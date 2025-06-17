@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { collection, query, where, orderBy, onSnapshot, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -38,9 +37,10 @@ interface Conversation {
 
 interface ChatListProps {
   onSelectChat: (conversation: Conversation) => void;
+  conversationsCallback?: (conversations: Conversation[]) => void;
 }
 
-const ChatList: React.FC<ChatListProps> = ({ onSelectChat }) => {
+const ChatList: React.FC<ChatListProps> = ({ onSelectChat, conversationsCallback }) => {
   const { currentUser, userProfile } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,7 +67,15 @@ const ChatList: React.FC<ChatListProps> = ({ onSelectChat }) => {
           const conversationMap = new Map<string, Conversation>();
 
           for (const chat of chatsData) {
-            const key = `${chat.projectId}-${chat.recipientId}`;
+            let key = '';
+            if (!chat.projectId) {
+              // Direct chat: key by sorted user IDs
+              const ids = [chat.senderId, chat.recipientId].sort();
+              key = ids.join('-');
+            } else {
+              // Project chat: key by project and recipient
+              key = `${chat.projectId}-${chat.recipientId}`;
+            }
             
             if (!conversationMap.has(key)) {
               // Get project details
@@ -106,6 +114,9 @@ const ChatList: React.FC<ChatListProps> = ({ onSelectChat }) => {
           }
 
           setConversations(Array.from(conversationMap.values()));
+          if (conversationsCallback) {
+            conversationsCallback(Array.from(conversationMap.values()));
+          }
           setLoading(false);
         });
 
