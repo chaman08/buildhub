@@ -24,12 +24,6 @@ const Auth: React.FC = () => {
     const handleNavigation = async () => {
       if (!currentUser || !userProfile) return;
 
-      // Check if Google user needs to complete profile
-      if (!userProfile.mobile) {
-        // Show profile completion, don't navigate
-        return;
-      }
-      
       // Check if user has at least one verification (email OR phone)
       if (isVerificationComplete()) {
         // Navigate based on user type
@@ -46,8 +40,8 @@ const Auth: React.FC = () => {
     handleNavigation();
   }, [currentUser, userProfile, navigate, isVerificationComplete]);
 
-  // Show profile completion for Google users with incomplete profiles
-  if (currentUser && userProfile && !userProfile.mobile) {
+  // Only show profile completion for non-Google users with incomplete profiles
+  if (currentUser && userProfile && !userProfile.profileComplete && !userProfile.isEmailVerified) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
         <Header />

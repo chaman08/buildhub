@@ -93,8 +93,11 @@ const ProfileCompletion: React.FC = () => {
   const handleCompleteProfile = async () => {
     if (!currentUser || !userProfile) return;
 
-    // Check if phone is verified
-    if (!userProfile.isPhoneVerified) {
+    // For Google users, we don't require phone verification
+    const isGoogleUser = userProfile.isEmailVerified && !userProfile.mobile;
+    
+    // Only check phone verification for non-Google users
+    if (!isGoogleUser && !userProfile.isPhoneVerified) {
       toast({
         title: "Phone Verification Required",
         description: "Please verify your phone number to complete your profile",
@@ -299,7 +302,7 @@ const ProfileCompletion: React.FC = () => {
 
             <Button 
               onClick={handleCompleteProfile}
-              disabled={!userProfile.isPhoneVerified || !formData.city || !formData.userType || 
+              disabled={(!userProfile.isPhoneVerified && !userProfile.isEmailVerified) || !formData.city || !formData.userType || 
                 (formData.userType === 'contractor' && (!formData.companyName || !formData.serviceCategory))}
               className="w-full"
             >
@@ -307,7 +310,7 @@ const ProfileCompletion: React.FC = () => {
             </Button>
           </div>
 
-          {!userProfile.isPhoneVerified && (
+          {!userProfile.isPhoneVerified && !userProfile.isEmailVerified && (
             <p className="text-sm text-muted-foreground text-center">
               Phone verification is required to complete your profile
             </p>
