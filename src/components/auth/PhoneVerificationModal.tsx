@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -6,8 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
+import { auth, db } from '@/lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 
 interface PhoneVerificationModalProps {
   isOpen: boolean;
@@ -33,7 +35,7 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
   onClose,
   onSuccess
 }) => {
-  const { currentUser, verifyPhoneOTP } = useAuth();
+  const { currentUser, userProfile, refreshUserProfile } = useAuth();
   const { toast } = useToast();
   const [countryCode, setCountryCode] = useState('+91');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -41,7 +43,7 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [countdown, setCountdown] = useState(0);
-  const [confirmationResult, setConfirmationResult] = useState<any>(null);
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const MAX_RETRIES = 3;
@@ -62,30 +64,77 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
       setPhoneNumber('');
       setCountdown(0);
       setRetryCount(0);
-      if (recaptchaVerifierRef.current) {
-        recaptchaVerifierRef.current.clear();
-        recaptchaVerifierRef.current = null;
+      setConfirmationResult(null);
+      cleanupRecaptcha();
+    } else {
+      // Pre-fill phone number if available
+      if (userProfile?.mobile) {
+        const mobile = userProfile.mobile;
+        if (mobile.startsWith('+91')) {
+          setCountryCode('+91');
+          setPhoneNumber(mobile.substring(3));
+        } else if (mobile.startsWith('+1')) {
+          setCountryCode('+1');
+          setPhoneNumber(mobile.substring(2));
+        } else if (mobile.startsWith('+')) {
+          const match = mobile.match(/^(\+\d{1,4})(\d+)$/);
+          if (match) {
+            setCountryCode(match[1]);
+            setPhoneNumber(match[2]);
+          }
+        } else {
+          setPhoneNumber(mobile);
+        }
       }
     }
-  }, [isOpen]);
+  }, [isOpen, userProfile]);
+
+  const cleanupRecaptcha = () => {
+    if (recaptchaVerifierRef.current) {
+      try {
+        recaptchaVerifierRef.current.clear();
+      } catch (error) {
+        console.log('Error cleaning up reCAPTCHA:', error);
+      }
+      recaptchaVerifierRef.current = null;
+    }
+    
+    // Clear the container
+    const container = document.getElementById('recaptcha-container');
+    if (container) {
+      container.innerHTML = '';
+    }
+  };
 
   const initializeRecaptcha = () => {
-    if (!recaptchaVerifierRef.current) {
-      recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        size: 'normal',
-        callback: () => {
-          console.log('reCAPTCHA solved');
-        },
-        'expired-callback': () => {
-          console.log('reCAPTCHA expired');
-          if (recaptchaVerifierRef.current) {
-            recaptchaVerifierRef.current.clear();
-            recaptchaVerifierRef.current = null;
-          }
-        }
-      });
+    cleanupRecaptcha();
+    
+    const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+      size: 'normal',
+      callback: () => {
+        console.log('reCAPTCHA solved');
+      },
+      'expired-callback': () => {
+        console.log('reCAPTCHA expired');
+        cleanupRecaptcha();
+      }
+    });
+    
+    recaptchaVerifierRef.current = recaptchaVerifier;
+    return recaptchaVerifier;
+  };
+
+  const validatePhoneNumber = (phone: string): boolean => {
+    // Remove any non-digit characters
+    const cleanPhone = phone.replace(/\D/g, '');
+    
+    // Check if it's a valid Indian mobile number (10 digits starting with 6-9)
+    if (countryCode === '+91') {
+      return /^[6-9]\d{9}$/.test(cleanPhone);
     }
-    return recaptchaVerifierRef.current;
+    
+    // For other countries, just check if it has at least 10 digits
+    return cleanPhone.length >= 10;
   };
 
   const handleSendOTP = async () => {
@@ -107,12 +156,15 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
       return;
     }
 
-    // Validate phone number format
-    const phoneRegex = /^\d{10}$/;
-    if (!phoneRegex.test(phoneNumber)) {
+    // Clean and validate phone number
+    const cleanPhoneNumber = phoneNumber.replace(/\D/g, '');
+    
+    if (!validatePhoneNumber(cleanPhoneNumber)) {
       toast({
         title: "Invalid Phone Number",
-        description: "Please enter a valid 10-digit phone number",
+        description: countryCode === '+91' 
+          ? "Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9"
+          : "Please enter a valid phone number",
         variant: "destructive"
       });
       return;
@@ -130,7 +182,7 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
 
     setLoading(true);
     try {
-      const fullPhoneNumber = `${countryCode}${phoneNumber}`;
+      const fullPhoneNumber = `${countryCode}${cleanPhoneNumber}`;
       console.log('Sending OTP to phone number:', fullPhoneNumber, 'for user:', currentUser.uid);
       
       // Initialize reCAPTCHA
@@ -153,25 +205,16 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
     } catch (error: any) {
       console.error('Phone OTP error:', error);
       
-      // Reset reCAPTCHA on error
-      if (recaptchaVerifierRef.current) {
-        recaptchaVerifierRef.current.clear();
-        recaptchaVerifierRef.current = null;
-      }
+      cleanupRecaptcha();
 
       let errorMessage = "Failed to send OTP. Please try again.";
-      if (error.code === 'auth/invalid-app-credential') {
-        errorMessage = "Verification failed. Please refresh the page and try again.";
-        // Reset reCAPTCHA completely
-        if (recaptchaVerifierRef.current) {
-          recaptchaVerifierRef.current.clear();
-          recaptchaVerifierRef.current = null;
-        }
+      if (error.code === 'auth/invalid-phone-number') {
+        errorMessage = "Invalid phone number format. Please check the number and country code.";
       } else if (error.code === 'auth/too-many-requests') {
         errorMessage = "Too many attempts. Please wait a few minutes before trying again.";
         setRetryCount(prev => prev + 1);
-      } else if (error.code === 'auth/invalid-phone-number') {
-        errorMessage = "Invalid phone number format. Please check and try again.";
+      } else if (error.code === 'auth/quota-exceeded') {
+        errorMessage = "SMS quota exceeded. Please try again later.";
       }
 
       toast({
@@ -185,10 +228,10 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
   };
 
   const handleVerifyOTP = async () => {
-    if (!otp) {
+    if (!otp || otp.length !== 6) {
       toast({
         title: "Error",
-        description: "Please enter the OTP",
+        description: "Please enter the 6-digit OTP",
         variant: "destructive"
       });
       return;
@@ -203,25 +246,54 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
       return;
     }
 
+    if (!currentUser) {
+      toast({
+        title: "Error",
+        description: "User not authenticated",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setLoading(true);
     try {
-      const result = await confirmationResult.confirm(otp);
-      console.log('Phone verification successful:', result);
+      // Verify the OTP
+      await confirmationResult.confirm(otp);
+      console.log('Phone verification successful for user:', currentUser.uid);
       
-      // Update user profile
-      await verifyPhoneOTP(otp);
+      // Update user profile in Firestore to mark phone as verified
+      const cleanPhoneNumber = phoneNumber.replace(/\D/g, '');
+      const fullPhoneNumber = `${countryCode}${cleanPhoneNumber}`;
+      
+      const userRef = doc(db, 'users', currentUser.uid);
+      await updateDoc(userRef, {
+        isPhoneVerified: true,
+        mobile: fullPhoneNumber,
+        updatedAt: new Date()
+      });
       
       toast({
         title: "Success",
         description: "Phone number verified successfully"
       });
+      
+      // Refresh user profile and call success callback
+      await refreshUserProfile();
       onSuccess();
       onClose();
     } catch (error: any) {
       console.error('OTP verification error:', error);
+      
+      let errorMessage = "Failed to verify OTP. Please try again.";
+      if (error.code === 'auth/invalid-verification-code') {
+        errorMessage = "Invalid OTP. Please check the code and try again.";
+      } else if (error.code === 'auth/code-expired') {
+        errorMessage = "OTP has expired. Please request a new one.";
+      }
+      
       toast({
         title: "Error",
-        description: error.message || "Failed to verify OTP. Please try again.",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -264,10 +336,14 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
                     onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
                     disabled={loading}
                     className="flex-1"
+                    maxLength={15}
                   />
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Enter your 10-digit phone number without the country code
+                  {countryCode === '+91' 
+                    ? "Enter your 10-digit mobile number (starting with 6, 7, 8, or 9)"
+                    : "Enter your phone number without the country code"
+                  }
                 </p>
               </div>
 
@@ -295,11 +371,14 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
                   disabled={loading}
                   maxLength={6}
                 />
+                <p className="text-sm text-muted-foreground mt-1">
+                  Code sent to {countryCode}{phoneNumber}
+                </p>
               </div>
               <div className="flex flex-col space-y-2">
                 <Button
                   onClick={handleVerifyOTP}
-                  disabled={loading || !otp}
+                  disabled={loading || !otp || otp.length !== 6}
                   className="w-full"
                 >
                   {loading ? 'Verifying...' : 'Verify OTP'}

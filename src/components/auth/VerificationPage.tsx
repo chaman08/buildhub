@@ -71,7 +71,7 @@ const VerificationPage: React.FC = () => {
 
     setLoading(true);
     try {
-      const result = await sendPhoneOTP(userProfile.mobile, recaptchaVerifier);
+      const result = await sendPhoneOTP(userProfile.mobile);
       setConfirmationResult(result);
       setOtpSent(true);
       toast({

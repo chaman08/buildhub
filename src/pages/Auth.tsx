@@ -64,7 +64,10 @@ const Auth: React.FC = () => {
       <div className="pt-20 pb-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md mx-auto">
           {isLogin ? (
-            <LoginForm onSuccess={() => setIsLogin(false)} />
+            <LoginForm 
+              onSuccess={() => setIsLogin(false)} 
+              onSwitchToSignup={() => setIsLogin(false)}
+            />
           ) : (
             <SignupForm onSuccess={() => setIsLogin(true)} />
           )}

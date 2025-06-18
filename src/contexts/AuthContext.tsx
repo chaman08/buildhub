@@ -63,8 +63,8 @@ interface AuthContextType {
   sendEmailVerification: () => Promise<void>;
   refreshUserProfile: () => Promise<void>;
   setupRecaptcha: (elementId: string) => RecaptchaVerifier;
-  sendPhoneOTP: (phoneNumber: string) => Promise<void>;
-  verifyPhoneOTP: (otp: string) => Promise<void>;
+  sendPhoneOTP: (phoneNumber: string) => Promise<ConfirmationResult>;
+  verifyPhoneOTP: (confirmationResult: ConfirmationResult, otp: string, userData?: Partial<UserProfile>) => Promise<void>;
   isVerificationComplete: () => boolean;
   isAdmin: () => boolean;
   isProfileComplete: () => boolean;
@@ -143,6 +143,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!userDoc.exists()) {
       // For Google sign-in, we'll create a basic profile first
       const isGoogleUser = user.providerData.some(provider => provider.providerId === 'google.com');
+      const isPhoneUser = user.providerData.some(provider => provider.providerId === 'phone');
       
       if (isGoogleUser) {
         const now = new Date();
@@ -163,6 +164,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           updatedAt: now,
           lastLoginAt: now,
           loginCount: 1
+        };
+        
+        await setDoc(userRef, profileData);
+        return profileData;
+      } else if (isPhoneUser) {
+        // For phone users, create minimal profile initially
+        const now = new Date();
+        const profileData: UserProfile = {
+          uid: user.uid,
+          email: '',
+          fullName: additionalData.fullName || 'User',
+          userType: additionalData.userType || 'customer',
+          mobile: additionalData.mobile || '',
+          city: additionalData.city || '',
+          occupation: additionalData.occupation || '',
+          profilePicture: additionalData.profilePicture || '',
+          isEmailVerified: false,
+          isPhoneVerified: true,
+          isDocumentVerified: false,
+          isAdmin: false,
+          profileComplete: additionalData.profileComplete || false,
+          createdAt: now,
+          updatedAt: now,
+          lastLoginAt: now,
+          loginCount: 1,
+          ...additionalData
         };
         
         await setDoc(userRef, profileData);
@@ -287,24 +314,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Google sign-in successful, email verified status:', result.user.emailVerified);
       
       // Create initial user profile with Google data
-      const profileData = await createUserProfile(result.user, {
+      await createUserProfile(result.user, {
         fullName: result.user.displayName || '',
         email: result.user.email || '',
         profilePicture: result.user.photoURL || '',
         isEmailVerified: true,
         isPhoneVerified: false,
         profileComplete: false,
-        userType: 'customer', // Default to customer, will be updated later
-        mobile: '', // Will be updated in profile completion
-        city: '', // Will be updated in profile completion
+        userType: 'customer',
+        mobile: '',
+        city: '',
         createdAt: new Date(),
         updatedAt: new Date(),
         lastLoginAt: new Date(),
         loginCount: 1
       });
-      
-      setUserProfile(profileData);
-      return profileData;
     } catch (error: any) {
       if (error.code === 'auth/popup-closed-by-user') {
         throw new Error('Sign-in was cancelled. Please try again.');
@@ -358,12 +382,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           setUserProfile(profile);
         } else {
-          // Create profile for existing user (migration case)
+          // Only create profile for users without existing profiles
+          // For phone users, this should not happen as profile is created during verification
           const isGoogleUser = currentUser.providerData.some(provider => provider.providerId === 'google.com');
-          const profileData = await createUserProfile(currentUser, {
-            isEmailVerified: isGoogleUser ? true : currentUser.emailVerified
-          });
-          setUserProfile(profileData);
+          const isPhoneUser = currentUser.providerData.some(provider => provider.providerId === 'phone');
+          
+          if (isGoogleUser) {
+            const profileData = await createUserProfile(currentUser, {
+              isEmailVerified: true
+            });
+            setUserProfile(profileData);
+          } else if (isPhoneUser) {
+            // For phone users without profile, this indicates an error
+            console.error('Phone user without profile found - this should not happen');
+          }
         }
       } catch (error) {
         console.error('Error refreshing user profile:', error);
@@ -394,11 +426,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
-  const sendPhoneOTP = async (phoneNumber: string): Promise<void> => {
+  const sendPhoneOTP = async (phoneNumber: string): Promise<ConfirmationResult> => {
     if (!currentUser) throw new Error('No user logged in');
     
     try {
-      // Initialize reCAPTCHA verifier
       const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
         size: 'invisible',
         callback: () => {
@@ -409,16 +440,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       });
 
-      // Set the app verification disabled for testing
-      // Note: Remove this in production
-      (window as any).firebase.auth().settings.appVerificationDisabledForTesting = true;
-
       console.log('Sending OTP to:', phoneNumber);
       const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
-      setConfirmationResult(confirmationResult);
       
       // Clean up the reCAPTCHA verifier
       recaptchaVerifier.clear();
+      
+      return confirmationResult;
     } catch (error: any) {
       console.error('Error sending OTP:', error);
       // Clean up the reCAPTCHA verifier on error
@@ -430,32 +458,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const verifyPhoneOTP = async (otp: string): Promise<void> => {
-    if (!currentUser || !confirmationResult) {
-      throw new Error('No confirmation result available');
-    }
-
+  const verifyPhoneOTP = async (confirmationResult: ConfirmationResult, otp: string, userData?: Partial<UserProfile>): Promise<void> => {
     try {
-      const result = await confirmationResult.confirm(otp);
-      console.log('Phone verification successful:', result);
+      await confirmationResult.confirm(otp);
       
-      // Get the current user's ID from Google auth
-      const currentUserId = currentUser.uid;
+      if (userData && !currentUser) {
+        // This is a new user signup via phone
+        const user = auth.currentUser;
+        if (user) {
+          await createUserProfile(user, {
+            ...userData,
+            isPhoneVerified: true,
+            profileComplete: false
+          });
+          await refreshUserProfile();
+        }
+        return;
+      }
       
-      // Update the user profile in Firestore
-      const userRef = doc(db, 'users', currentUserId);
-      const userDoc = await getDoc(userRef);
-      
-      if (userDoc.exists()) {
+      // This is verification for existing user
+      if (currentUser) {
+        const userRef = doc(db, 'users', currentUser.uid);
         await updateDoc(userRef, {
           isPhoneVerified: true,
           updatedAt: new Date()
         });
         
-        // Refresh the user profile
         await refreshUserProfile();
-      } else {
-        throw new Error('User profile not found');
       }
     } catch (error: any) {
       console.error('Error verifying OTP:', error);
@@ -546,12 +575,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             
             setUserProfile(profile);
           } else {
-            // Create profile for existing user (migration case)
+            // Only create profile for users without existing profiles
+            // For phone users, this should not happen as profile is created during verification
             const isGoogleUser = user.providerData.some(provider => provider.providerId === 'google.com');
-            const profileData = await createUserProfile(user, {
-              isEmailVerified: isGoogleUser ? true : user.emailVerified
-            });
-            setUserProfile(profileData);
+            const isPhoneUser = user.providerData.some(provider => provider.providerId === 'phone');
+            
+            if (isGoogleUser) {
+              const profileData = await createUserProfile(user, {
+                isEmailVerified: true
+              });
+              setUserProfile(profileData);
+            } else if (isPhoneUser) {
+              // For phone users without profile, this indicates an error
+              console.error('Phone user without profile found - this should not happen');
+            }
           }
         } catch (error) {
           console.error('Error in auth state change:', error);

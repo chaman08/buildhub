@@ -1,5 +1,6 @@
+
 import { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 export interface Notification {
@@ -60,7 +61,7 @@ export const useNotifications = (userId: string) => {
   const markAllAsRead = async () => {
     try {
       const unreadNotifications = notifications.filter(n => !n.read);
-      const batch = db.batch();
+      const batch = writeBatch(db);
       
       unreadNotifications.forEach(notification => {
         const notificationRef = doc(db, 'notifications', notification.id);
