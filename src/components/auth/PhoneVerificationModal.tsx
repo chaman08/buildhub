@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
+import { RecaptchaVerifier, PhoneAuthProvider, linkWithCredential } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 
@@ -43,7 +43,7 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [countdown, setCountdown] = useState(0);
-  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+  const [verificationId, setVerificationId] = useState('');
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const MAX_RETRIES = 3;
@@ -64,7 +64,7 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
       setPhoneNumber('');
       setCountdown(0);
       setRetryCount(0);
-      setConfirmationResult(null);
+      setVerificationId('');
       cleanupRecaptcha();
     } else {
       // Pre-fill phone number if available
@@ -109,19 +109,25 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
   const initializeRecaptcha = () => {
     cleanupRecaptcha();
     
-    const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-      size: 'normal',
-      callback: () => {
-        console.log('reCAPTCHA solved');
-      },
-      'expired-callback': () => {
-        console.log('reCAPTCHA expired');
-        cleanupRecaptcha();
-      }
-    });
-    
-    recaptchaVerifierRef.current = recaptchaVerifier;
-    return recaptchaVerifier;
+    try {
+      // Use invisible reCAPTCHA to avoid UI issues
+      const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        size: 'invisible',
+        callback: () => {
+          console.log('reCAPTCHA solved');
+        },
+        'expired-callback': () => {
+          console.log('reCAPTCHA expired');
+          cleanupRecaptcha();
+        }
+      });
+      
+      recaptchaVerifierRef.current = recaptchaVerifier;
+      return recaptchaVerifier;
+    } catch (error) {
+      console.error('Error initializing reCAPTCHA:', error);
+      throw new Error('Failed to initialize reCAPTCHA. Please refresh and try again.');
+    }
   };
 
   const validatePhoneNumber = (phone: string): boolean => {
@@ -188,12 +194,11 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
       // Initialize reCAPTCHA
       const recaptchaVerifier = initializeRecaptcha();
       
-      // Render the reCAPTCHA widget
-      await recaptchaVerifier.render();
+      // Send OTP using PhoneAuthProvider
+      const phoneProvider = new PhoneAuthProvider(auth);
+      const verificationId = await phoneProvider.verifyPhoneNumber(fullPhoneNumber, recaptchaVerifier);
       
-      // Send OTP
-      const result = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifier);
-      setConfirmationResult(result);
+      setVerificationId(verificationId);
       setOtpSent(true);
       setCountdown(60); // 60 seconds countdown
       setRetryCount(0); // Reset retry count on success
@@ -208,6 +213,7 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
       cleanupRecaptcha();
 
       let errorMessage = "Failed to send OTP. Please try again.";
+      
       if (error.code === 'auth/invalid-phone-number') {
         errorMessage = "Invalid phone number format. Please check the number and country code.";
       } else if (error.code === 'auth/too-many-requests') {
@@ -215,6 +221,11 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
         setRetryCount(prev => prev + 1);
       } else if (error.code === 'auth/quota-exceeded') {
         errorMessage = "SMS quota exceeded. Please try again later.";
+      } else if (error.code === 'auth/invalid-app-credential') {
+        errorMessage = "Phone verification service is temporarily unavailable. Please try again later or contact support.";
+        console.error('reCAPTCHA configuration issue - check Firebase Console settings');
+      } else if (error.code === 'auth/captcha-check-failed') {
+        errorMessage = "Security verification failed. Please refresh the page and try again.";
       }
 
       toast({
@@ -237,7 +248,7 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
       return;
     }
 
-    if (!confirmationResult) {
+    if (!verificationId) {
       toast({
         title: "Error",
         description: "No verification in progress. Please request a new OTP.",
@@ -257,8 +268,12 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
 
     setLoading(true);
     try {
-      // Verify the OTP
-      await confirmationResult.confirm(otp);
+      // Create phone credential
+      const phoneCredential = PhoneAuthProvider.credential(verificationId, otp);
+      
+      // Link the phone credential to the current user account
+      await linkWithCredential(currentUser, phoneCredential);
+      
       console.log('Phone verification successful for user:', currentUser.uid);
       
       // Update user profile in Firestore to mark phone as verified
@@ -289,6 +304,10 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
         errorMessage = "Invalid OTP. Please check the code and try again.";
       } else if (error.code === 'auth/code-expired') {
         errorMessage = "OTP has expired. Please request a new one.";
+      } else if (error.code === 'auth/credential-already-in-use') {
+        errorMessage = "This phone number is already linked to another account.";
+      } else if (error.code === 'auth/provider-already-linked') {
+        errorMessage = "A phone number is already linked to this account.";
       }
       
       toast({
@@ -357,6 +376,12 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
               >
                 {loading ? 'Sending...' : 'Send OTP'}
               </Button>
+
+              {retryCount >= MAX_RETRIES && (
+                <p className="text-sm text-red-600 text-center">
+                  Too many attempts. Please wait a few minutes before trying again.
+                </p>
+              )}
             </>
           ) : (
             <>

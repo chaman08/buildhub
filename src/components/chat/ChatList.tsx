@@ -78,18 +78,22 @@ const ChatList: React.FC<ChatListProps> = ({ onSelectChat, conversationsCallback
             }
             
             if (!conversationMap.has(key)) {
-              // Get project details
-              const projectQuery = query(
-                collection(db, 'projects'),
-                where('__name__', '==', chat.projectId)
-              );
-              const projectSnapshot = await getDocs(projectQuery);
-              const projectData = projectSnapshot.docs[0]?.data();
+              let projectTitle = 'Direct Message';
+              if (chat.projectId) {
+                // Get project details
+                const projectQuery = query(
+                  collection(db, 'projects'),
+                  where('__name__', '==', chat.projectId)
+                );
+                const projectSnapshot = await getDocs(projectQuery);
+                const projectData = projectSnapshot.docs[0]?.data();
+                projectTitle = projectData?.title || 'Unknown Project';
+              }
 
               conversationMap.set(key, {
                 id: key,
                 projectId: chat.projectId,
-                projectTitle: projectData?.title || 'Unknown Project',
+                projectTitle: projectTitle,
                 recipientId: chat.recipientId,
                 recipientName: chat.recipientName,
                 recipientType: chat.recipientType,

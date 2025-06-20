@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -6,8 +7,6 @@ import ChatList from '@/components/chat/ChatList';
 import ChatInterface from '@/components/chat/ChatInterface';
 import { Card, CardContent } from '@/components/ui/card';
 import { MessageCircle } from 'lucide-react';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 
 interface Conversation {
   id: string;
@@ -36,50 +35,35 @@ const Messages: React.FC = () => {
 
   // Auto-select conversation if navigated with state
   React.useEffect(() => {
-    async function maybeCreateConversation() {
-      if (
-        location.state &&
-        location.state.recipientId &&
-        chatListConversations.length >= 0 &&
-        currentUser && userProfile
-      ) {
-        const { recipientId, recipientName, recipientType } = location.state;
-        // Try to find an existing conversation
-        let found = chatListConversations.find(
-          (c) => c.recipientId === recipientId
-        );
-        if (!found) {
-          // Create a new chat document in Firestore
-          const docRef = await addDoc(collection(db, 'chats'), {
-            projectId: '',
-            senderId: currentUser.uid,
-            senderName: userProfile.fullName,
-            senderType: userProfile.userType,
-            recipientId,
-            recipientName,
-            recipientType,
-            participants: [currentUser.uid, recipientId],
-            message: '',
-            timestamp: serverTimestamp(),
-            read: false
-          });
-          found = {
-            id: docRef.id,
-            projectId: '',
-            projectTitle: '',
-            recipientId,
-            recipientName,
-            recipientType,
-            lastMessage: '',
-            lastMessageTime: null,
-            unreadCount: 0,
-          };
-        }
-        setSelectedConversation(found);
-      }
+    if (
+      location.state &&
+      location.state.recipientId &&
+      location.state.recipientName &&
+      location.state.recipientType &&
+      currentUser && 
+      userProfile
+    ) {
+      const { recipientId, recipientName, recipientType } = location.state;
+      
+      // Create a virtual conversation for immediate chat
+      const virtualConversation: Conversation = {
+        id: `temp_${recipientId}`,
+        projectId: '',
+        projectTitle: '',
+        recipientId,
+        recipientName,
+        recipientType,
+        lastMessage: '',
+        lastMessageTime: null,
+        unreadCount: 0,
+      };
+      
+      setSelectedConversation(virtualConversation);
+      
+      // Clear the navigation state to prevent re-triggering
+      navigate(location.pathname, { replace: true });
     }
-    maybeCreateConversation();
-  }, [location.state, chatListConversations, currentUser, userProfile]);
+  }, [location.state, currentUser, userProfile, navigate, location.pathname]);
 
   if (!currentUser) {
     return null;
@@ -104,7 +88,7 @@ const Messages: React.FC = () => {
             {selectedConversation ? (
               <ChatInterface
                 projectId={selectedConversation.projectId}
-                projectTitle={selectedConversation.projectTitle}
+                projectTitle={selectedConversation.projectTitle || `Chat with ${selectedConversation.recipientName}`}
                 recipientId={selectedConversation.recipientId}
                 recipientName={selectedConversation.recipientName}
                 recipientType={selectedConversation.recipientType}

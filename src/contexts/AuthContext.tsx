@@ -111,7 +111,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [loginAttempts, setLoginAttempts] = useState<{[key: string]: number}>({});
   const [lastLoginAttempt, setLastLoginAttempt] = useState<{[key: string]: Date}>({});
-  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
 
   // Rate limiting check
   const checkRateLimit = (email: string): boolean => {
@@ -430,8 +429,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!currentUser) throw new Error('No user logged in');
     
     try {
+      // Clear any existing recaptcha first
+      const recaptchaContainer = document.getElementById('recaptcha-container');
+      if (recaptchaContainer) {
+        recaptchaContainer.innerHTML = '';
+      }
+
       const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        size: 'invisible',
+        size: 'normal',
         callback: () => {
           console.log('reCAPTCHA solved');
         },
@@ -440,11 +445,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       });
 
+      // Render the reCAPTCHA first
+      await recaptchaVerifier.render();
+
       console.log('Sending OTP to:', phoneNumber);
       const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
-      
-      // Clean up the reCAPTCHA verifier
-      recaptchaVerifier.clear();
       
       return confirmationResult;
     } catch (error: any) {
@@ -476,7 +481,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
       
-      // This is verification for existing user
+      // This is verification for existing user - update their profile
       if (currentUser) {
         const userRef = doc(db, 'users', currentUser.uid);
         await updateDoc(userRef, {
