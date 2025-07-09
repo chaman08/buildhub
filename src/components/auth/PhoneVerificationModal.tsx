@@ -89,6 +89,46 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
     }
   }, [isOpen, userProfile]);
 
+  // Add useEffect for cleanup on unmount
+  useEffect(() => {
+    return () => {
+      cleanupRecaptcha();
+    };
+  }, []);
+
+  // Fix reCAPTCHA initialization to ensure container exists
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => {
+        if (!recaptchaVerifierRef.current && document.getElementById('recaptcha-container')) {
+          try {
+            const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+              size: 'invisible',
+              callback: () => {
+                console.log('reCAPTCHA solved');
+              },
+              'expired-callback': () => {
+                console.log('reCAPTCHA expired');
+                cleanupRecaptcha();
+              }
+            });
+            recaptchaVerifierRef.current = recaptchaVerifier;
+          } catch (error) {
+            console.error('Error initializing reCAPTCHA:', error);
+            toast({
+              title: 'reCAPTCHA Error',
+              description: 'Failed to initialize reCAPTCHA. Please refresh and try again.',
+              variant: 'destructive'
+            });
+          }
+        }
+      }, 0); // Wait for next tick so the container is rendered
+    }
+    return () => {
+      cleanupRecaptcha();
+    };
+  }, [isOpen]);
+
   const cleanupRecaptcha = () => {
     if (recaptchaVerifierRef.current) {
       try {
@@ -103,30 +143,6 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
     const container = document.getElementById('recaptcha-container');
     if (container) {
       container.innerHTML = '';
-    }
-  };
-
-  const initializeRecaptcha = () => {
-    cleanupRecaptcha();
-    
-    try {
-      // Use invisible reCAPTCHA to avoid UI issues
-      const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        size: 'invisible',
-        callback: () => {
-          console.log('reCAPTCHA solved');
-        },
-        'expired-callback': () => {
-          console.log('reCAPTCHA expired');
-          cleanupRecaptcha();
-        }
-      });
-      
-      recaptchaVerifierRef.current = recaptchaVerifier;
-      return recaptchaVerifier;
-    } catch (error) {
-      console.error('Error initializing reCAPTCHA:', error);
-      throw new Error('Failed to initialize reCAPTCHA. Please refresh and try again.');
     }
   };
 
@@ -190,10 +206,11 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
     try {
       const fullPhoneNumber = `${countryCode}${cleanPhoneNumber}`;
       console.log('Sending OTP to phone number:', fullPhoneNumber, 'for user:', currentUser.uid);
-      
-      // Initialize reCAPTCHA
-      const recaptchaVerifier = initializeRecaptcha();
-      
+      // Use the existing recaptchaVerifierRef
+      const recaptchaVerifier = recaptchaVerifierRef.current;
+      if (!recaptchaVerifier) {
+        throw new Error('reCAPTCHA not initialized. Please refresh and try again.');
+      }
       // Send OTP using PhoneAuthProvider
       const phoneProvider = new PhoneAuthProvider(auth);
       const verificationId = await phoneProvider.verifyPhoneNumber(fullPhoneNumber, recaptchaVerifier);
