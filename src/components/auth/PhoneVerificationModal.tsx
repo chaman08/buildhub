@@ -315,7 +315,6 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
       onClose();
     } catch (error: any) {
       console.error('OTP verification error:', error);
-      
       let errorMessage = "Failed to verify OTP. Please try again.";
       if (error.code === 'auth/invalid-verification-code') {
         errorMessage = "Invalid OTP. Please check the code and try again.";
@@ -325,8 +324,9 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
         errorMessage = "This phone number is already linked to another account.";
       } else if (error.code === 'auth/provider-already-linked') {
         errorMessage = "A phone number is already linked to this account.";
+      } else if (error.code === 'auth/account-exists-with-different-credential') {
+        errorMessage = "This phone number is already linked to another account.";
       }
-      
       toast({
         title: "Error",
         description: errorMessage,
