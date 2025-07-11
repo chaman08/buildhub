@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { useProfileCompletion } from '@/hooks/useProfileCompletion';
+// Remove: import { useProfileCompletion } from '@/hooks/useProfileCompletion';
 import ProfileCompletionRequired from '@/components/ProfileCompletionRequired';
 import PostProjectForm from '@/components/forms/PostProjectForm';
 
@@ -14,8 +14,7 @@ interface PostProjectDialogProps {
 }
 
 const PostProjectDialog = ({ open, onOpenChange, onProjectPosted }: PostProjectDialogProps) => {
-  const { currentUser } = useAuth();
-  const { isProfileComplete, loading } = useProfileCompletion();
+  const { currentUser, isVerificationComplete } = useAuth();
   const navigate = useNavigate();
   
   // If user is not logged in, redirect to auth page
@@ -23,33 +22,20 @@ const PostProjectDialog = ({ open, onOpenChange, onProjectPosted }: PostProjectD
     navigate('/auth');
     return null;
   }
-  
-  // If still loading profile completion status
-  if (loading) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent>
-          <div className="flex items-center justify-center p-6">
-            <div className="text-center">Loading...</div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
-  
-  // If profile is incomplete, show the profile completion prompt
-  if (!isProfileComplete) {
+
+  // If user does not have either email or phone verified, show prompt
+  if (!isVerificationComplete()) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-md">
           <ProfileCompletionRequired 
-            message="You need to complete your profile before posting a project."
+            message="You need to verify your email or phone number before posting a project."
           />
         </DialogContent>
       </Dialog>
     );
   }
-  
+
   // If everything is good, show the post project form
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

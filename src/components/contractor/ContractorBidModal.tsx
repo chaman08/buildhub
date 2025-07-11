@@ -7,7 +7,6 @@ import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { useProfileCompletion } from '@/hooks/useProfileCompletion';
 import ProfileCompletionRequired from '@/components/ProfileCompletionRequired';
 import {
   Form,
@@ -53,8 +52,7 @@ interface ContractorBidModalProps {
 }
 
 const ContractorBidModal = ({ open, onOpenChange, project, onBidSubmitted }: ContractorBidModalProps) => {
-  const { isProfileComplete, loading } = useProfileCompletion();
-  const { currentUser, userProfile } = useAuth();
+  const { currentUser, userProfile, isVerificationComplete } = useAuth();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -129,115 +127,115 @@ const ContractorBidModal = ({ open, onOpenChange, project, onBidSubmitted }: Con
     return `₹${amount.toLocaleString('en-IN')}`;
   };
   
-  // If still loading or we know the profile is complete, render normally
-  if (loading || isProfileComplete) {
+  // If user does not have either email or phone verified, show prompt
+  if (!isVerificationComplete()) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Place Your Bid</DialogTitle>
-            <DialogDescription>
-              Submit your bid for "{project?.title}"
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-            <p className="text-sm text-gray-600">Customer Budget Range:</p>
-            <p className="font-semibold">
-              {formatBudget(project?.budget || 0)}
-              {project?.budgetMax && project.budgetMax !== project.budget && 
-                ` - ${formatBudget(project.budgetMax)}`
-              }
-            </p>
-          </div>
-
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="priceQuoted"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Your Quoted Price (₹)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        placeholder="Enter your price"
-                        {...field}
-                        onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="timeline"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Expected Timeline</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="e.g., 3 months, 6 weeks"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="message"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Message to Customer</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Tell the customer about your experience, approach, or any questions..."
-                        rows={4}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="flex gap-2 pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => onOpenChange(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  className="flex-1"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? 'Placing Bid...' : 'Place Bid'}
-                </Button>
-              </div>
-            </form>
-          </Form>
+        <DialogContent>
+          <ProfileCompletionRequired 
+            message="You need to verify your email or phone number before placing a bid."
+          />
         </DialogContent>
       </Dialog>
     );
   }
-  
-  // If profile is incomplete, show the profile completion prompt
+
+  // If everything is good, render the bid form
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <ProfileCompletionRequired 
-          message="You need to complete your contractor profile before placing bids."
-        />
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Place Your Bid</DialogTitle>
+          <DialogDescription>
+            Submit your bid for "{project?.title}"
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+          <p className="text-sm text-gray-600">Customer Budget Range:</p>
+          <p className="font-semibold">
+            {formatBudget(project?.budget || 0)}
+            {project?.budgetMax && project.budgetMax !== project.budget && 
+              ` - ${formatBudget(project.budgetMax)}`
+            }
+          </p>
+        </div>
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="priceQuoted"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Your Quoted Price (₹)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      placeholder="Enter your price"
+                      {...field}
+                      onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="timeline"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Expected Timeline</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="e.g., 3 months, 6 weeks"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="message"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Message to Customer</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Tell the customer about your experience, approach, or any questions..."
+                      rows={4}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="flex gap-2 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={() => onOpenChange(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="flex-1"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Placing Bid...' : 'Place Bid'}
+              </Button>
+            </div>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
