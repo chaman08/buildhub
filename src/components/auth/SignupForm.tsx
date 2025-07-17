@@ -583,6 +583,5 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
     </Card>
   );
 };
-};
 
 export default SignupForm;
