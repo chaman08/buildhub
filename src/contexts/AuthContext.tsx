@@ -48,6 +48,7 @@ export interface UserProfile {
   updatedAt?: Date;
   lastLoginAt?: Date;
   loginCount?: number;
+  phoneLinkingPending?: boolean; // Added for phone linking
 }
 
 interface AuthContextType {
@@ -65,6 +66,8 @@ interface AuthContextType {
   setupRecaptcha: (elementId: string) => RecaptchaVerifier;
   sendPhoneOTP: (phoneNumber: string) => Promise<ConfirmationResult>;
   verifyPhoneOTP: (confirmationResult: ConfirmationResult, otp: string, userData?: Partial<UserProfile>) => Promise<void>;
+  linkPhoneToUser: (phoneNumber: string) => Promise<ConfirmationResult>;
+  verifyAndLinkPhone: (confirmationResult: ConfirmationResult, otp: string) => Promise<void>;
   isVerificationComplete: () => boolean;
   isAdmin: () => boolean;
   isProfileComplete: () => boolean;
@@ -274,6 +277,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
     
     setUserProfile(profileData);
+  };
+
+  // New function to link phone number to existing user
+  const linkPhoneToUser = async (phoneNumber: string): Promise<ConfirmationResult> => {
+    if (!currentUser) {
+      throw new Error('No user logged in');
+    }
+    
+    const recaptchaVerifier = setupRecaptcha('recaptcha-container');
+    return await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
+  };
+
+  // New function to verify and link phone number
+  const verifyAndLinkPhone = async (confirmationResult: ConfirmationResult, otp: string): Promise<void> => {
+    if (!currentUser) {
+      throw new Error('No user logged in');
+    }
+    
+    try {
+      await confirmationResult.confirm(otp);
+      
+      // Update user profile to mark phone as verified
+      const userRef = doc(db, 'users', currentUser.uid);
+      await updateDoc(userRef, {
+        isPhoneVerified: true,
+        updatedAt: new Date()
+      });
+      
+      await refreshUserProfile();
+    } catch (error: any) {
+      console.error('Error verifying and linking phone:', error);
+      throw error;
+    }
   };
 
   const signupWithPhone = async (phoneNumber: string, userData: Partial<UserProfile>): Promise<ConfirmationResult> => {
@@ -624,6 +660,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setupRecaptcha,
     sendPhoneOTP,
     verifyPhoneOTP,
+    linkPhoneToUser,
+    verifyAndLinkPhone,
     isVerificationComplete,
     isAdmin,
     isProfileComplete,

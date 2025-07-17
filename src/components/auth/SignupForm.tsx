@@ -344,11 +344,11 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
   // Regular Sign-up Form
   return (
     <Card className="w-full max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle className="text-center">Create an Account</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <CardHeader>
+          <CardTitle className="text-center">Create an Account</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
           <Button
             type="button"
             variant="outline"
@@ -582,6 +582,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
       </CardContent>
     </Card>
   );
+};
 };
 
 export default SignupForm;
