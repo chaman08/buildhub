@@ -16,6 +16,7 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
+import { LoadingScreen } from '@/components/ui/loading-screen';
 
 export interface UserProfile {
   uid: string;
@@ -670,7 +671,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {loading ? (
+        <LoadingScreen
+          variant="fullscreen"
+          message="Checking authentication..."
+          showLogo={true}
+        />
+      ) : (
+        children
+      )}
     </AuthContext.Provider>
   );
 };
