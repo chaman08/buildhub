@@ -10,7 +10,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MapPin, Star, Shield, Phone, Mail, MessageCircle, ArrowLeft, Heart, FileText } from 'lucide-react';
 import { useBookmarks } from '@/contexts/BookmarkContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { LoadingScreen } from '@/components/ui/loading-screen';
 
 interface ContractorProfile {
   uid: string;
@@ -74,11 +73,9 @@ const ContractorProfile = () => {
     return (
       <div className="min-h-screen bg-gray-50">
         <Header />
-        <LoadingScreen
-          variant="inline"
-          message="Loading contractor profile..."
-          showLogo={true}
-        />
+        <div className="flex items-center justify-center pt-20">
+          <div>Loading contractor profile...</div>
+        </div>
       </div>
     );
   }

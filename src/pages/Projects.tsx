@@ -11,7 +11,6 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, MapPin } from 'lucide-react';
-import { LoadingScreen } from '@/components/ui/loading-screen';
 
 interface Project {
   id: string;
@@ -135,11 +134,9 @@ const Projects = () => {
     return (
       <div className="min-h-screen bg-gray-50">
         <Header />
-        <LoadingScreen
-          variant="inline"
-          message="Loading projects..."
-          showLogo={true}
-        />
+        <div className="flex items-center justify-center pt-20">
+          <div>Loading projects...</div>
+        </div>
       </div>
     );
   }

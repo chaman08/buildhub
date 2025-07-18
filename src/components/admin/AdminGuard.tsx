@@ -2,7 +2,6 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { LoadingScreen } from '@/components/ui/loading-screen';
 
 interface AdminGuardProps {
   children: React.ReactNode;
@@ -13,11 +12,9 @@ const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
 
   if (loading) {
     return (
-      <LoadingScreen
-        variant="fullscreen"
-        message="Checking admin permissions..."
-        showLogo={true}
-      />
+      <div className="min-h-screen flex items-center justify-center">
+        <div>Loading...</div>
+      </div>
     );
   }
 

@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Eye, Edit, Calendar, DollarSign, CheckCircle, X, Clock, Star, AlertCircle } from 'lucide-react';
-import { LoadingScreen } from '@/components/ui/loading-screen';
 
 interface Bid {
   id: string;
@@ -196,11 +195,12 @@ const MyBids: React.FC = () => {
 
   if (loading) {
     return (
-      <LoadingScreen
-        variant="inline"
-        message="Loading your bids..."
-        showLogo={true}
-      />
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center space-y-4">
+          <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto"></div>
+          <p>Loading your bids...</p>
+        </div>
+      </div>
     );
   }
 

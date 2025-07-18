@@ -3,10 +3,6 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { useState, useEffect } from "react";
-import { SplashScreen } from "@/components/ui/splash-screen";
-import { LoadingScreen } from "@/components/ui/loading-screen";
-import { RouteTransition } from "@/components/ui/route-transition";
 import Index from "./pages/Index";
 import Contact from "./pages/Contact";
 import About from "./pages/About";
@@ -29,76 +25,41 @@ import BottomNav from "./components/BottomNav";
 
 const queryClient = new QueryClient();
 
-const App = () => {
-  const [showSplash, setShowSplash] = useState(true);
-  const [isAppReady, setIsAppReady] = useState(false);
-
-  useEffect(() => {
-    // Simulate app initialization
-    const timer = setTimeout(() => {
-      setIsAppReady(true);
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (showSplash) {
-    return (
-      <SplashScreen
-        onComplete={() => setShowSplash(false)}
-        duration={2500}
-      />
-    );
-  }
-
-  if (!isAppReady) {
-    return (
-      <LoadingScreen
-        variant="fullscreen"
-        message="Initializing BuildHub..."
-        showLogo={true}
-      />
-    );
-  }
-
-  return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <BookmarkProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <RouteTransition>
-                <div className="min-h-screen pb-16 md:pb-0">
-                  <Routes>
-                    <Route path="/" element={<Index />} />
-                    <Route path="/contact" element={<Contact />} />
-                    <Route path="/about" element={<About />} />
-                    <Route path="/auth" element={<Auth />} />
-                    <Route path="/verify" element={<VerificationPage />} />
-                    <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/contractor-dashboard" element={<ContractorDashboard />} />
-                    <Route path="/profile" element={<ProfilePage />} />
-                    <Route path="/contractors" element={<Contractors />} />
-                    <Route path="/contractor/:uid" element={<ContractorProfile />} />
-                    <Route path="/projects" element={<Projects />} />
-                    <Route path="/project/:projectId" element={<ProjectDetail />} />
-                    <Route path="/messages" element={<Messages />} />
-                    <Route path="/bookmarks" element={<Bookmarks />} />
-                    <Route path="/admin-panel-secure-2024" element={<AdminPanel />} />
-                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                  <BottomNav />
-                </div>
-              </RouteTransition>
-            </BrowserRouter>
-          </TooltipProvider>
-        </BookmarkProvider>
-      </AuthProvider>
-    </QueryClientProvider>
-  );
-};
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <AuthProvider>
+      <BookmarkProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <div className="min-h-screen pb-16 md:pb-0">
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/contact" element={<Contact />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/verify" element={<VerificationPage />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/contractor-dashboard" element={<ContractorDashboard />} />
+                <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/contractors" element={<Contractors />} />
+                <Route path="/contractor/:uid" element={<ContractorProfile />} />
+                <Route path="/projects" element={<Projects />} />
+                <Route path="/project/:projectId" element={<ProjectDetail />} />
+                <Route path="/messages" element={<Messages />} />
+                <Route path="/bookmarks" element={<Bookmarks />} />
+                <Route path="/admin-panel-secure-2024" element={<AdminPanel />} />
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+              <BottomNav />
+            </div>
+          </BrowserRouter>
+        </TooltipProvider>
+      </BookmarkProvider>
+    </AuthProvider>
+  </QueryClientProvider>
+);
 
 export default App;
