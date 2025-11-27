@@ -15,6 +15,7 @@ interface RatingModalProps {
   contractorName: string;
   projectId: string;
   projectTitle: string;
+  onSubmitted?: () => void;
 }
 
 const RatingModal: React.FC<RatingModalProps> = ({
@@ -23,7 +24,8 @@ const RatingModal: React.FC<RatingModalProps> = ({
   contractorId,
   contractorName,
   projectId,
-  projectTitle
+  projectTitle,
+  onSubmitted
 }) => {
   const { currentUser, userProfile } = useAuth();
   const [rating, setRating] = useState(0);
@@ -57,6 +59,7 @@ const RatingModal: React.FC<RatingModalProps> = ({
       onOpenChange(false);
       setRating(0);
       setReview('');
+      onSubmitted?.();
     } catch (error) {
       console.error('Error submitting rating:', error);
     } finally {

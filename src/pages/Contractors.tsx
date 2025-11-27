@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy, startAfter, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import Header from '@/components/Header';
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Search, MapPin, Star, Shield, Phone, Mail } from 'lucide-react';
 
 interface Contractor {
@@ -34,9 +35,11 @@ const Contractors = () => {
   const [contractors, setContractors] = useState<Contractor[]>([]);
   const [filteredContractors, setFilteredContractors] = useState<Contractor[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedCity, setSelectedCity] = useState('');
+  const PAGE_SIZE = 9;
 
   const categories = ['Civil Work', 'Electrical', 'Plumbing', 'Interior Design', 'Architecture', 'Landscaping'];
 
@@ -52,31 +55,88 @@ const Contractors = () => {
     try {
       console.log('Fetching contractors from Firestore...');
       
-      // First try to get all users to debug
-      const allUsersSnapshot = await getDocs(collection(db, 'users'));
-      console.log('Total users in collection:', allUsersSnapshot.size);
-      
-      const contractorQuery = query(
+      const orderedQuery = query(
         collection(db, 'users'),
-        where('userType', '==', 'contractor')
+        where('userType', '==', 'contractor'),
+        orderBy('fullName')
       );
-      const snapshot = await getDocs(contractorQuery);
-      console.log('Contractors fetched:', snapshot.size);
-      
-      const contractorData = snapshot.docs.map(doc => {
-        const data = doc.data();
-        console.log('Contractor data:', { uid: doc.id, ...data });
-        return {
+
+      await loadContractorPages(orderedQuery);
+    } catch (error: any) {
+      console.error('Error fetching contractors (ordered):', error);
+      const needsIndex = error?.code === 'failed-precondition' || `${error}`.includes('index');
+
+      if (needsIndex) {
+        console.warn('Missing index for ordered contractor query, falling back without orderBy.');
+        try {
+          const fallbackQuery = query(
+            collection(db, 'users'),
+            where('userType', '==', 'contractor')
+          );
+          await loadContractorPages(fallbackQuery);
+        } catch (fallbackError) {
+          console.error('Fallback contractor fetch failed:', fallbackError);
+          setLoading(false);
+        }
+      } else {
+        setLoading(false);
+      }
+    }
+  };
+
+  const loadContractorPages = async (baseQuery: any) => {
+    const firstPageSnapshot = await getDocs(query(baseQuery, limit(PAGE_SIZE)));
+    console.log('Contractors fetched (first page):', firstPageSnapshot.size);
+    
+    const firstBatch = firstPageSnapshot.docs.map(doc => ({
+      uid: doc.id,
+      ...doc.data()
+    })) as Contractor[];
+    
+    setContractors(firstBatch);
+    setLoading(false);
+
+    if (firstPageSnapshot.size === PAGE_SIZE) {
+      backgroundFetchMore(baseQuery, firstPageSnapshot.docs[firstPageSnapshot.docs.length - 1]);
+    }
+  };
+
+  const backgroundFetchMore = async (baseQuery: any, lastDoc: any) => {
+    if (isFetchingMore) return;
+    setIsFetchingMore(true);
+
+    try {
+      let cursor = lastDoc;
+      let hasMore = true;
+
+      while (hasMore) {
+        const nextSnapshot = await getDocs(query(baseQuery, startAfter(cursor), limit(PAGE_SIZE)));
+        if (nextSnapshot.empty) {
+          hasMore = false;
+          break;
+        }
+
+        const nextBatch = nextSnapshot.docs.map(doc => ({
           uid: doc.id,
-          ...data
-        };
-      }) as Contractor[];
-      
-      setContractors(contractorData);
+          ...doc.data()
+        })) as Contractor[];
+
+        setContractors(prev => {
+          const existingIds = new Set(prev.map(c => c.uid));
+          const newOnes = nextBatch.filter(c => !existingIds.has(c.uid));
+          return [...prev, ...newOnes];
+        });
+
+        if (nextSnapshot.size < PAGE_SIZE) {
+          hasMore = false;
+        } else {
+          cursor = nextSnapshot.docs[nextSnapshot.docs.length - 1];
+        }
+      }
     } catch (error) {
-      console.error('Error fetching contractors:', error);
+      console.error('Error fetching more contractors:', error);
     } finally {
-      setLoading(false);
+      setIsFetchingMore(false);
     }
   };
 
@@ -131,15 +191,64 @@ const Contractors = () => {
     window.location.href = `mailto:${email}`;
   };
 
-  if (loading) {
+  const renderSkeletons = () => {
+    const skeletonItems = Array.from({ length: 6 });
+
     return (
       <div className="min-h-screen bg-gray-50">
         <Header />
-        <div className="flex items-center justify-center pt-20">
-          <div>Loading contractors...</div>
+        
+        <div className="pt-20 px-4 max-w-7xl mx-auto">
+          <div className="mb-8 space-y-2">
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-4 w-80" />
+          </div>
+
+          <Card className="mb-6 animate-card">
+            <CardContent className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {skeletonItems.map((_, index) => (
+              <Card
+                key={`contractor-skeleton-${index}`}
+                className="border animate-card"
+                style={{ animationDelay: `${index * 80}ms` }}
+              >
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-16 w-16 rounded-full" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-5 w-40" />
+                      <Skeleton className="h-4 w-32" />
+                    </div>
+                  </div>
+                </CardHeader>
+                
+                <CardContent className="space-y-4">
+                  <Skeleton className="h-6 w-28" />
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-10 w-full" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       </div>
     );
+  };
+
+  if (loading) {
+    return renderSkeletons();
   }
 
   return (
@@ -224,8 +333,12 @@ const Contractors = () => {
 
         {/* Contractors Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredContractors.map((contractor) => (
-            <Card key={contractor.uid} className="hover:shadow-lg transition-shadow">
+          {filteredContractors.map((contractor, index) => (
+            <Card 
+              key={contractor.uid} 
+              className="hover:shadow-lg transition-shadow animate-card"
+              style={{ animationDelay: `${index * 70}ms` }}
+            >
               <CardHeader>
                 <div className="flex items-center gap-3">
                   <Avatar className="h-16 w-16">

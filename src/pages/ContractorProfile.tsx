@@ -10,6 +10,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MapPin, Star, Shield, Phone, Mail, MessageCircle, ArrowLeft, Heart, FileText } from 'lucide-react';
 import { useBookmarks } from '@/contexts/BookmarkContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+import { AspectRatio } from '@/components/ui/aspect-ratio';
 
 interface ContractorProfile {
   uid: string;
@@ -27,6 +29,8 @@ interface ContractorProfile {
   bio?: string;
   certifications?: string[];
   portfolio?: string[];
+  portfolioImages?: { url: string; caption?: string }[];
+  catalogues?: { url: string; name?: string; type?: string }[];
 }
 
 const ContractorProfile = () => {
@@ -99,6 +103,12 @@ const ContractorProfile = () => {
       </div>
     );
   }
+
+  const portfolioItems = contractor.portfolioImages?.length
+    ? contractor.portfolioImages
+    : (contractor.portfolio || []).map((url) => ({ url, caption: '' }));
+
+  const catalogueItems = contractor.catalogues || [];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -280,15 +290,87 @@ const ContractorProfile = () => {
           </CardContent>
         </Card>
 
-        {/* Portfolio Section (Placeholder) */}
+        {/* Portfolio Section */}
         <Card className="mb-6">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Portfolio</CardTitle>
+            {portfolioItems.length > 0 && (
+              <Badge variant="secondary">{portfolioItems.length} photos</Badge>
+            )}
           </CardHeader>
           <CardContent>
-            <p className="text-gray-500 text-center py-8">
-              Portfolio images will be displayed here when uploaded by the contractor.
-            </p>
+            {portfolioItems.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">
+                Portfolio images will be displayed here when uploaded by the contractor.
+              </p>
+            ) : (
+              <div className="relative">
+                <Carousel className="w-full">
+                  <CarouselContent>
+                    {portfolioItems.map((item, index) => (
+                      <CarouselItem key={index} className="md:basis-1/2 lg:basis-1/3">
+                        <div className="border rounded-lg overflow-hidden bg-gray-50">
+                          <AspectRatio ratio={4 / 3}>
+                            <img
+                              src={item.url}
+                              alt={item.caption || `Portfolio ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          </AspectRatio>
+                          <div className="p-3">
+                            <p className="text-sm text-gray-800 line-clamp-2">
+                              {item.caption || 'Portfolio image'}
+                            </p>
+                          </div>
+                        </div>
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
+                  <CarouselPrevious className="hidden sm:flex" />
+                  <CarouselNext className="hidden sm:flex" />
+                </Carousel>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Catalogues */}
+        <Card className="mb-10">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Catalogues / Brochures</CardTitle>
+            {catalogueItems.length > 0 && (
+              <Badge variant="secondary">{catalogueItems.length} files</Badge>
+            )}
+          </CardHeader>
+          <CardContent>
+            {catalogueItems.length === 0 ? (
+              <p className="text-gray-500 text-center py-6">
+                Catalogues uploaded by the contractor will appear here.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 gap-3">
+                {catalogueItems.map((cat, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <FileText className="h-5 w-5 text-gray-500" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {cat.name || `Catalogue ${index + 1}`}
+                        </p>
+                        <p className="text-xs text-gray-500 uppercase">{cat.type || 'file'}</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(cat.url, '_blank')}
+                    >
+                      View
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import PostProjectDialog from './PostProjectDialog';
 import { toast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface Project {
   id: string;
@@ -174,7 +175,46 @@ const ProjectsSection: React.FC = () => {
   };
 
   if (loading) {
-    return <div className="p-4">Loading your projects...</div>;
+    const skeletonItems = Array.from({ length: 3 });
+
+    return (
+      <div className="space-y-4 md:space-y-6 p-4 md:p-0">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <Skeleton className="h-7 w-40" />
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
+          {skeletonItems.map((_, index) => (
+            <Card
+              key={`dashboard-project-skeleton-${index}`}
+              className="animate-card"
+              style={{ animationDelay: `${index * 80}ms` }}
+            >
+              <CardHeader className="pb-3 space-y-3">
+                <Skeleton className="h-5 w-3/4" />
+                <div className="flex gap-2">
+                  <Skeleton className="h-6 w-16" />
+                  <Skeleton className="h-6 w-14" />
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-0">
+                <Skeleton className="h-10 w-full" />
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-4 w-36" />
+                </div>
+                <div className="flex gap-2 pt-3 border-t">
+                  <Skeleton className="h-9 w-full" />
+                  <Skeleton className="h-9 w-full" />
+                  <Skeleton className="h-9 w-10" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -206,8 +246,12 @@ const ProjectsSection: React.FC = () => {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
-          {projects.map((project) => (
-            <Card key={project.id} className="hover:shadow-lg transition-shadow">
+          {projects.map((project, index) => (
+            <Card 
+              key={project.id} 
+              className="hover:shadow-lg transition-shadow animate-card"
+              style={{ animationDelay: `${index * 70}ms` }}
+            >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">

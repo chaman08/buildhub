@@ -1,0 +1,108 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function isParticipant(participants) {
+      return signedIn() && participants != null && request.auth.uid in participants;
+    }
+
+    function isProjectOwner(projectId) {
+      return exists(/databases/$(database)/documents/projects/$(projectId)) &&
+        isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data.postedBy);
+    }
+
+    function isContractorProjectOwner(projectId) {
+      return exists(/databases/$(database)/documents/contractor_projects/$(projectId)) &&
+        isOwner(get(/databases/$(database)/documents/contractor_projects/$(projectId)).data.postedBy);
+    }
+
+    function isAdminUser() {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if true;
+      allow create, update: if isOwner(userId);
+      allow delete: if false;
+    }
+
+    // Public projects
+    match /projects/{projectId} {
+      allow read: if true;
+      allow create: if signedIn() && request.resource.data.postedBy == request.auth.uid;
+      allow update, delete: if signedIn() && resource.data.postedBy == request.auth.uid;
+    }
+
+    // Contractor service projects
+    match /contractor_projects/{projectId} {
+      allow read: if true;
+      allow create: if signedIn() && request.resource.data.postedBy == request.auth.uid;
+      allow update, delete: if signedIn() && resource.data.postedBy == request.auth.uid;
+    }
+
+    // Bids
+    match /bids/{bidId} {
+      allow create: if signedIn() &&
+        request.resource.data.contractorId == request.auth.uid &&
+        (
+          exists(/databases/$(database)/documents/projects/$(request.resource.data.projectId)) ||
+          exists(/databases/$(database)/documents/contractor_projects/$(request.resource.data.projectId))
+        );
+
+      allow read, update: if signedIn() && (
+        request.auth.uid == resource.data.contractorId ||
+        request.auth.uid == resource.data.customerId ||
+        isProjectOwner(resource.data.projectId) ||
+        isContractorProjectOwner(resource.data.projectId)
+      );
+
+      allow delete: if false;
+    }
+
+    // Chats
+    match /chats/{chatId} {
+      allow create: if signedIn() && isParticipant(request.resource.data.participants);
+      allow read, update, delete: if signedIn() && isParticipant(resource.data.participants);
+    }
+
+    // Notifications
+    match /notifications/{notificationId} {
+      allow create: if signedIn();
+      allow read, update, delete: if signedIn() && request.auth.uid == resource.data.recipientId;
+    }
+
+    // Ratings
+    match /ratings/{ratingId} {
+      allow read: if true;
+      allow create: if signedIn() && request.resource.data.customerId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Contact messages
+    match /contactMessages/{messageId} {
+      allow create: if true;
+      allow read, update, delete: if isAdminUser();
+    }
+
+    // Bookmarks (if used)
+    match /bookmarks/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

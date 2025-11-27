@@ -39,6 +39,9 @@ export interface UserProfile {
   bio?: string;
   certifications?: string[];
   documents?: string[];
+  portfolio?: string[];
+  portfolioImages?: { url: string; caption?: string }[];
+  catalogues?: { url: string; name?: string; type?: string }[];
   verificationBadge?: boolean;
   rating?: number;
   reviewsCount?: number;
@@ -390,6 +393,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
         if (userDoc.exists()) {
           const profile = userDoc.data() as UserProfile;
+          // Ensure we always carry the document id into state for downstream updates
+          profile.uid = profile.uid || currentUser.uid;
           
           // For Google users, always ensure email is marked as verified
           const isGoogleUser = currentUser.providerData.some(provider => provider.providerId === 'google.com');
@@ -398,6 +403,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (isGoogleUser && !profile.isEmailVerified) {
             console.log('Updating Google user email verification status');
             profile.isEmailVerified = true;
+            needsUpdate = true;
+          }
+
+          // Ensure Google photo is captured if profile picture missing
+          if (isGoogleUser && !profile.profilePicture && currentUser.photoURL) {
+            profile.profilePicture = currentUser.photoURL;
             needsUpdate = true;
           }
           
@@ -411,6 +422,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             profile.updatedAt = new Date();
             await setDoc(doc(db, 'users', currentUser.uid), {
               isEmailVerified: profile.isEmailVerified,
+              profilePicture: profile.profilePicture || null,
               updatedAt: profile.updatedAt
             }, { merge: true });
           }
@@ -572,7 +584,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const userRef = doc(db, 'users', currentUser.uid);
     await setDoc(userRef, {
       profileComplete: true,
-      updatedAt: new Date()
+      updatedAt: new Date(),
+      uid: currentUser.uid
     }, { merge: true });
     
     await refreshUserProfile();
@@ -590,26 +603,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (userDoc.exists()) {
             const profile = userDoc.data() as UserProfile;
             
+            // Always keep uid from auth in profile state for reliable updates
+            profile.uid = profile.uid || user.uid;
+            
             // For Google users, always ensure email is marked as verified
             const isGoogleUser = user.providerData.some(provider => provider.providerId === 'google.com');
-            let needsUpdate = false;
+              let needsUpdate = false;
             
-            if (isGoogleUser && !profile.isEmailVerified) {
-              console.log('Updating Google user email verification status');
-              profile.isEmailVerified = true;
-              needsUpdate = true;
-            }
+              if (isGoogleUser && !profile.isEmailVerified) {
+                console.log('Updating Google user email verification status');
+                profile.isEmailVerified = true;
+                needsUpdate = true;
+              }
+
+              if (isGoogleUser && !profile.profilePicture && user.photoURL) {
+                profile.profilePicture = user.photoURL;
+                needsUpdate = true;
+              }
             
-            // Update email verification status if changed for any user
-            if (profile.isEmailVerified !== user.emailVerified && !isGoogleUser) {
-              profile.isEmailVerified = user.emailVerified;
-              needsUpdate = true;
+              // Update email verification status if changed for any user
+              if (profile.isEmailVerified !== user.emailVerified && !isGoogleUser) {
+                profile.isEmailVerified = user.emailVerified;
+                needsUpdate = true;
             }
             
             if (needsUpdate) {
               profile.updatedAt = new Date();
               await setDoc(doc(db, 'users', user.uid), {
                 isEmailVerified: profile.isEmailVerified,
+                profilePicture: profile.profilePicture || null,
                 updatedAt: profile.updatedAt
               }, { merge: true });
             }

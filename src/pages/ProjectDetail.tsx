@@ -361,6 +361,26 @@ const ProjectDetail = () => {
                   </div>
                 )}
 
+                {/* Post-completion rating prompt */}
+                {isOwner && project.status === 'completed' && acceptedBid && !project.rated && (
+                  <div className="pt-4 border-t">
+                    <Button 
+                      onClick={() => {
+                        setSelectedContractor({
+                          id: acceptedBid.contractorId,
+                          name: acceptedBid.contractorName || 'Contractor'
+                        });
+                        setShowRatingModal(true);
+                      }}
+                      className="w-full"
+                      size="lg"
+                      variant="outline"
+                    >
+                      ⭐ Rate {acceptedBid.contractorName || 'Contractor'}
+                    </Button>
+                  </div>
+                )}
+
                 {/* Contractor Actions */}
                 {isContractor && !isOwner && project.status === 'open' && (
                   <div className="pt-4 border-t space-y-3">
@@ -493,6 +513,9 @@ const ProjectDetail = () => {
           contractorName={selectedContractor.name}
           projectId={projectId || ''}
           projectTitle={project.title}
+          onSubmitted={() => {
+            setProject(prev => prev ? { ...prev, rated: true } : prev);
+          }}
         />
       )}
     </div>

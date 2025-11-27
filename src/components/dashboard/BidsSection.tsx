@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Star, Phone, Mail, MessageCircle, CheckCircle, X, ArrowLeft } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
+import { createBidAcceptedNotification, createBidRejectedNotification } from '@/utils/notifications';
 
 interface Bid {
   id: string;
@@ -27,7 +28,7 @@ interface Bid {
 }
 
 const BidsSection: React.FC = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   const [bids, setBids] = useState<Bid[]>([]);
   const [loading, setLoading] = useState(true);
   const [filteredProjectId, setFilteredProjectId] = useState<string | null>(null);
@@ -170,6 +171,13 @@ const BidsSection: React.FC = () => {
         )
       );
 
+      await createBidAcceptedNotification(
+        bid.contractorId,
+        bid.projectId,
+        bid.projectTitle,
+        userProfile?.fullName || 'Customer'
+      );
+
       toast({
         title: "Bid Accepted! 🎉",
         description: `You've accepted ${bid.contractorName}'s bid for ${bid.projectTitle}. Other bids remain available for consideration.`,
@@ -213,6 +221,13 @@ const BidsSection: React.FC = () => {
         prevBids.map(b => 
           b.id === bid.id ? { ...b, status: 'rejected' as const } : b
         )
+      );
+
+      await createBidRejectedNotification(
+        bid.contractorId,
+        bid.projectId,
+        bid.projectTitle,
+        userProfile?.fullName || 'Customer'
       );
 
       toast({

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, startAfter, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Search, MapPin, Calendar, DollarSign, Eye } from 'lucide-react';
 import ContractorBidModal from './ContractorBidModal';
 
@@ -38,6 +39,8 @@ const AvailableTenders: React.FC = () => {
   const [selectedBudget, setSelectedBudget] = useState('');
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [showBidModal, setShowBidModal] = useState(false);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const PAGE_SIZE = 6;
 
   const projectTypes = ['residential', 'commercial', 'government'];
   const budgetRanges = [
@@ -60,27 +63,71 @@ const AvailableTenders: React.FC = () => {
     try {
       console.log('Fetching available tenders...');
       
-      const projectsQuery = query(
+      const baseQuery = query(
         collection(db, 'projects'),
         where('status', '==', 'open'),
         orderBy('createdAt', 'desc')
       );
       
-      const snapshot = await getDocs(projectsQuery);
-      const projectData = snapshot.docs.map(doc => ({
+      const firstPageSnapshot = await getDocs(query(baseQuery, limit(PAGE_SIZE)));
+      const projectData = firstPageSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Project[];
       
-      // Filter out projects posted by current contractor
       const availableProjects = projectData.filter(project => project.postedBy !== currentUser?.uid);
       
-      console.log('Available tenders:', availableProjects.length);
+      console.log('Available tenders first page:', availableProjects.length);
       setProjects(availableProjects);
+      setLoading(false);
+
+      if (firstPageSnapshot.size === PAGE_SIZE) {
+        backgroundFetchMore(baseQuery, firstPageSnapshot.docs[firstPageSnapshot.docs.length - 1]);
+      }
     } catch (error) {
       console.error('Error fetching available tenders:', error);
-    } finally {
       setLoading(false);
+    }
+  };
+
+  const backgroundFetchMore = async (baseQuery: any, lastDoc: any) => {
+    if (isFetchingMore) return;
+    setIsFetchingMore(true);
+
+    try {
+      let cursor = lastDoc;
+      let hasMore = true;
+
+      while (hasMore) {
+        const nextSnapshot = await getDocs(query(baseQuery, startAfter(cursor), limit(PAGE_SIZE)));
+        if (nextSnapshot.empty) {
+          hasMore = false;
+          break;
+        }
+
+        const nextBatch = nextSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Project[];
+
+        const availableProjects = nextBatch.filter(project => project.postedBy !== currentUser?.uid);
+
+        setProjects(prev => {
+          const existingIds = new Set(prev.map(p => p.id));
+          const newOnes = availableProjects.filter(p => !existingIds.has(p.id));
+          return [...prev, ...newOnes];
+        });
+
+        if (nextSnapshot.size < PAGE_SIZE) {
+          hasMore = false;
+        } else {
+          cursor = nextSnapshot.docs[nextSnapshot.docs.length - 1];
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching more tenders:', error);
+    } finally {
+      setIsFetchingMore(false);
     }
   };
 
@@ -141,7 +188,60 @@ const AvailableTenders: React.FC = () => {
   const uniqueLocations = [...new Set(projects.map(p => p.location))].filter(Boolean);
 
   if (loading) {
-    return <div>Loading available tenders...</div>;
+    const skeletonItems = Array.from({ length: 4 });
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-6 w-24" />
+        </div>
+
+        <Card className="animate-card">
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {skeletonItems.map((_, index) => (
+            <Card
+              key={`tender-skeleton-${index}`}
+              className="animate-card"
+              style={{ animationDelay: `${index * 80}ms` }}
+            >
+              <CardHeader className="space-y-3">
+                <Skeleton className="h-5 w-3/4" />
+                <Skeleton className="h-6 w-24" />
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Skeleton className="h-14 w-full" />
+                <div className="flex flex-wrap gap-2">
+                  <Skeleton className="h-6 w-20" />
+                  <Skeleton className="h-6 w-16" />
+                  <Skeleton className="h-6 w-24" />
+                </div>
+                <div className="grid grid-cols-1 gap-3 text-sm">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-4 w-36" />
+                </div>
+                <div className="flex gap-2 pt-4 border-t">
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -226,8 +326,12 @@ const AvailableTenders: React.FC = () => {
 
       {/* Tenders Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {filteredProjects.map((project) => (
-          <Card key={project.id} className="hover:shadow-lg transition-shadow">
+        {filteredProjects.map((project, index) => (
+          <Card 
+            key={project.id} 
+            className="hover:shadow-lg transition-shadow animate-card"
+            style={{ animationDelay: `${index * 70}ms` }}
+          >
             <CardHeader>
               <div className="flex justify-between items-start">
                 <CardTitle className="text-lg line-clamp-2">{project.title}</CardTitle>

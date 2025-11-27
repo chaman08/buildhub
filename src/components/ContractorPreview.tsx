@@ -101,6 +101,14 @@ const ContractorPreview = () => {
     navigate(`/contractors?category=${category}`);
   };
 
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(part => part.charAt(0).toUpperCase())
+      .join('')
+      .slice(0, 2) || '?';
+  };
+
   return (
     <section id="contractors" className="py-20 bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -154,15 +162,20 @@ const ContractorPreview = () => {
                 <div key={contractor.uid} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
                   <div className="p-6">
                     <div className="flex items-center space-x-4 mb-4">
-                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-2xl">
-                        {contractor.profilePicture ? (
+                      <div className="relative w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-2xl overflow-hidden">
+                        <span className="text-lg font-semibold text-blue-800">
+                          {getInitials(contractor.fullName)}
+                        </span>
+                        {contractor.profilePicture && (
                           <img 
                             src={contractor.profilePicture} 
                             alt={contractor.fullName}
-                            className="w-full h-full rounded-full object-cover"
+                            className="absolute inset-0 w-full h-full object-cover"
+                            onError={(e) => {
+                              // Hide broken image so initials remain visible
+                              (e.currentTarget as HTMLImageElement).style.display = 'none';
+                            }}
                           />
-                        ) : (
-                          contractor.fullName.charAt(0)
                         )}
                       </div>
                       <div className="flex-1">

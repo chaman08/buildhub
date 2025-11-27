@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { FileText, CheckCircle, Clock, Star, Bell, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface DashboardStats {
   bidsPlaced: number;
@@ -85,7 +86,47 @@ const ContractorHome: React.FC = () => {
   };
 
   if (loading) {
-    return <div>Loading dashboard...</div>;
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4 p-6 bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-lg">
+          <Skeleton className="h-16 w-16 rounded-full bg-white/40" />
+          <div className="flex-1 space-y-3">
+            <Skeleton className="h-6 w-48 bg-white/40" />
+            <Skeleton className="h-4 w-64 bg-white/30" />
+            <Skeleton className="h-4 w-32 bg-white/30" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[1, 2, 3, 4].map((item) => (
+            <Card key={`home-skeleton-${item}`} className="animate-card" style={{ animationDelay: `${item * 60}ms` }}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-4" />
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Skeleton className="h-8 w-16" />
+                <Skeleton className="h-3 w-28" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <Card className="animate-card" style={{ animationDelay: '280ms' }}>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <Skeleton className="h-6 w-40" />
+            <Skeleton className="h-6 w-24" />
+          </CardHeader>
+          <CardContent>
+            <div className="animate-pulse space-y-3">
+              {[1, 2, 3].map((item) => (
+                <Skeleton key={`notif-skeleton-${item}`} className="h-16 w-full" />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, where, startAfter, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBookmarks } from '@/contexts/BookmarkContext';
@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Search, MapPin } from 'lucide-react';
 
 interface Project {
@@ -33,11 +34,13 @@ const Projects = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedBudget, setSelectedBudget] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
   const [availableLocations, setAvailableLocations] = useState<string[]>([]);
+  const PAGE_SIZE = 9;
 
   const categories = ['Civil Work', 'Electrical', 'Plumbing', 'Interior Design', 'Architecture', 'Landscaping'];
   const budgetRanges = [
@@ -59,41 +62,78 @@ const Projects = () => {
   const fetchProjects = async () => {
     try {
       console.log('Fetching projects from Firestore...');
-      
-      // First try to get all projects to debug
-      const allProjectsSnapshot = await getDocs(collection(db, 'projects'));
-      console.log('Total projects in collection:', allProjectsSnapshot.size);
-      
-      const projectsQuery = query(
+      const baseQuery = query(
         collection(db, 'projects'),
         orderBy('createdAt', 'desc')
       );
-      
-      const snapshot = await getDocs(projectsQuery);
-      console.log('Projects fetched:', snapshot.size);
-      
-      const projectData = snapshot.docs.map(doc => {
-        const data = doc.data();
-        console.log('Project data:', { id: doc.id, ...data });
-        return {
-          id: doc.id,
-          ...data
-        };
-      }) as Project[];
-      
-      // Filter only open projects on frontend to avoid Firestore index issues
-      const openProjects = projectData.filter(project => project.status === 'open');
-      console.log('Open projects:', openProjects.length);
-      
-      // Extract unique locations for the filter
-      const locations = [...new Set(openProjects.map(project => project.location).filter(Boolean))].sort();
-      setAvailableLocations(locations);
-      
-      setProjects(openProjects);
+
+      const firstPageSnapshot = await getDocs(query(baseQuery, limit(PAGE_SIZE)));
+      console.log('First page projects fetched:', firstPageSnapshot.size);
+
+      const firstBatch = firstPageSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Project[];
+
+      const openFirstBatch = firstBatch.filter(project => project.status === 'open');
+      setProjects(openFirstBatch);
+      setAvailableLocations(
+        [...new Set(openFirstBatch.map(project => project.location).filter(Boolean))].sort()
+      );
+      setLoading(false);
+
+      // Background fetch more pages without blocking initial render
+      if (firstPageSnapshot.size === PAGE_SIZE) {
+        backgroundFetchMore(baseQuery, firstPageSnapshot.docs[firstPageSnapshot.docs.length - 1]);
+      }
     } catch (error) {
       console.error('Error fetching projects:', error);
-    } finally {
       setLoading(false);
+    }
+  };
+
+  const backgroundFetchMore = async (baseQuery: any, lastDoc: any) => {
+    if (isFetchingMore) return;
+    setIsFetchingMore(true);
+
+    try {
+      let cursor = lastDoc;
+      let hasMore = true;
+
+      while (hasMore) {
+        const nextSnapshot = await getDocs(query(baseQuery, startAfter(cursor), limit(PAGE_SIZE)));
+        if (nextSnapshot.empty) {
+          hasMore = false;
+          break;
+        }
+
+        const nextBatch = nextSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Project[];
+
+        const openBatch = nextBatch.filter(project => project.status === 'open');
+
+        setProjects(prev => {
+          const existingIds = new Set(prev.map(p => p.id));
+          const newOnes = openBatch.filter(project => !existingIds.has(project.id));
+          const combined = [...prev, ...newOnes];
+          setAvailableLocations(
+            [...new Set(combined.map(project => project.location).filter(Boolean))].sort()
+          );
+          return combined;
+        });
+
+        if (nextSnapshot.size < PAGE_SIZE) {
+          hasMore = false;
+        } else {
+          cursor = nextSnapshot.docs[nextSnapshot.docs.length - 1];
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching more projects:', error);
+    } finally {
+      setIsFetchingMore(false);
     }
   };
 
@@ -130,15 +170,72 @@ const Projects = () => {
     setFilteredProjects(filtered);
   };
 
-  if (loading) {
+  const renderSkeletons = () => {
+    const skeletonItems = Array.from({ length: 6 });
+
     return (
       <div className="min-h-screen bg-gray-50">
         <Header />
-        <div className="flex items-center justify-center pt-20">
-          <div>Loading projects...</div>
+        
+        <div className="pt-20 px-4 max-w-7xl mx-auto">
+          <div className="mb-8 space-y-2">
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-4 w-80" />
+          </div>
+
+          <Card className="mb-6 animate-card">
+            <CardContent className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {skeletonItems.map((_, index) => (
+              <Card
+                key={`project-skeleton-${index}`}
+                className="border animate-card"
+                style={{ animationDelay: `${index * 80}ms` }}
+              >
+                <CardHeader className="space-y-3">
+                  <Skeleton className="h-6 w-3/4" />
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-5 w-20" />
+                    <Skeleton className="h-4 w-24" />
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Skeleton className="h-16 w-full" />
+                  <div className="flex flex-wrap gap-2">
+                    <Skeleton className="h-6 w-20" />
+                    <Skeleton className="h-6 w-16" />
+                    <Skeleton className="h-6 w-24" />
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 text-sm">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-4 w-28" />
+                    <Skeleton className="h-4 w-36" />
+                  </div>
+                  <div className="flex gap-2 pt-4 border-t">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-12" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       </div>
     );
+  };
+
+  if (loading) {
+    return renderSkeletons();
   }
 
   return (
@@ -241,13 +338,18 @@ const Projects = () => {
 
         {/* Projects Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProjects.map((project) => (
-            <ProjectCard
+          {filteredProjects.map((project, index) => (
+            <div
               key={project.id}
-              project={project}
-              onSaveProject={toggleProjectBookmark}
-              isSaved={isProjectBookmarked(project.id)}
-            />
+              className="animate-card"
+              style={{ animationDelay: `${index * 70}ms` }}
+            >
+              <ProjectCard
+                project={project}
+                onSaveProject={toggleProjectBookmark}
+                isSaved={isProjectBookmarked(project.id)}
+              />
+            </div>
           ))}
           {filteredProjects.length === 0 && (
             <div className="col-span-full text-center py-12">

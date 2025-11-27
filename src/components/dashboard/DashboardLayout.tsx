@@ -8,6 +8,7 @@ import ContractorsSection from './ContractorsSection';
 import ProfileSection from './ProfileSection';
 import NotificationsSection from './NotificationsSection';
 import SettingsSection from './SettingsSection';
+import PostProjectDialog from './PostProjectDialog';
 import ChatList from '@/components/chat/ChatList';
 import ChatInterface from '@/components/chat/ChatInterface';
 
@@ -158,6 +159,11 @@ const DashboardLayout: React.FC = () => {
           </button>
         </div>
       </div>
+
+      <PostProjectDialog
+        open={showPostDialog}
+        onOpenChange={setShowPostDialog}
+      />
     </div>
   );
 };
