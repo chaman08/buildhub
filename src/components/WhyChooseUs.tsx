@@ -52,7 +52,7 @@ const WhyChooseUs = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-20">
           <div className="inline-flex items-center px-4 py-2 rounded-full bg-white text-gray-700 text-sm font-medium mb-6 shadow-sm">
-            Why BuildConnect
+            Why BuildHub
           </div>
           <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
             The Professional Choice

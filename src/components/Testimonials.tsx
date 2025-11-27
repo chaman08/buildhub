@@ -14,7 +14,7 @@ const Testimonials = () => {
       role: "Civil Contractor",
       location: "Ahmedabad, Gujarat",
       rating: 5, 
-      quote: "NirmaanBazaar helped me find consistent work. The quality of customers is excellent and payments are on time. My business has grown 40% since joining!",
+      quote: "BuildHub helped me find consistent work. The quality of customers is excellent and payments are on time. My business has grown 40% since joining!",
       image: "👨‍🔧"
     },
     {
@@ -35,7 +35,7 @@ const Testimonials = () => {
             What Our Users Say
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Hear from customers and contractors who have successfully connected through NirmaanBazaar.
+            Hear from customers and contractors who have successfully connected through BuildHub.
           </p>
         </div>
 

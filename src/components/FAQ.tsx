@@ -10,7 +10,7 @@ const FAQ = () => {
   const faqs = [
     {
       question: "Is it really free to post projects?",
-      answer: "Yes! Posting projects on NirmaanBazaar is completely free for customers. You can post unlimited projects, receive bids from contractors, and communicate with them at no cost. We only charge contractors for premium features."
+      answer: "Yes! Posting projects on BuildHub is completely free for customers. You can post unlimited projects, receive bids from contractors, and communicate with them at no cost. We only charge contractors for premium features."
     },
     {
       question: "How do I know the contractors are genuine and qualified?",
@@ -58,7 +58,7 @@ const FAQ = () => {
             Frequently Asked Questions
           </h2>
           <p className="text-xl text-gray-600">
-            Get answers to common questions about using NirmaanBazaar.
+            Get answers to common questions about using BuildHub.
           </p>
         </div>
 
