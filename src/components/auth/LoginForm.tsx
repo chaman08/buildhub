@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Mail, Phone } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -20,10 +21,13 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToSignup }) =>
     email: '',
     password: ''
   });
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   
-  const { login, signInWithGoogle } = useAuth();
+  const { login, signInWithGoogle, resetPassword } = useAuth();
   const { toast } = useToast();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -70,6 +74,40 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToSignup }) =>
       });
     } finally {
       setGoogleLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const emailToReset = (resetEmail || formData.email).trim();
+
+    if (!emailToReset) {
+      toast({
+        title: "Email required",
+        description: "Enter the email you use to sign in.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setResetLoading(true);
+
+    try {
+      await resetPassword(emailToReset);
+      toast({
+        title: "Reset link sent",
+        description: "Check your email for instructions to reset your password."
+      });
+      setShowResetDialog(false);
+      setResetEmail('');
+    } catch (error: any) {
+      toast({
+        title: "Unable to send reset link",
+        description: error.message || "Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -147,6 +185,18 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToSignup }) =>
                     onChange={handleInputChange}
                     required
                   />
+                  <div className="flex justify-end mt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setResetEmail(formData.email);
+                        setShowResetDialog(true);
+                      }}
+                      className="text-sm text-blue-600 hover:underline"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
                 </div>
                 
                 <Button type="submit" disabled={loading} className="w-full">
@@ -172,6 +222,43 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToSignup }) =>
           </div>
         </div>
       </CardContent>
+
+      <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset your password</DialogTitle>
+            <DialogDescription>
+              Enter the email linked to your account and we'll send you a reset link.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleResetPassword} className="space-y-4">
+            <div>
+              <Label htmlFor="reset-email">Email address</Label>
+              <Input
+                id="reset-email"
+                type="email"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                placeholder="you@example.com"
+                required
+              />
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowResetDialog(false)}
+                className="sm:w-auto w-full"
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={resetLoading} className="sm:w-auto w-full">
+                {resetLoading ? 'Sending...' : 'Send reset link'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };

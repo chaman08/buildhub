@@ -3,7 +3,8 @@ import { collection, query, where, getDocs, orderBy, limit } from 'firebase/fire
 import { db } from '@/lib/firebase';
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from 'react-router-dom';
-import { Star, MapPin, Shield } from 'lucide-react';
+import { Star, MapPin, Shield, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface Contractor {
@@ -15,6 +16,7 @@ interface Contractor {
   serviceCategory: string;
   experience: number;
   verified: boolean;
+  kycStatus?: 'not_started' | 'pending' | 'under_review' | 'needs_info' | 'verified' | 'rejected';
   rating?: number;
   reviewsCount?: number;
   bio?: string;
@@ -185,6 +187,23 @@ const ContractorPreview = () => {
                         <p className="text-gray-600 text-sm">
                           {contractor.companyName}
                         </p>
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {contractor.verified && (
+                            <Badge variant="outline" className="text-green-700 border-green-200 bg-green-50">
+                              <Shield className="h-3 w-3 mr-1" /> Verified profile
+                            </Badge>
+                          )}
+                          {contractor.kycStatus === 'verified' && (
+                            <Badge variant="outline" className="text-blue-700 border-blue-200 bg-blue-50">
+                              <ShieldCheck className="h-3 w-3 mr-1" /> KYC verified
+                            </Badge>
+                          )}
+                          {contractor.kycStatus && contractor.kycStatus !== 'verified' && contractor.kycStatus !== 'not_started' && (
+                            <Badge variant="outline" className="text-amber-700 border-amber-200 bg-amber-50">
+                              <ShieldAlert className="h-3 w-3 mr-1" /> {contractor.kycStatus.replace('_', ' ')}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </div>
                     

@@ -12,7 +12,8 @@ import {
   signInWithPhoneNumber,
   ConfirmationResult,
   setPersistence,
-  browserLocalPersistence
+  browserLocalPersistence,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
@@ -32,6 +33,11 @@ export interface UserProfile {
   isAdmin?: boolean;
   profileComplete?: boolean;
   verified?: boolean;
+  kycStatus?: 'not_started' | 'pending' | 'under_review' | 'needs_info' | 'verified' | 'rejected';
+  kycLevel?: 'basic' | 'business';
+  kycRequestId?: string;
+  kycSubmittedAt?: Date;
+  kycNotes?: string;
   // Contractor specific fields
   companyName?: string;
   serviceCategory?: string;
@@ -65,6 +71,7 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   sendEmailVerification: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   refreshUserProfile: () => Promise<void>;
   setupRecaptcha: (elementId: string) => RecaptchaVerifier;
   sendPhoneOTP: (phoneNumber: string) => Promise<ConfirmationResult>;
@@ -165,6 +172,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           isDocumentVerified: false,
           isAdmin: false,
           profileComplete: false,
+          kycStatus: 'not_started',
+          kycLevel: 'basic',
+          kycNotes: '',
           createdAt: now,
           updatedAt: now,
           lastLoginAt: now,
@@ -190,6 +200,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           isDocumentVerified: false,
           isAdmin: false,
           profileComplete: additionalData.profileComplete || false,
+          kycStatus: 'not_started',
+          kycLevel: 'basic',
+          kycNotes: '',
           createdAt: now,
           updatedAt: now,
           lastLoginAt: now,
@@ -242,6 +255,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           isDocumentVerified: false,
           isAdmin: false,
           profileComplete: additionalData.profileComplete || false,
+          kycStatus: 'not_started',
+          kycLevel: 'basic',
+          kycNotes: '',
           createdAt: now,
           updatedAt: now,
           lastLoginAt: now,
@@ -378,6 +394,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     await signOut(auth);
     setUserProfile(null);
+  };
+
+  const resetPassword = async (email: string): Promise<void> => {
+    if (!validateEmail(email)) {
+      throw new Error('Please enter a valid email address');
+    }
+
+    try {
+      await sendPasswordResetEmail(auth, email);
+    } catch (error: any) {
+      if (error.code === 'auth/user-not-found') {
+        throw new Error('No account found with that email address');
+      }
+      throw error;
+    }
   };
 
   const sendEmailVerificationHandler = async () => {
@@ -678,6 +709,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signInWithGoogle,
     logout,
     sendEmailVerification: sendEmailVerificationHandler,
+    resetPassword,
     refreshUserProfile,
     setupRecaptcha,
     sendPhoneOTP,

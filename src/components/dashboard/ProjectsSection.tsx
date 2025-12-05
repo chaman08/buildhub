@@ -19,12 +19,12 @@ interface Project {
   title: string;
   description: string;
   category: string[];
-  budget: number;
-  budgetMax?: number;
+  budget: number | null;
+  budgetMax?: number | null;
   location: string;
-  startDate: string;
+  startDate: string | null;
   postedBy: string;
-  status: 'open' | 'in_progress' | 'completed' | 'closed';
+  status: 'draft' | 'open' | 'in_progress' | 'completed' | 'closed';
   createdAt: any;
   expectedDuration?: string;
 }
@@ -64,6 +64,10 @@ const ProjectsSection: React.FC = () => {
         const projectData = {
           id: doc.id,
           ...data,
+          category: Array.isArray(data.category) ? data.category : [],
+          budget: typeof data.budget === 'number' ? data.budget : null,
+          budgetMax: typeof data.budgetMax === 'number' ? data.budgetMax : null,
+          startDate: data.startDate || null,
           postedBy: data.postedBy || currentUser.uid
         };
         console.log('Project data:', projectData);
@@ -151,14 +155,16 @@ const ProjectsSection: React.FC = () => {
     }
   };
 
-  const formatBudget = (amount: number, maxAmount?: number) => {
+  const formatBudget = (amount?: number | null, maxAmount?: number | null) => {
+    if (amount === null || amount === undefined || Number.isNaN(amount)) return 'Not set';
+
     const formatAmount = (amt: number) => {
-      if (amt >= 10000000) return `₹${(amt / 10000000).toFixed(1)} Cr`;
-      if (amt >= 100000) return `₹${(amt / 100000).toFixed(1)} L`;
-      return `₹${amt.toLocaleString('en-IN')}`;
+      if (amt >= 10000000) return `NGN ${(amt / 10000000).toFixed(1)} Cr`;
+      if (amt >= 100000) return `NGN ${(amt / 100000).toFixed(1)} L`;
+      return `NGN ${amt.toLocaleString('en-IN')}`;
     };
 
-    if (maxAmount && maxAmount !== amount) {
+    if (maxAmount !== null && maxAmount !== undefined && !Number.isNaN(maxAmount) && maxAmount !== amount) {
       return `${formatAmount(amount)} - ${formatAmount(maxAmount)}`;
     }
     return formatAmount(amount);
@@ -166,6 +172,7 @@ const ProjectsSection: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case 'draft': return 'bg-yellow-100 text-yellow-800';
       case 'open': return 'bg-green-100 text-green-800';
       case 'in_progress': return 'bg-blue-100 text-blue-800';
       case 'completed': return 'bg-purple-100 text-purple-800';
@@ -290,7 +297,9 @@ const ProjectsSection: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-2 text-xs md:text-sm text-gray-500">
                     <Calendar className="h-3 w-3 md:h-4 md:w-4 flex-shrink-0" />
-                    <span className="truncate">Start: {new Date(project.startDate).toLocaleDateString('en-IN')}</span>
+                    <span className="truncate">
+                      Start: {project.startDate ? new Date(project.startDate).toLocaleDateString('en-IN') : 'Not set'}
+                    </span>
                   </div>
                 </div>
 
@@ -374,12 +383,12 @@ const ProjectsSection: React.FC = () => {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="budget">Budget (₹)</Label>
+                  <Label htmlFor="budget">Budget (NGN)</Label>
                   <Input
                     id="budget"
                     name="budget"
                     type="number"
-                    defaultValue={editingProject.budget}
+                    defaultValue={editingProject.budget ?? ''}
                     required
                   />
                 </div>
@@ -401,7 +410,7 @@ const ProjectsSection: React.FC = () => {
                     id="startDate"
                     name="startDate"
                     type="date"
-                    defaultValue={editingProject.startDate}
+                    defaultValue={editingProject.startDate || ''}
                     required
                   />
                 </div>

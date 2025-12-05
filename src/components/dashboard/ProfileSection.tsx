@@ -12,6 +12,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import ProfilePictureUpload from '@/components/ProfilePictureUpload';
 import PhoneVerificationModal from '@/components/auth/PhoneVerificationModal';
+import KycStatusCard from '@/components/kyc/KycStatusCard';
 
 const ProfileSection: React.FC = () => {
   const { userProfile, currentUser, refreshUserProfile, sendEmailVerification } = useAuth();
@@ -270,6 +271,11 @@ const ProfileSection: React.FC = () => {
         onClose={() => setShowPhoneVerificationModal(false)}
         onSuccess={handlePhoneVerificationSuccess}
       />
+
+      {/* KYC status below profile info */}
+      <div className="pt-2">
+        <KycStatusCard />
+      </div>
     </div>
   );
 };

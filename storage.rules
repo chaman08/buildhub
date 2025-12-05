@@ -1,0 +1,95 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // KYC uploads: /kyc/{uid}/{requestId}/filename
+    match /kyc/{uid}/{requestId}/{filename} {
+      function isOwner() {
+        return request.auth != null && request.auth.uid == uid;
+      }
+
+      function isAdmin() {
+        return request.auth != null && request.auth.token != null && request.auth.token.admin == true;
+      }
+
+      function sizeOk() {
+        return request.resource.size < 10 * 1024 * 1024; // 10 MB max
+      }
+
+      function typeOk() {
+        return request.resource.contentType in [
+          'application/pdf',
+          'image/jpeg',
+          'image/png',
+          'application/zip',
+          'application/x-zip-compressed'
+        ];
+      }
+
+      // Owners can upload; admins (custom claim) can read
+      allow write: if isOwner() && sizeOk() && typeOk();
+      allow read: if isOwner() || isAdmin();
+    }
+
+    // Project progress photos: /projectProgress/{projectId}/{filename}
+    match /projectProgress/{projectId}/{filename} {
+      function isProjectParticipant() {
+        return request.auth != null &&
+          exists(/databases/(default)/documents/projects/$(projectId)) &&
+          (
+            get(/databases/(default)/documents/projects/$(projectId)).data.postedBy == request.auth.uid ||
+            get(/databases/(default)/documents/projects/$(projectId)).data.acceptedContractorId == request.auth.uid
+          );
+      }
+
+      function sizeOk() {
+        return request.resource.size < 10 * 1024 * 1024; // 10 MB max
+      }
+
+      function typeOk() {
+        return request.resource.contentType in [
+          'image/jpeg',
+          'image/png',
+          'image/webp',
+          'image/heic',
+          'image/heif'
+        ];
+      }
+
+      allow write: if isProjectParticipant() && sizeOk() && typeOk();
+      allow read: if isProjectParticipant();
+    }
+
+    // Project attachments uploaded with project brief
+    match /projectAttachments/{projectId}/{filename} {
+      function isProjectOwner() {
+        return request.auth != null &&
+          exists(/databases/(default)/documents/projects/$(projectId)) &&
+          get(/databases/(default)/documents/projects/$(projectId)).data.postedBy == request.auth.uid;
+      }
+
+      function sizeOk() {
+        return request.resource.size < 10 * 1024 * 1024; // 10 MB max
+      }
+
+      function typeOk() {
+        return request.resource.contentType in [
+          'application/pdf',
+          'image/jpeg',
+          'image/png',
+          'image/webp',
+          'image/heic',
+          'image/heif'
+        ];
+      }
+
+      // Owners can upload; any signed-in user can view attachments when bidding
+      allow write: if isProjectOwner() && sizeOk() && typeOk();
+      allow read: if request.auth != null;
+    }
+
+    // Default deny
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

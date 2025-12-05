@@ -292,10 +292,11 @@ const MyBids: React.FC = () => {
                         </div>
                       </div>
                       
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         <Button 
                           size="sm" 
                           variant="outline"
+                          className="w-full sm:w-auto"
                           onClick={() => window.open(`/project/${bid.projectId}`, '_blank')}
                         >
                           <Eye className="h-4 w-4 mr-1" />
@@ -305,6 +306,7 @@ const MyBids: React.FC = () => {
                           <Button 
                             size="sm" 
                             variant="outline"
+                            className="w-full sm:w-auto"
                             onClick={() => window.open(`tel:${bid.customerPhone}`)}
                           >
                             📞 Call
@@ -314,6 +316,7 @@ const MyBids: React.FC = () => {
                           <Button 
                             size="sm" 
                             variant="outline"
+                            className="w-full sm:w-auto"
                             onClick={() => window.open(`mailto:${bid.customerEmail}`)}
                           >
                             📧 Email
@@ -327,8 +330,71 @@ const MyBids: React.FC = () => {
             </Card>
           )}
 
+          {/* All Bids - mobile cards */}
+          <div className="md:hidden space-y-3">
+            {bids.map((bid) => (
+              <Card
+                key={bid.id}
+                className={`p-4 shadow-sm ${bid.status === 'accepted' ? 'border-green-200 bg-green-50' : 'border-slate-200'}`}
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <div className="space-y-1">
+                    <p className="text-xs text-gray-500">Project</p>
+                    <p className="font-semibold text-gray-900 line-clamp-2">{bid.projectTitle || 'Unknown Project'}</p>
+                    <p className="text-xs text-gray-500 line-clamp-2">{bid.message.substring(0, 60)}...</p>
+                  </div>
+                  <Badge className={getStatusColor(bid.status)} variant="outline">
+                    {getStatusIcon(bid.status)}
+                    <span className="ml-1 capitalize">{bid.status.replace('_', ' ')}</span>
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-sm text-gray-700 mb-3">
+                  <div>
+                    <p className="text-xs text-gray-500">Quote</p>
+                    <p className="font-semibold text-green-600">{formatBudget(bid.priceQuoted)}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-gray-400" />
+                    <div>
+                      <p className="text-xs text-gray-500">Timeline</p>
+                      <p>{bid.timeline}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Submitted</p>
+                    <p className="text-sm text-gray-600">{bid.createdAt ? formatDate(bid.createdAt) : '—'}</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => window.open(`/project/${bid.projectId}`, '_blank')}
+                  >
+                    <Eye className="h-4 w-4 mr-1" />
+                    View
+                  </Button>
+                  {bid.status === 'pending' && (
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => window.open(`/project/${bid.projectId}`, '_blank')}
+                    >
+                      <Edit className="h-4 w-4 mr-1" />
+                      Update
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            ))}
+          </div>
+
           {/* All Bids Table */}
-          <Card>
+          <Card className="hidden md:block">
             <CardHeader>
               <CardTitle>All Bids History</CardTitle>
             </CardHeader>

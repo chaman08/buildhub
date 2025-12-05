@@ -15,6 +15,7 @@ interface DashboardStats {
   bidsPlaced: number;
   projectsAccepted: number;
   ongoingProjects: number;
+  completedProjects: number;
 }
 
 const ContractorHome: React.FC = () => {
@@ -24,7 +25,8 @@ const ContractorHome: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats>({
     bidsPlaced: 0,
     projectsAccepted: 0,
-    ongoingProjects: 0
+    ongoingProjects: 0,
+    completedProjects: 0
   });
   const [loading, setLoading] = useState(true);
 
@@ -49,12 +51,14 @@ const ContractorHome: React.FC = () => {
       // Calculate stats
       const bidsPlaced = bidsData.length;
       const projectsAccepted = bidsData.filter(bid => bid.status === 'accepted').length;
+      const completedProjects = bidsData.filter(bid => bid.projectStatus === 'completed').length;
       const ongoingProjects = bidsData.filter(bid => bid.status === 'accepted' && bid.projectStatus !== 'completed').length;
 
       setStats({
         bidsPlaced,
         projectsAccepted,
-        ongoingProjects
+        ongoingProjects,
+        completedProjects
       });
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -179,6 +183,17 @@ const ContractorHome: React.FC = () => {
           <CardContent>
             <div className="text-2xl font-bold">{stats.projectsAccepted}</div>
             <p className="text-xs text-muted-foreground">Winning bids</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Projects Completed</CardTitle>
+            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.completedProjects}</div>
+            <p className="text-xs text-muted-foreground">Marked as completed</p>
           </CardContent>
         </Card>
 

@@ -30,18 +30,43 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
 
+    function isProjectParticipant(projectId) {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/projects/$(projectId)) &&
+        (
+          get(/databases/$(database)/documents/projects/$(projectId)).data.postedBy == request.auth.uid ||
+          get(/databases/$(database)/documents/projects/$(projectId)).data.acceptedContractorId == request.auth.uid
+        );
+    }
+
     // Users collection
     match /users/{userId} {
       allow read: if true;
-      allow create, update: if isOwner(userId);
+      // Allow owners to manage their profile; admins can assist with account recovery if needed
+      allow create, update: if isOwner(userId) || isAdminUser();
       allow delete: if false;
+    }
+
+    function validProjectStatus(status) {
+      return status in ['draft', 'open', 'awarded', 'closed', 'cancelled'];
     }
 
     // Public projects
     match /projects/{projectId} {
-      allow read: if true;
-      allow create: if signedIn() && request.resource.data.postedBy == request.auth.uid;
-      allow update, delete: if signedIn() && resource.data.postedBy == request.auth.uid;
+      // Drafts are private to owner/admin; published projects are public
+      allow read: if resource.data.status != 'draft' || isOwner(resource.data.postedBy) || isAdminUser();
+
+      allow create: if signedIn()
+        && request.resource.data.postedBy == request.auth.uid
+        && validProjectStatus(request.resource.data.status);
+
+      // Updates must keep owner and use allowed status values
+      allow update: if signedIn()
+        && resource.data.postedBy == request.auth.uid
+        && (!('status' in request.resource.data) || validProjectStatus(request.resource.data.status));
+
+      // Deleting a project only checks ownership
+      allow delete: if signedIn() && resource.data.postedBy == request.auth.uid;
     }
 
     // Contractor service projects
@@ -95,9 +120,83 @@ service cloud.firestore {
       allow read, update, delete: if isAdminUser();
     }
 
+    // KYC requests
+    match /kycRequests/{requestId} {
+      function validStatus() {
+        return request.resource.data.status in ['pending', 'under_review', 'needs_info', 'verified', 'rejected'];
+      }
+
+      function validLevel() {
+        return request.resource.data.kycLevel == null || request.resource.data.kycLevel in ['basic', 'business'];
+      }
+
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && validLevel();
+
+      allow read: if signedIn() && (isOwner(resource.data.uid) || isAdminUser());
+
+      // Owners can edit while pending/needs_info without self-approving; admins can transition statuses.
+      allow update: if signedIn()
+        && validStatus()
+        && (
+          (isOwner(resource.data.uid)
+            && (resource.data.status in ['pending', 'needs_info'])
+            && request.resource.data.status == resource.data.status
+            && request.resource.data.uid == resource.data.uid)
+          || isAdminUser()
+        );
+
+      allow delete: if isAdminUser();
+    }
+
     // Bookmarks (if used)
     match /bookmarks/{userId} {
       allow read, write: if isOwner(userId);
+    }
+
+    // Project progress updates
+    match /projectProgress/{updateId} {
+      function validProgressStatus() {
+        return request.resource.data.status in [
+          'not_started',
+          'in_progress',
+          'awaiting_customer',
+          'blocked',
+          'at_risk',
+          'completed'
+        ];
+      }
+
+      function validProgressPercent() {
+        return request.resource.data.percentComplete is number &&
+          request.resource.data.percentComplete >= 0 &&
+          request.resource.data.percentComplete <= 100;
+      }
+
+      function validProgressPhotos() {
+        return !('photos' in request.resource.data) ||
+          (request.resource.data.photos is list &&
+            request.resource.data.photos.size() <= 10 &&
+            request.resource.data.photos.all(photo, photo is string));
+      }
+
+      allow create: if signedIn()
+        && validProgressStatus()
+        && validProgressPercent()
+        && validProgressPhotos()
+        && request.resource.data.projectId is string
+        && request.resource.data.createdBy == request.auth.uid
+        && isProjectParticipant(request.resource.data.projectId);
+
+      allow read: if signedIn()
+        && (
+          isAdminUser() ||
+          isProjectParticipant(resource.data.projectId)
+        );
+
+      allow update, delete: if false;
     }
 
     // Default deny

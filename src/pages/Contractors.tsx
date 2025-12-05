@@ -22,6 +22,7 @@ interface Contractor {
   serviceCategory: string;
   experience: number;
   verified: boolean;
+  kycStatus?: 'not_started' | 'pending' | 'under_review' | 'needs_info' | 'verified' | 'rejected';
   rating?: number;
   reviewsCount?: number;
   mobile: string;
@@ -352,6 +353,11 @@ const Contractors = () => {
                       <h3 className="font-semibold text-lg">{contractor.fullName}</h3>
                       {contractor.verified && (
                         <Shield className="h-4 w-4 text-green-600" />
+                      )}
+                      {contractor.kycStatus === 'verified' && (
+                        <Badge variant="outline" className="text-blue-700 border-blue-200 bg-blue-50">
+                          <Shield className="h-3 w-3 mr-1" /> KYC
+                        </Badge>
                       )}
                     </div>
                     {contractor.companyName && (

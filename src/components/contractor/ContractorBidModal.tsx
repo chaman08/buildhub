@@ -55,6 +55,9 @@ const ContractorBidModal = ({ open, onOpenChange, project, onBidSubmitted }: Con
   const { currentUser, userProfile, isVerificationComplete } = useAuth();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const requiresKyc =
+    (project?.budget || 0) >= 100000 || (project?.projectType === 'government');
+  const kycVerified = userProfile?.kycStatus === 'verified';
 
   const form = useForm<BidFormData>({
     resolver: zodResolver(bidSchema),
@@ -70,6 +73,15 @@ const ContractorBidModal = ({ open, onOpenChange, project, onBidSubmitted }: Con
       toast({
         title: 'Authentication required',
         description: 'Please log in to place a bid',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (requiresKyc && !kycVerified) {
+      toast({
+        title: 'KYC verification required',
+        description: 'Complete KYC to bid on high-value or government projects.',
         variant: 'destructive',
       });
       return;
@@ -159,6 +171,11 @@ const ContractorBidModal = ({ open, onOpenChange, project, onBidSubmitted }: Con
               ` - ${formatBudget(project.budgetMax)}`
             }
           </p>
+          {requiresKyc && !kycVerified && (
+            <p className="text-xs text-amber-700 mt-2">
+              KYC required for this project. Complete your verification to continue.
+            </p>
+          )}
         </div>
 
         <Form {...form}>

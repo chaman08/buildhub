@@ -12,6 +12,7 @@ import { useBookmarks } from '@/contexts/BookmarkContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
+import { useContractorRating } from '@/hooks/useContractorRating';
 
 interface ContractorProfile {
   uid: string;
@@ -41,6 +42,7 @@ const ContractorProfile = () => {
   const { currentUser } = useAuth();
   const { isContractorBookmarked, toggleContractorBookmark } = useBookmarks();
   const navigate = useNavigate();
+  const { rating, totalRatings, loading: ratingLoading } = useContractorRating(uid || '');
 
   useEffect(() => {
     if (uid) {
@@ -173,15 +175,19 @@ const ContractorProfile = () => {
                     <span className="font-medium">{contractor.experience}+ years</span> experience
                   </div>
                   
-                  {contractor.rating && (
-                    <div className="flex items-center justify-center md:justify-start gap-1">
-                      <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                      <span className="font-medium">{contractor.rating}</span>
-                      {contractor.reviewsCount && (
-                        <span className="text-gray-500">({contractor.reviewsCount} reviews)</span>
-                      )}
-                    </div>
-                  )}
+                  <div className="flex items-center justify-center md:justify-start gap-1">
+                    <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                    {ratingLoading ? (
+                      <span className="text-gray-500 text-sm">Loading…</span>
+                    ) : (
+                      <>
+                        <span className="font-medium">{rating > 0 ? rating : 'New'}</span>
+                        {totalRatings > 0 && (
+                          <span className="text-gray-500">({totalRatings} reviews)</span>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
                 
                 <Badge variant="outline" className="mb-4">

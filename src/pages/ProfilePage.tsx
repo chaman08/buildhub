@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Phone, Mail, Shield } from 'lucide-react';
 import PhoneVerificationModal from '@/components/auth/PhoneVerificationModal';
 import { useToast } from '@/hooks/use-toast';
+import KycStatusCard from '@/components/kyc/KycStatusCard';
 
 export const ProfilePage = () => {
   const { userProfile, sendEmailVerification, refreshUserProfile } = useAuth();
@@ -135,6 +136,10 @@ export const ProfilePage = () => {
       </div>
 
       <ProfileManagement />
+
+      <div className="mt-8">
+        <KycStatusCard />
+      </div>
 
       {/* Phone Verification Modal */}
       <PhoneVerificationModal

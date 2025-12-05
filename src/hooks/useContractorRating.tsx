@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 interface RatingData {
@@ -22,36 +22,35 @@ export const useContractorRating = (contractorId: string): RatingData => {
       return;
     }
 
-    const fetchRating = async () => {
-      try {
-        const ratingsQuery = query(
-          collection(db, 'ratings'),
-          where('contractorId', '==', contractorId)
-        );
-        
-        const snapshot = await getDocs(ratingsQuery);
-        
+    const ratingsQuery = query(
+      collection(db, 'ratings'),
+      where('contractorId', '==', contractorId)
+    );
+
+    const unsubscribe = onSnapshot(
+      ratingsQuery,
+      (snapshot) => {
         if (snapshot.empty) {
           setRatingData({ rating: 0, totalRatings: 0, loading: false });
           return;
         }
-
         const ratings = snapshot.docs.map(doc => doc.data().rating as number);
         const totalRatings = ratings.length;
         const averageRating = ratings.reduce((sum, rating) => sum + rating, 0) / totalRatings;
 
         setRatingData({
-          rating: Math.round(averageRating * 10) / 10, // Round to 1 decimal
+          rating: Math.round(averageRating * 10) / 10,
           totalRatings,
           loading: false
         });
-      } catch (error) {
+      },
+      (error) => {
         console.error('Error fetching contractor rating:', error);
         setRatingData({ rating: 0, totalRatings: 0, loading: false });
       }
-    };
+    );
 
-    fetchRating();
+    return () => unsubscribe();
   }, [contractorId]);
 
   return ratingData;

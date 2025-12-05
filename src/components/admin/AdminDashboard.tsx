@@ -19,6 +19,7 @@ import AdminAnalytics from './AdminAnalytics';
 import AdminContentModeration from './AdminContentModeration';
 import AdminSystemSettings from './AdminSystemSettings';
 import AdminContactMessages from './AdminContactMessages';
+import AdminKycCenter from './AdminKycCenter';
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -38,11 +39,12 @@ const AdminDashboard = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8">
+          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-9">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="projects">Projects</TabsTrigger>
             <TabsTrigger value="contractors">Contractors</TabsTrigger>
+            <TabsTrigger value="kyc">KYC</TabsTrigger>
             <TabsTrigger value="messages">Messages</TabsTrigger>
             <TabsTrigger value="moderation">Moderation</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
@@ -157,6 +159,10 @@ const AdminDashboard = () => {
 
           <TabsContent value="contractors" className="mt-6">
             <AdminContractorManagement />
+          </TabsContent>
+
+          <TabsContent value="kyc" className="mt-6">
+            <AdminKycCenter />
           </TabsContent>
 
           <TabsContent value="messages" className="mt-6">

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Eye, Edit, Calendar, DollarSign, CheckCircle, Clock, Star, AlertCircle, Trash2, Plus, Users, FileText } from 'lucide-react';
+import { Activity, Eye, Edit, Calendar, DollarSign, CheckCircle, Clock, Star, AlertCircle, Trash2, Plus, Users, FileText } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from '@/hooks/use-toast';
 import PostProjectDialog from '@/components/dashboard/PostProjectDialog';
 import { createBidAcceptedNotification, createBidRejectedNotification } from '@/utils/notifications';
+import ProjectProgressDialog from '@/components/dashboard/ProjectProgressDialog';
 
 interface AcceptedProject {
   id: string;
@@ -85,6 +86,7 @@ const AcceptedProjects: React.FC = () => {
   const [selectedProjectForBids, setSelectedProjectForBids] = useState<ContractorProject | null>(null);
   const [showBidsDialog, setShowBidsDialog] = useState(false);
   const [showPostDialog, setShowPostDialog] = useState(false);
+  const [progressProject, setProgressProject] = useState<AcceptedProject | null>(null);
 
   useEffect(() => {
     if (currentUser) {
@@ -389,7 +391,81 @@ const AcceptedProjects: React.FC = () => {
               </CardContent>
             </Card>
           ) : (
-            <Card>
+            <>
+              {/* Mobile card view */}
+              <div className="space-y-3 md:hidden">
+                {acceptedProjects.map((project) => (
+                  <Card key={project.id} className="p-4 shadow-sm border-slate-200">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="space-y-1">
+                        <p className="text-xs text-gray-500">Project</p>
+                        <p className="font-semibold text-gray-900">{project.projectTitle}</p>
+                        <p className="text-xs text-gray-500 line-clamp-1">{project.customerName}</p>
+                      </div>
+                      <Badge className={getStatusColor(project.status)} variant="outline">
+                        {getStatusIcon(project.status)}
+                        <span className="ml-1 capitalize">{project.status.replace('_', ' ')}</span>
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 text-sm text-gray-700 mb-3">
+                      <div>
+                        <p className="text-xs text-gray-500">Amount</p>
+                        <p className="font-semibold text-green-600">{formatBudget(project.priceQuoted)}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-gray-400" />
+                        <div>
+                          <p className="text-xs text-gray-500">Timeline</p>
+                          <p>{project.timeline}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {project.customerEmail || project.customerPhone ? (
+                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm text-gray-700 mb-3">
+                        <p className="font-medium text-gray-800 mb-1">Customer</p>
+                        {project.customerEmail && <p className="truncate">{project.customerEmail}</p>}
+                        {project.customerPhone && <p className="truncate">{project.customerPhone}</p>}
+                      </div>
+                    ) : null}
+
+                    <div className="flex flex-wrap gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => window.open(`/project/${project.projectId}`, '_blank')}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        View
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => setProgressProject(project)}
+                        title="Track progress"
+                      >
+                        <Activity className="h-4 w-4 mr-1" />
+                        Progress
+                      </Button>
+                      {project.customerPhone && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => window.open(`tel:${project.customerPhone}`)}
+                        >
+                          dY"z Call
+                        </Button>
+                      )}
+                    </div>
+                  </Card>
+                ))}
+              </div>
+
+              <Card className="hidden md:block">
               <CardHeader>
                 <CardTitle>Accepted Contracts</CardTitle>
               </CardHeader>
@@ -438,13 +514,21 @@ const AcceptedProjects: React.FC = () => {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <div className="flex gap-2">
+                          <div className="flex flex-wrap gap-2">
                             <Button 
                               variant="outline" 
                               size="sm"
                               onClick={() => window.open(`/project/${project.projectId}`, '_blank')}
                             >
                               <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => setProgressProject(project)}
+                              title="Track progress"
+                            >
+                              <Activity className="h-4 w-4" />
                             </Button>
                             {project.customerPhone && (
                               <Button 
@@ -462,7 +546,8 @@ const AcceptedProjects: React.FC = () => {
                   </TableBody>
                 </Table>
               </CardContent>
-            </Card>
+              </Card>
+            </>
           )}
         </TabsContent>
 
@@ -833,6 +918,19 @@ const AcceptedProjects: React.FC = () => {
         open={showPostDialog}
         onOpenChange={setShowPostDialog}
       />
+
+      {progressProject && (
+        <ProjectProgressDialog
+          open={!!progressProject}
+          onOpenChange={(open) => {
+            if (!open) {
+              setProgressProject(null);
+            }
+          }}
+          projectId={progressProject.projectId}
+          projectTitle={progressProject.projectTitle}
+        />
+      )}
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 interface MobileDialogProps extends React.ComponentPropsWithoutRef<typeof Dialog> {
@@ -13,6 +13,7 @@ const MobileDialog = React.forwardRef<
   React.ElementRef<typeof Dialog>,
   MobileDialogProps
 >(({ trigger, title, children, className, ...props }, ref) => {
+  const resolvedTitle = title || "Dialog";
   return (
     <Dialog {...props}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
@@ -24,11 +25,10 @@ const MobileDialog = React.forwardRef<
         )}
       >
         <div className="flex h-full flex-col">
-          {title && (
-            <DialogHeader className="px-6 pt-6 sm:px-0 sm:pt-0">
-              <DialogTitle>{title}</DialogTitle>
-            </DialogHeader>
-          )}
+          <DialogHeader className={title ? "px-6 pt-6 sm:px-0 sm:pt-0" : "sr-only"}>
+            <DialogTitle>{resolvedTitle}</DialogTitle>
+            <DialogDescription>Modal content</DialogDescription>
+          </DialogHeader>
           <div className="flex-1 overflow-y-auto px-6 pb-6 sm:px-0">
             {children}
           </div>

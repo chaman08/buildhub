@@ -1,0 +1,27 @@
+{
+  "name": "kyc-functions",
+  "version": "0.1.0",
+  "private": true,
+  "main": "lib/index.js",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rimraf lib",
+    "deploy": "npm run clean && npm run build && firebase deploy --only functions",
+    "serve": "npm run build -- --watch"
+  },
+  "dependencies": {
+    "axios": "^1.7.7",
+    "firebase-admin": "^12.6.0",
+    "firebase-functions": "^5.1.1",
+    "node-stream-zip": "^1.15.0",
+    "xml2js": "^0.6.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.5",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.5.3"
+  },
+  "engines": {
+    "node": "18"
+  }
+}

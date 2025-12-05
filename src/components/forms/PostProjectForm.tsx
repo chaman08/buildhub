@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,23 +7,52 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { X, Plus, MapPin, Calendar, DollarSign, Clock } from 'lucide-react';
+import {
+  X,
+  Plus,
+  MapPin,
+  DollarSign,
+  Clock,
+  UploadCloud,
+  FileText,
+  ShieldCheck,
+  Lightbulb,
+  HelpCircle
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { collection, addDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { collection, doc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { db, storage } from '@/lib/firebase';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog';
 
 interface PostProjectFormProps {
   onSuccess?: () => void;
   onCancel?: () => void;
 }
 
+interface UploadedAttachment {
+  url: string;
+  name: string;
+  contentType: string;
+  size: number;
+}
+
 const PostProjectForm: React.FC<PostProjectFormProps> = ({ onSuccess, onCancel }) => {
   const { currentUser, userProfile } = useAuth();
   const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
+  const [posting, setPosting] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [customCategory, setCustomCategory] = useState('');
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -54,6 +83,15 @@ const PostProjectForm: React.FC<PostProjectFormProps> = ({ onSuccess, onCancel }
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    setAttachments(files.slice(0, 5));
+  };
+
+  const removeAttachment = (fileName: string) => {
+    setAttachments(prev => prev.filter(file => file.name !== fileName));
+  };
+
   const handleCategoryToggle = (category: string) => {
     setSelectedCategories(prev =>
       prev.includes(category)
@@ -73,9 +111,63 @@ const PostProjectForm: React.FC<PostProjectFormProps> = ({ onSuccess, onCancel }
     setSelectedCategories(prev => prev.filter(c => c !== category));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const formatCurrency = (value?: string) => {
+    if (!value) return 'Not set';
+    const numeric = Number(value);
+    if (Number.isNaN(numeric)) return 'Not set';
+    return `NGN ${numeric.toLocaleString()}`;
+  };
+
+  const formatDate = (value?: string) => {
+    if (!value) return 'Not set';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return 'Not set';
+    return parsed.toLocaleDateString();
+  };
+
+  const uploadProjectAttachments = async (projectId: string): Promise<UploadedAttachment[]> => {
+    if (!attachments.length) return [];
+
+    const allowedTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/heic',
+      'image/heif',
+      'application/pdf'
+    ];
+    const maxSize = 10 * 1024 * 1024;
+
+    const uploads = attachments.map(async (file) => {
+      if (file.size > maxSize) {
+        throw new Error(`File "${file.name}" is larger than 10MB.`);
+      }
+      if (!file.type) {
+        throw new Error(`Unsupported file type for "${file.name}". Please upload images or PDFs.`);
+      }
+      if (!allowedTypes.includes(file.type)) {
+        throw new Error(`Unsupported file type for "${file.name}". Please upload images or PDFs.`);
+      }
+
+      const safeName = file.name.replace(/\s+/g, '-');
+      const storageRef = ref(storage, `projectAttachments/${projectId}/${Date.now()}-${safeName}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+
+      return {
+        url,
+        name: file.name,
+        contentType: file.type || 'application/octet-stream',
+        size: file.size
+      };
+    });
+
+    return Promise.all(uploads);
+  };
+
+  const submitProject = async (isDraft: boolean, e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+
     if (!currentUser) {
       toast({
         title: "Authentication Required",
@@ -85,7 +177,7 @@ const PostProjectForm: React.FC<PostProjectFormProps> = ({ onSuccess, onCancel }
       return;
     }
 
-    if (selectedCategories.length === 0) {
+    if (!isDraft && selectedCategories.length === 0) {
       toast({
         title: "Category Required",
         description: "Please select at least one service category",
@@ -94,54 +186,123 @@ const PostProjectForm: React.FC<PostProjectFormProps> = ({ onSuccess, onCancel }
       return;
     }
 
-    setLoading(true);
-    
+    const minBudget = Number(formData.budget);
+    const maxBudget = formData.budgetMax ? Number(formData.budgetMax) : undefined;
+    if (!isDraft && (Number.isNaN(minBudget) || minBudget <= 0)) {
+      toast({
+        title: "Budget Required",
+        description: "Please enter a valid minimum budget above 0",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!isDraft && maxBudget && maxBudget < minBudget) {
+      toast({
+        title: "Budget Range",
+        description: "Maximum budget should be greater than or equal to minimum budget",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!isDraft && formData.startDate && new Date(formData.startDate) < new Date(new Date().toDateString())) {
+      toast({
+        title: "Start Date",
+        description: "Start date cannot be in the past",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const setBusyState = isDraft ? setSavingDraft : setPosting;
+    setBusyState(true);
+
     try {
-      const projectData = {
-        title: formData.title,
-        description: formData.description,
+      const projectRef = doc(collection(db, 'projects'));
+      const baseData = {
+        title: formData.title.trim(),
+        description: formData.description.trim(),
         category: selectedCategories,
-        location: formData.location,
-        budget: Number(formData.budget),
-        budgetMax: formData.budgetMax ? Number(formData.budgetMax) : undefined,
-        startDate: formData.startDate,
-        expectedDuration: formData.expectedDuration,
+        location: formData.location.trim(),
+        budget: formData.budget ? Number(formData.budget) : null,
+        budgetMax: formData.budgetMax ? Number(formData.budgetMax) : null,
+        startDate: formData.startDate || null,
+        expectedDuration: formData.expectedDuration.trim(),
         urgency: formData.urgency,
         projectType: formData.projectType,
         requiresPermits: formData.requiresPermits,
-        materials: formData.materials,
-        specialRequirements: formData.specialRequirements,
+        materials: formData.materials.trim(),
+        specialRequirements: formData.specialRequirements.trim(),
         postedBy: currentUser.uid,
         postedByType: userProfile?.userType || 'customer',
-        status: 'open',
-        createdAt: new Date(),
-        updatedAt: new Date()
+        status: isDraft ? 'draft' : 'open',
+        attachments: [],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       };
 
-      await addDoc(collection(db, 'projects'), projectData);
+      // Create the project first so storage rules allow attachment uploads
+      await setDoc(projectRef, baseData);
+
+      const attachmentUploads = await uploadProjectAttachments(projectRef.id);
+      if (attachmentUploads.length) {
+        await setDoc(projectRef, { attachments: attachmentUploads, updatedAt: serverTimestamp() }, { merge: true });
+      }
       
       toast({
-        title: "Project Posted Successfully!",
-        description: userProfile?.userType === 'contractor' 
-          ? "Your project has been posted as a contractor. Other contractors can now bid on it."
-          : "Your project has been posted and contractors can now bid on it."
+        title: isDraft ? "Draft saved" : "Project Posted Successfully!",
+        description: isDraft
+          ? "You can come back to complete and publish this project."
+          : userProfile?.userType === 'contractor' 
+            ? "Your project has been posted as a contractor. Other contractors can now bid on it."
+            : "Your project has been posted and contractors can now bid on it."
       });
       
-      onSuccess?.();
-    } catch (error: any) {
+      setFormData({
+        title: '',
+        description: '',
+        location: '',
+        budget: '',
+        budgetMax: '',
+        startDate: '',
+        expectedDuration: '',
+        urgency: 'medium',
+        projectType: 'residential',
+        requiresPermits: false,
+        materials: '',
+        specialRequirements: ''
+      });
+      setSelectedCategories([]);
+      setAttachments([]);
+      if (!isDraft) {
+        onSuccess?.();
+      }
+    } catch (error) {
       console.error('Error posting project:', error);
       toast({
-        title: "Error Posting Project",
-        description: "Failed to post your project. Please try again.",
+        title: isDraft ? "Error Saving Draft" : "Error Posting Project",
+        description: "Failed to save your project. Please try again.",
         variant: "destructive"
       });
     } finally {
-      setLoading(false);
+      setBusyState(false);
     }
   };
 
+  const projectSummary = useMemo(() => ({
+    title: formData.title || 'Untitled project',
+    location: formData.location || 'Location not set',
+    budget: formData.budget || '',
+    budgetMax: formData.budgetMax || '',
+    startDate: formData.startDate || '',
+    categories: selectedCategories,
+    urgency: formData.urgency,
+    projectType: formData.projectType
+  }), [formData, selectedCategories]);
+
   return (
-    <Card className="w-full max-w-4xl mx-auto">
+    <Card className="w-full mx-auto">
       <CardHeader>
         <CardTitle className="text-2xl font-bold text-center">
           {userProfile?.userType === 'contractor' ? 'Post a Project as Contractor' : 'Post a New Project'}
@@ -153,7 +314,20 @@ const PostProjectForm: React.FC<PostProjectFormProps> = ({ onSuccess, onCancel }
         </p>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+              <ShieldCheck className="h-4 w-4 text-green-600" />
+              Secure | Verified contractors only | Avg. response in 24h
+            </div>
+            <Button variant="link" type="button" onClick={() => setHelpOpen(true)} className="px-0 text-blue-700">
+              <Lightbulb className="h-4 w-4 mr-1" />
+              Need help scoping?
+            </Button>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-[1.75fr_1fr]">
+            <form onSubmit={(e) => submitProject(false, e)} className="space-y-6">
           {/* Basic Information */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold flex items-center">
@@ -269,7 +443,7 @@ const PostProjectForm: React.FC<PostProjectFormProps> = ({ onSuccess, onCancel }
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="budget">Minimum Budget (₹) *</Label>
+                <Label htmlFor="budget">Minimum Budget (NGN) *</Label>
                 <Input
                   id="budget"
                   name="budget"
@@ -281,7 +455,7 @@ const PostProjectForm: React.FC<PostProjectFormProps> = ({ onSuccess, onCancel }
                 />
               </div>
               <div>
-                <Label htmlFor="budgetMax">Maximum Budget (₹)</Label>
+                <Label htmlFor="budgetMax">Maximum Budget (NGN)</Label>
                 <Input
                   id="budgetMax"
                   name="budgetMax"
@@ -376,22 +550,169 @@ const PostProjectForm: React.FC<PostProjectFormProps> = ({ onSuccess, onCancel }
             </div>
           </div>
 
+          {/* Attachments */}
+          <div className="space-y-3">
+            <h3 className="text-lg font-semibold flex items-center">
+              <UploadCloud className="h-5 w-5 mr-2 text-blue-600" />
+              Reference files (images or PDFs)
+            </h3>
+            <div className="space-y-2 rounded-lg border p-3">
+              <Label htmlFor="attachments" className="text-sm font-medium">Upload up to 5 files (10MB each)</Label>
+              <Input
+                id="attachments"
+                type="file"
+                accept="image/*,application/pdf"
+                multiple
+                onChange={handleAttachmentChange}
+              />
+              <p className="text-xs text-muted-foreground">
+                Good to add drawings, inspiration photos, or existing site photos.
+              </p>
+              {attachments.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {attachments.map((file) => (
+                    <Badge key={file.name} variant="secondary" className="flex items-center gap-1">
+                      <FileText className="h-3 w-3" />
+                      <span className="truncate max-w-[140px]">{file.name}</span>
+                      <X
+                        className="h-3 w-3 cursor-pointer"
+                        onClick={() => removeAttachment(file.name)}
+                      />
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Form Actions */}
-          <div className="flex justify-end gap-4">
+          <div className="flex flex-col sm:flex-row justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => submitProject(true)}
+              disabled={posting || savingDraft}
+            >
+              {savingDraft ? 'Saving draft...' : 'Save as draft'}
+            </Button>
             <Button
               type="button"
               variant="outline"
               onClick={onCancel}
-              disabled={loading}
+              disabled={posting || savingDraft}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? 'Posting...' : 'Post Project'}
+            <Button type="submit" disabled={posting || savingDraft}>
+              {posting ? 'Posting...' : 'Post Project'}
             </Button>
           </div>
-        </form>
+            </form>
+
+            {/* Live summary */}
+            <div className="space-y-4">
+              <Card className="border-blue-100 shadow-sm h-fit">
+                <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-t-lg">
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    <HelpCircle className="h-5 w-5" />
+                    Project summary
+                  </CardTitle>
+                  <p className="text-sm text-blue-100">Live preview updates as you type.</p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Title</p>
+                      <p className="font-semibold text-gray-900">{projectSummary.title}</p>
+                      <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                        <MapPin className="h-4 w-4 text-blue-600" />
+                        {projectSummary.location}
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="capitalize">
+                      {projectSummary.projectType}
+                    </Badge>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div className="rounded-lg border p-3 space-y-1">
+                      <p className="text-xs text-muted-foreground">Budget range</p>
+                      <p className="font-semibold">
+                        {projectSummary.budget ? formatCurrency(projectSummary.budget) : 'Not set'}
+                        {projectSummary.budgetMax && (
+                          <span className="text-sm text-muted-foreground"> - {formatCurrency(projectSummary.budgetMax)}</span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border p-3 space-y-1">
+                      <p className="text-xs text-muted-foreground">Start date</p>
+                      <p className="font-semibold">{formatDate(projectSummary.startDate)}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">Categories</p>
+                    {projectSummary.categories.length ? (
+                      <div className="flex flex-wrap gap-2">
+                        {projectSummary.categories.map((category) => (
+                          <Badge key={category} variant="secondary">{category}</Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No categories selected yet.</p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-blue-600" />
+                      <span className="capitalize">{projectSummary.urgency} urgency</span>
+                    </div>
+                    <Badge variant="outline">{attachments.length} attachment{attachments.length === 1 ? '' : 's'}</Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
       </CardContent>
+
+      <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lightbulb className="h-5 w-5 text-amber-500" />
+              Need help scoping?
+            </DialogTitle>
+            <DialogDescription>
+              A quick checklist to make your brief clearer for contractors.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <div className="rounded-lg border p-3 space-y-1">
+              <p className="font-semibold">Scope & deliverables</p>
+              <p className="text-muted-foreground">Key rooms/areas, finishes, and any exclusions.</p>
+            </div>
+            <div className="rounded-lg border p-3 space-y-1">
+              <p className="font-semibold">Site access & timing</p>
+              <p className="text-muted-foreground">Working hours, access rules, and target start date.</p>
+            </div>
+            <div className="rounded-lg border p-3 space-y-1">
+              <p className="font-semibold">Permits & utilities</p>
+              <p className="text-muted-foreground">Who handles permits, available power/water, and storage space.</p>
+            </div>
+            <div className="rounded-lg border p-3 space-y-1">
+              <p className="font-semibold">Reference files</p>
+              <p className="text-muted-foreground">Upload drawings, photos, or PDFs to avoid misalignment.</p>
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button variant="default" onClick={() => setHelpOpen(false)}>
+              Got it
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };

@@ -7,8 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Mail, MessageCircle, Calendar, DollarSign, MapPin, Eye } from 'lucide-react';
+import { Activity, Mail, MessageCircle, Calendar, DollarSign, MapPin, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import ProjectProgressDialog from './ProjectProgressDialog';
 
 interface AcceptedProject {
   id: string;
@@ -30,6 +31,7 @@ const AcceptedProjectsSection: React.FC = () => {
   const navigate = useNavigate();
   const [acceptedProjects, setAcceptedProjects] = useState<AcceptedProject[]>([]);
   const [loading, setLoading] = useState(true);
+  const [progressProject, setProgressProject] = useState<AcceptedProject | null>(null);
 
   useEffect(() => {
     if (currentUser) {
@@ -216,7 +218,7 @@ const AcceptedProjectsSection: React.FC = () => {
                 </div>
 
                 {/* Actions */}
-                <div className="flex gap-2 pt-4 border-t">
+                <div className="flex flex-wrap gap-2 pt-4 border-t">
                   <Button 
                     variant="outline" 
                     size="sm" 
@@ -225,6 +227,17 @@ const AcceptedProjectsSection: React.FC = () => {
                   >
                     <Eye className="h-4 w-4 mr-1" />
                     View Project
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setProgressProject(project)}
+                    title="Track progress"
+                  >
+                    <Activity className="h-4 w-4 mr-1" />
+                    Progress
                   </Button>
                   
                   <Button 
@@ -249,6 +262,19 @@ const AcceptedProjectsSection: React.FC = () => {
             </Card>
           ))}
         </div>
+      )}
+
+      {progressProject && (
+        <ProjectProgressDialog
+          open={!!progressProject}
+          onOpenChange={(open) => {
+            if (!open) {
+              setProgressProject(null);
+            }
+          }}
+          projectId={progressProject.id}
+          projectTitle={progressProject.title}
+        />
       )}
     </div>
   );
