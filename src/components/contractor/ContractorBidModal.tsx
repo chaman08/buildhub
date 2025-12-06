@@ -139,13 +139,13 @@ const ContractorBidModal = ({ open, onOpenChange, project, onBidSubmitted }: Con
     return `₹${amount.toLocaleString('en-IN')}`;
   };
   
-  // If user does not have either email or phone verified, show prompt
+  // Require email or phone verified before bidding
   if (!isVerificationComplete()) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent>
-          <ProfileCompletionRequired 
-            message="You need to verify your email or phone number before placing a bid."
+            <ProfileCompletionRequired 
+            message="Verify your email or phone number to place a bid."
           />
         </DialogContent>
       </Dialog>

@@ -11,6 +11,7 @@ import {
   orderBy,
   query,
   serverTimestamp,
+  setDoc,
   updateDoc,
   where,
 } from 'firebase/firestore';
@@ -156,6 +157,44 @@ const humanizeDate = (value?: Timestamp | Date) => {
   return date.toLocaleString();
 };
 
+const fileRules = {
+  aadhaarZip: {
+    label: 'Aadhaar',
+    maxBytes: 8 * 1024 * 1024, // 8MB
+    types: [
+      'application/zip',
+      'application/x-zip-compressed',
+      'application/pdf',
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+    ],
+    accept: '.zip,.pdf,.jpg,.jpeg,.png',
+    helper: 'PDF/JPG/ZIP, max 8MB',
+  },
+  panProof: {
+    label: 'PAN proof',
+    maxBytes: 5 * 1024 * 1024, // 5MB
+    types: ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'],
+    accept: '.pdf,.jpg,.jpeg,.png',
+    helper: 'PDF/JPG, max 5MB',
+  },
+  gstProof: {
+    label: 'GST certificate',
+    maxBytes: 5 * 1024 * 1024, // 5MB
+    types: ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'],
+    accept: '.pdf,.jpg,.jpeg,.png',
+    helper: 'PDF/JPG, max 5MB',
+  },
+  licenseProof: {
+    label: 'License proof',
+    maxBytes: 5 * 1024 * 1024, // 5MB
+    types: ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'],
+    accept: '.pdf,.jpg,.jpeg,.png',
+    helper: 'PDF/JPG, max 5MB',
+  },
+} as const;
+
 const KycStatusCard: React.FC = () => {
   const { currentUser, userProfile, refreshUserProfile } = useAuth();
   const { toast } = useToast();
@@ -276,17 +315,43 @@ const KycStatusCard: React.FC = () => {
     return null;
   }
 
+  const validateFile = (file: File, key: keyof typeof fileRules) => {
+    const rules = fileRules[key];
+    const isAllowedType = rules.types.some((type) => file.type === type);
+    if (!isAllowedType) {
+      toast({
+        title: `${rules.label}: unsupported file type`,
+        description: `Please upload ${rules.helper}.`,
+        variant: 'destructive',
+      });
+      return false;
+    }
+    if (file.size > rules.maxBytes) {
+      toast({
+        title: `${rules.label} too large`,
+        description: `Max size is ${Math.round(rules.maxBytes / (1024 * 1024))}MB.`,
+        variant: 'destructive',
+      });
+      return false;
+    }
+    return true;
+  };
+
   const handleFileChange = (
     e: React.ChangeEvent<HTMLInputElement>,
     key: keyof typeof files
   ) => {
     const file = e.target.files?.[0] || null;
-    setFiles((prev) => ({ ...prev, [key]: file }));
+    if (file && validateFile(file, key as keyof typeof fileRules)) {
+      setFiles((prev) => ({ ...prev, [key]: file }));
+    } else if (!file) {
+      setFiles((prev) => ({ ...prev, [key]: null }));
+    }
   };
 
-  const uploadIfPresent = async (file: File | null, key: string) => {
+  const uploadIfPresent = async (file: File | null, key: string, requestId: string) => {
     if (!file) return undefined;
-    const path = `kyc/${currentUser.uid}/${Date.now()}_${key}_${file.name}`;
+    const path = `kyc/${currentUser.uid}/${requestId}/${key}_${file.name}`;
     const storageRef = ref(storage, path);
     await uploadBytes(storageRef, file);
     return getDownloadURL(storageRef);
@@ -333,8 +398,8 @@ const KycStatusCard: React.FC = () => {
 
     if (!files.aadhaarZip) {
       toast({
-        title: 'Upload Aadhaar offline ZIP',
-        description: 'Download from UIDAI and upload the ZIP file.',
+        title: 'Upload Aadhaar document',
+        description: 'Upload Aadhaar offline ZIP or a PDF/JPG copy (max 8MB).',
         variant: 'destructive',
       });
       return false;
@@ -356,14 +421,34 @@ const KycStatusCard: React.FC = () => {
     e.preventDefault();
     if (!validateInputs()) return;
 
+    // Re-validate file sizes/types just before upload
+    for (const key of Object.keys(files) as (keyof typeof files)[]) {
+      const file = files[key];
+      if (file && !validateFile(file, key as keyof typeof fileRules)) {
+        return;
+      }
+    }
+
     setLoading(true);
     try {
+      const requestDocRef = doc(collection(db, 'kycRequests'));
+      const requestId = requestDocRef.id;
+
       const [aadhaarZipUrl, panUrl, gstUrl, licenseUrl] = await Promise.all([
-        uploadIfPresent(files.aadhaarZip, 'aadhaar'),
-        uploadIfPresent(files.panProof, 'pan'),
-        uploadIfPresent(files.gstProof, 'gst'),
-        uploadIfPresent(files.licenseProof, 'license'),
+        uploadIfPresent(files.aadhaarZip, 'aadhaar', requestId),
+        uploadIfPresent(files.panProof, 'pan', requestId),
+        uploadIfPresent(files.gstProof, 'gst', requestId),
+        uploadIfPresent(files.licenseProof, 'license', requestId),
       ]);
+
+      if (!aadhaarZipUrl) {
+        throw new Error('Aadhaar upload missing');
+      }
+
+      const documents: Record<string, string> = { aadhaarZipUrl };
+      if (panUrl) documents.panUrl = panUrl;
+      if (gstUrl) documents.gstUrl = gstUrl;
+      if (licenseUrl) documents.licenseUrl = licenseUrl;
 
       const licenseEntry =
         formData.licenseType || formData.licenseNumber || formData.licenseState
@@ -373,7 +458,7 @@ const KycStatusCard: React.FC = () => {
                 number: formData.licenseNumber,
                 state: formData.licenseState,
                 expiry: formData.licenseExpiry,
-                documentUrl: licenseUrl,
+                ...(licenseUrl ? { documentUrl: licenseUrl } : {}),
               },
             ]
           : [];
@@ -395,21 +480,16 @@ const KycStatusCard: React.FC = () => {
         aadhaarShareCode: formData.aadhaarShareCode.trim(),
         licenses: licenseEntry,
         notes: formData.notes.trim(),
-        documents: {
-          aadhaarZipUrl,
-          panUrl,
-          gstUrl,
-          licenseUrl,
-        },
+        documents,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
 
-      const docRef = await addDoc(collection(db, 'kycRequests'), payload);
+      await setDoc(requestDocRef, payload);
       await updateDoc(doc(db, 'users', currentUser.uid), {
         kycStatus: 'pending',
         kycLevel: 'business',
-        kycRequestId: docRef.id,
+        kycRequestId: requestId,
         kycSubmittedAt: serverTimestamp(),
       });
 
@@ -499,11 +579,11 @@ const KycStatusCard: React.FC = () => {
             <span className="font-semibold">What to keep ready (India)</span>
           </div>
           <ul className="list-disc list-inside text-sm text-blue-900 space-y-1">
-            <li>PAN (mandatory) — upload clear front scan; keep it uppercase (e.g., ABCDE1234F).</li>
-            <li>Aadhaar Offline XML ZIP + 4-digit share code — download “Masked Aadhaar” from UIDAI.</li>
+            <li>PAN (mandatory) — upload a clear front scan; keep it uppercase (e.g., ABCDE1234F).</li>
+            <li>Aadhaar offline ZIP/PDF/JPG + 4-digit share code — download masked Aadhaar from UIDAI.</li>
             <li>GSTIN (optional for individuals; required for registered businesses).</li>
             <li>Govt license (CPWD / State PWD / PMAY etc.) with registration number and state.</li>
-            <li>File types: PDF/JPG/PNG; suggested size &lt; 8 MB per file.</li>
+            <li>File types: PDF/JPG/PNG/ZIP; size limits: Aadhaar 8MB, others 5MB.</li>
           </ul>
           <p className="text-xs text-blue-800">
             We store only the last 4 digits of Aadhaar. Reviews typically complete in 1–2 working days (IST).
@@ -644,18 +724,21 @@ const KycStatusCard: React.FC = () => {
                         <Upload className="h-4 w-4" />
                         {files.aadhaarZip ? files.aadhaarZip.name : 'Upload ZIP'}
                       </span>
-                      <span className="text-xs text-gray-500">ZIP</span>
+                      <span className="text-xs text-gray-500">{fileRules.aadhaarZip.helper}</span>
                     </div>
                     <input
                       id="aadhaarZip"
                       type="file"
-                      accept=".zip"
+                      accept={fileRules.aadhaarZip.accept}
                       className="hidden"
                       onChange={(e) => handleFileChange(e, 'aadhaarZip')}
                       disabled={!canSubmit || loading}
                     />
                   </label>
                 </div>
+                <p className="text-xs text-gray-500">
+                  You can upload Aadhaar offline ZIP, or a PDF/JPG copy if ZIP is unavailable.
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="panProof">PAN proof (image/PDF)</Label>
@@ -666,18 +749,19 @@ const KycStatusCard: React.FC = () => {
                         <Upload className="h-4 w-4" />
                         {files.panProof ? files.panProof.name : 'Upload PAN'}
                       </span>
-                      <span className="text-xs text-gray-500">PDF/JPG</span>
+                      <span className="text-xs text-gray-500">{fileRules.panProof.helper}</span>
                     </div>
                     <input
                       id="panProof"
                       type="file"
-                      accept=".pdf,.jpg,.jpeg,.png"
+                      accept={fileRules.panProof.accept}
                       className="hidden"
                       onChange={(e) => handleFileChange(e, 'panProof')}
                       disabled={!canSubmit || loading}
                     />
                   </label>
                 </div>
+                <p className="text-xs text-gray-500">Clear scan of PAN card. {fileRules.panProof.helper}.</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="gstProof">GST certificate (optional)</Label>
@@ -688,18 +772,19 @@ const KycStatusCard: React.FC = () => {
                         <Upload className="h-4 w-4" />
                         {files.gstProof ? files.gstProof.name : 'Upload GST cert'}
                       </span>
-                      <span className="text-xs text-gray-500">PDF/JPG</span>
+                      <span className="text-xs text-gray-500">{fileRules.gstProof.helper}</span>
                     </div>
                     <input
                       id="gstProof"
                       type="file"
-                      accept=".pdf,.jpg,.jpeg,.png"
+                      accept={fileRules.gstProof.accept}
                       className="hidden"
                       onChange={(e) => handleFileChange(e, 'gstProof')}
                       disabled={!canSubmit || loading}
                     />
                   </label>
                 </div>
+                <p className="text-xs text-gray-500">Optional but recommended. {fileRules.gstProof.helper}.</p>
               </div>
             </div>
 
@@ -771,27 +856,28 @@ const KycStatusCard: React.FC = () => {
                   disabled={!canSubmit || loading}
                 />
               </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="licenseProof">License proof</Label>
-                <div className="flex items-center gap-2">
-                  <label className="flex-1">
-                    <div className="flex items-center justify-between rounded-md border px-3 py-2 text-sm cursor-pointer hover:border-blue-300">
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="licenseProof">License proof</Label>
+                  <div className="flex items-center gap-2">
+                    <label className="flex-1">
+                      <div className="flex items-center justify-between rounded-md border px-3 py-2 text-sm cursor-pointer hover:border-blue-300">
                       <span className="flex items-center gap-2 text-gray-700">
                         <Upload className="h-4 w-4" />
                         {files.licenseProof ? files.licenseProof.name : 'Upload license proof'}
                       </span>
-                      <span className="text-xs text-gray-500">PDF/JPG</span>
-                    </div>
-                    <input
-                      id="licenseProof"
-                      type="file"
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      className="hidden"
-                      onChange={(e) => handleFileChange(e, 'licenseProof')}
-                      disabled={!canSubmit || loading}
+                      <span className="text-xs text-gray-500">{fileRules.licenseProof.helper}</span>
+                      </div>
+                      <input
+                        id="licenseProof"
+                        type="file"
+                        accept={fileRules.licenseProof.accept}
+                        className="hidden"
+                        onChange={(e) => handleFileChange(e, 'licenseProof')}
+                        disabled={!canSubmit || loading}
                     />
                   </label>
                 </div>
+                <p className="text-xs text-gray-500">Optional. Upload your latest registration proof. {fileRules.licenseProof.helper}.</p>
               </div>
             </div>
 

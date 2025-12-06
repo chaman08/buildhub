@@ -23,13 +23,13 @@ const PostProjectDialog = ({ open, onOpenChange, onProjectPosted }: PostProjectD
     return null;
   }
 
-  // If user does not have either email or phone verified, show prompt
+  // Require both email and phone verified before posting
   if (!isVerificationComplete()) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-md">
-          <ProfileCompletionRequired 
-            message="You need to verify your email or phone number before posting a project."
+            <ProfileCompletionRequired 
+            message="Verify your email or phone number before posting a project."
           />
         </DialogContent>
       </Dialog>

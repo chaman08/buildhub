@@ -1,12 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Phone, Mail, Edit3, Save, X } from 'lucide-react';
+import { Phone, Mail, Edit3, Save, X, User, Building2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -23,8 +23,25 @@ const ProfileSection: React.FC = () => {
     fullName: userProfile?.fullName || '',
     city: userProfile?.city || '',
     mobile: userProfile?.mobile || '',
-    occupation: userProfile?.occupation || ''
+    occupation: userProfile?.occupation || '',
+    userType: userProfile?.userType || 'customer',
+    companyName: userProfile?.companyName || '',
+    serviceCategory: userProfile?.serviceCategory || '',
+    experience: userProfile?.experience ? String(userProfile.experience) : ''
   });
+
+  useEffect(() => {
+    setFormData({
+      fullName: userProfile?.fullName || '',
+      city: userProfile?.city || '',
+      mobile: userProfile?.mobile || '',
+      occupation: userProfile?.occupation || '',
+      userType: userProfile?.userType || 'customer',
+      companyName: userProfile?.companyName || '',
+      serviceCategory: userProfile?.serviceCategory || '',
+      experience: userProfile?.experience ? String(userProfile.experience) : ''
+    });
+  }, [userProfile]);
 
   const handleSave = async () => {
     if (!currentUser) {
@@ -36,10 +53,33 @@ const ProfileSection: React.FC = () => {
       return;
     }
 
+    const userTypeChanged = formData.userType !== userProfile?.userType;
+
+    if (!formData.fullName || !formData.mobile || !formData.city) {
+      toast({
+        title: "Missing information",
+        description: "Full name, mobile, and city are required.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (formData.userType === 'contractor' && (!formData.companyName || !formData.serviceCategory)) {
+      toast({
+        title: "Contractor details required",
+        description: "Please add Company Name and Service Category to switch to contractor.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       const userRef = doc(db, 'users', currentUser.uid);
       const updateData = {
         ...formData,
+        experience: formData.experience ? parseInt(formData.experience, 10) || 0 : 0,
+        companyName: formData.userType === 'contractor' ? formData.companyName : '',
+        serviceCategory: formData.userType === 'contractor' ? formData.serviceCategory : '',
         updatedAt: new Date()
       };
 
@@ -48,7 +88,11 @@ const ProfileSection: React.FC = () => {
       
       toast({
         title: "Profile Updated",
-        description: "Your profile has been updated successfully."
+        description: userTypeChanged
+          ? `Role switched to ${formData.userType}. Contractor fields ${
+              formData.userType === 'contractor' ? 'saved' : 'hidden for customers'
+            }.`
+          : "Your profile has been updated successfully."
       });
       setIsEditing(false);
     } catch (error: any) {
@@ -194,6 +238,78 @@ const ProfileSection: React.FC = () => {
                   placeholder="e.g., Business Owner, Engineer, etc."
                 />
               </div>
+
+              <div className="md:col-span-2 space-y-2">
+                <Label>Account Type</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <Button
+                    type="button"
+                    variant={formData.userType === 'customer' ? 'default' : 'outline'}
+                    className="w-full h-auto justify-start gap-3"
+                    disabled={!isEditing}
+                    onClick={() => setFormData({...formData, userType: 'customer'})}
+                  >
+                    <User className="h-5 w-5" />
+                    <div className="text-left">
+                      <p className="font-medium">Customer</p>
+                      <p className="text-xs text-muted-foreground">I want to hire contractors</p>
+                    </div>
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant={formData.userType === 'contractor' ? 'default' : 'outline'}
+                    className="w-full h-auto justify-start gap-3"
+                    disabled={!isEditing}
+                    onClick={() => setFormData({...formData, userType: 'contractor'})}
+                  >
+                    <Building2 className="h-5 w-5" />
+                    <div className="text-left">
+                      <p className="font-medium">Contractor</p>
+                      <p className="text-xs text-muted-foreground">I want to offer services</p>
+                    </div>
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Switching to contractor requires company name and service category.
+                </p>
+              </div>
+
+              {formData.userType === 'contractor' && (
+                <>
+                  <div>
+                    <Label htmlFor="companyName">Company Name *</Label>
+                    <Input
+                      id="companyName"
+                      value={formData.companyName}
+                      onChange={(e) => setFormData({...formData, companyName: e.target.value})}
+                      disabled={!isEditing}
+                      required={isEditing}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="serviceCategory">Service Category *</Label>
+                    <Input
+                      id="serviceCategory"
+                      value={formData.serviceCategory}
+                      onChange={(e) => setFormData({...formData, serviceCategory: e.target.value})}
+                      disabled={!isEditing}
+                      required={isEditing}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="experience">Years of Experience</Label>
+                    <Input
+                      id="experience"
+                      type="number"
+                      min="0"
+                      value={formData.experience}
+                      onChange={(e) => setFormData({...formData, experience: e.target.value})}
+                      disabled={!isEditing}
+                    />
+                  </div>
+                </>
+              )}
             </div>
             
             {isEditing && (

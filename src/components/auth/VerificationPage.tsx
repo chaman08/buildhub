@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Mail, Phone, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import { Mail, Phone, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { RecaptchaVerifier, ConfirmationResult } from 'firebase/auth';
+import { useNavigate } from 'react-router-dom';
 
 const VerificationPage: React.FC = () => {
   const [emailOtp, setEmailOtp] = useState('');
@@ -27,6 +28,7 @@ const VerificationPage: React.FC = () => {
     isVerificationComplete
   } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Setup reCAPTCHA
@@ -39,6 +41,18 @@ const VerificationPage: React.FC = () => {
       recaptchaVerifier?.clear();
     };
   }, []);
+
+  // On load, refresh profile once so returning from email link reflects immediately
+  useEffect(() => {
+    const refresh = async () => {
+      try {
+        await refreshUserProfile();
+      } catch (error) {
+        console.error('Error refreshing verification status:', error);
+      }
+    };
+    refresh();
+  }, [refreshUserProfile]);
 
   const handleResendEmail = async () => {
     setLoading(true);
@@ -82,7 +96,7 @@ const VerificationPage: React.FC = () => {
       console.error('Phone OTP error:', error);
       toast({
         title: "Error",
-        description: "Failed to send OTP. Please try again.",
+        description: error?.message || "Failed to send OTP. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -127,30 +141,21 @@ const VerificationPage: React.FC = () => {
     }
   };
 
-  const handleRefreshEmail = async () => {
-    setLoading(true);
-    try {
-      await refreshUserProfile();
-      toast({
-        title: "Profile Updated",
-        description: "Your verification status has been updated"
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: "Failed to refresh verification status. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   if (!userProfile) return null;
 
   const isEmailVerified = userProfile.isEmailVerified;
   const isPhoneVerified = userProfile.isPhoneVerified || phoneVerified;
-  const hasMinimumVerification = isVerificationComplete();
+  const atLeastOneVerified = isVerificationComplete();
+
+  useEffect(() => {
+    if (atLeastOneVerified && userProfile) {
+      const target =
+        userProfile.userType === 'contractor'
+          ? '/contractor-dashboard'
+          : '/dashboard';
+      navigate(target, { replace: true });
+    }
+  }, [atLeastOneVerified, userProfile, navigate]);
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
@@ -158,29 +163,9 @@ const VerificationPage: React.FC = () => {
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-4">Verify Your Account</h1>
           <p className="text-gray-600">
-            {hasMinimumVerification 
-              ? "Great! You can now access the platform. Complete both verifications for full security."
-              : "Please verify at least one contact method to access the platform"
-            }
+            Verify your email (verification link) or phone (6-digit OTP) to continue. Completing both is recommended.
           </p>
         </div>
-
-        {/* Minimum verification info card */}
-        {hasMinimumVerification && !isEmailVerified && !isPhoneVerified && (
-          <Card className="mb-6 bg-blue-50 border-blue-200">
-            <CardContent className="pt-6">
-              <div className="flex items-start space-x-3">
-                <Info className="h-5 w-5 text-blue-600 mt-0.5" />
-                <div>
-                  <h3 className="font-semibold text-blue-900">Account Access Granted</h3>
-                  <p className="text-blue-700 text-sm">
-                    You can now use the platform! For enhanced security, we recommend completing both email and phone verification.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         <div className="space-y-6">
           {/* Email Verification */}
@@ -200,7 +185,7 @@ const VerificationPage: React.FC = () => {
               <CardContent>
                 {isEmailVerified ? (
                   <div className="text-green-600">
-                    ✓ Your email address has been verified
+                    Your email address has been verified.
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -208,14 +193,11 @@ const VerificationPage: React.FC = () => {
                       We've sent a verification email to <strong>{userProfile.email}</strong>
                     </p>
                     <p className="text-sm text-gray-500">
-                      Please check your inbox and click the verification link.
+                      Please check your inbox and click the verification link, then use the return-to-app link in that email to come back here.
                     </p>
                     <div className="flex space-x-2">
                       <Button onClick={handleResendEmail} variant="outline">
                         Resend Email
-                      </Button>
-                      <Button onClick={handleRefreshEmail} variant="outline">
-                        I've Verified
                       </Button>
                     </div>
                   </div>
@@ -240,7 +222,7 @@ const VerificationPage: React.FC = () => {
             <CardContent>
               {isPhoneVerified ? (
                 <div className="text-green-600">
-                  ✓ Your phone number has been verified
+                  Your phone number has been verified.
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -299,25 +281,29 @@ const VerificationPage: React.FC = () => {
           </Card>
 
           {/* Continue to platform button */}
-          {hasMinimumVerification && (
-            <Card className="bg-green-50 border-green-200">
-              <CardContent className="text-center py-6">
-                <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-green-900 mb-2">
-                  Ready to Continue!
-                </h3>
-                <p className="text-green-700 mb-4">
-                  {isEmailVerified && isPhoneVerified 
-                    ? "Both verifications complete! You have full access to all features."
-                    : "You have sufficient verification to access the platform."
-                  }
-                </p>
-                <Button onClick={() => window.location.href = '/'}>
-                  Continue to Dashboard
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+          <Card className="bg-green-50 border-green-200">
+            <CardContent className="text-center py-6">
+              <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-green-900 mb-2">
+                Continue to the platform
+              </h3>
+              <p className="text-green-700 mb-4">
+                Verify at least one method to enter. Verifying both improves account security and recovery.
+              </p>
+              <Button
+                disabled={!atLeastOneVerified}
+                onClick={() => {
+                  const target =
+                    userProfile.userType === 'contractor'
+                      ? '/contractor-dashboard'
+                      : '/dashboard';
+                  window.location.href = target;
+                }}
+              >
+                {atLeastOneVerified ? 'Continue to Dashboard' : 'Pending verification'}
+              </Button>
+            </CardContent>
+          </Card>
         </div>
         
         {/* reCAPTCHA container */}

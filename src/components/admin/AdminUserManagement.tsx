@@ -1,15 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, doc, updateDoc, query, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, query, orderBy, limit, where, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, UserCheck, UserX, Eye } from 'lucide-react';
+import { Search, UserCheck, UserX, Eye, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { UserProfile } from '@/contexts/AuthContext';
+import { toast } from '@/hooks/use-toast';
 
 const AdminUserManagement: React.FC = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -17,6 +18,7 @@ const AdminUserManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -62,6 +64,60 @@ const AdminUserManagement: React.FC = () => {
       fetchUsers();
     } catch (error) {
       console.error('Error updating user status:', error);
+    }
+  };
+
+  const deleteUserAndData = async (user: UserProfile) => {
+    if (!window.confirm(`Delete ${user.fullName || 'this user'} and all related data? This cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingUserId(user.uid);
+    try {
+      // Gather documents tied to the user
+      const [projectsSnap, contractorProjectsSnap, bidsAsContractorSnap, bidsAsCustomerSnap] = await Promise.all([
+        getDocs(query(collection(db, 'projects'), where('postedBy', '==', user.uid))),
+        getDocs(query(collection(db, 'contractor_projects'), where('postedBy', '==', user.uid))),
+        getDocs(query(collection(db, 'bids'), where('contractorId', '==', user.uid))),
+        getDocs(query(collection(db, 'bids'), where('customerId', '==', user.uid)))
+      ]);
+
+      // Delete projects the user posted
+      for (const docSnap of projectsSnap.docs) {
+        await deleteDoc(doc(db, 'projects', docSnap.id));
+      }
+
+      // Delete contractor service listings
+      for (const docSnap of contractorProjectsSnap.docs) {
+        await deleteDoc(doc(db, 'contractor_projects', docSnap.id));
+      }
+
+      // Delete bids (as contractor and customer)
+      const bidIds = new Set<string>();
+      bidsAsContractorSnap.docs.forEach((d) => bidIds.add(d.id));
+      bidsAsCustomerSnap.docs.forEach((d) => bidIds.add(d.id));
+      for (const bidId of bidIds) {
+        await deleteDoc(doc(db, 'bids', bidId));
+      }
+
+      // Finally delete the user document
+      await deleteDoc(doc(db, 'users', user.uid));
+
+      setUsers((prev) => prev.filter((u) => u.uid !== user.uid));
+      setFilteredUsers((prev) => prev.filter((u) => u.uid !== user.uid));
+      toast({
+        title: 'Account deleted',
+        description: `${user.fullName || 'User'} and related data were removed.`
+      });
+    } catch (error) {
+      console.error('Error deleting user and data:', error);
+      toast({
+        title: 'Delete failed',
+        description: 'Could not delete user. Check permissions and retry.',
+        variant: 'destructive'
+      });
+    } finally {
+      setDeletingUserId(null);
     }
   };
 
@@ -156,6 +212,15 @@ const AdminUserManagement: React.FC = () => {
                           )}
                         </DialogContent>
                       </Dialog>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-red-600 border-red-200 hover:bg-red-50"
+                        onClick={() => deleteUserAndData(user)}
+                        disabled={deletingUserId === user.uid}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>

@@ -10,9 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/components/ui/use-toast';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Upload, X, FileText, Image as ImageIcon } from 'lucide-react';
+import { Upload, X, FileText, Image as ImageIcon, User, Building2 } from 'lucide-react';
 import ProfilePictureUpload from '@/components/ProfilePictureUpload';
 
 export const ProfileManagement = () => {
@@ -69,10 +67,10 @@ export const ProfileManagement = () => {
     }));
   };
 
-  const handleSelectChange = (name: string, value: string) => {
+  const handleUserTypeChange = (value: 'customer' | 'contractor') => {
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      userType: value
     }));
   };
 
@@ -452,6 +450,8 @@ export const ProfileManagement = () => {
       return;
     }
 
+    const userTypeChanged = formData.userType !== userProfile.userType;
+
     // Validate required fields before saving
     if (!formData.fullName || !formData.mobile || !formData.city) {
       toast({
@@ -489,7 +489,9 @@ export const ProfileManagement = () => {
       await refreshUserProfile();
       toast({
         title: "Profile Updated",
-        description: "Your profile has been successfully updated and marked as complete.",
+        description: userTypeChanged
+          ? `Account type updated to ${formData.userType}. ${formData.userType === 'contractor' ? 'Fill out your company details so customers can find you.' : 'Contractor-only fields are now hidden.'}`
+          : "Your profile has been successfully updated and marked as complete.",
       });
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -528,7 +530,41 @@ export const ProfileManagement = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Account Type</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <Button
+                type="button"
+                variant={formData.userType === 'customer' ? 'default' : 'outline'}
+                className="w-full h-auto justify-start gap-3"
+                onClick={() => handleUserTypeChange('customer')}
+              >
+                <User className="h-5 w-5" />
+                <div className="text-left">
+                  <p className="font-medium">Customer</p>
+                  <p className="text-xs text-muted-foreground">I want to hire contractors</p>
+                </div>
+              </Button>
+
+              <Button
+                type="button"
+                variant={formData.userType === 'contractor' ? 'default' : 'outline'}
+                className="w-full h-auto justify-start gap-3"
+                onClick={() => handleUserTypeChange('contractor')}
+              >
+                <Building2 className="h-5 w-5" />
+                <div className="text-left">
+                  <p className="font-medium">Contractor</p>
+                  <p className="text-xs text-muted-foreground">I want to offer services</p>
+                </div>
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Switch roles anytime. Contractors need company name and service category.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="fullName">Full Name *</Label>
               <Input
@@ -570,22 +606,6 @@ export const ProfileManagement = () => {
                 value={formData.occupation}
                 onChange={handleInputChange}
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="userType">User Type *</Label>
-              <Select
-                value={formData.userType}
-                onValueChange={(value) => handleSelectChange('userType', value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select user type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="customer">Customer</SelectItem>
-                  <SelectItem value="contractor">Contractor</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
 
             {formData.userType === 'contractor' && (

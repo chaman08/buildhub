@@ -44,7 +44,7 @@ service cloud.firestore {
       allow read: if true;
       // Allow owners to manage their profile; admins can assist with account recovery if needed
       allow create, update: if isOwner(userId) || isAdminUser();
-      allow delete: if false;
+      allow delete: if isAdminUser();
     }
 
     function validProjectStatus(status) {
@@ -62,18 +62,18 @@ service cloud.firestore {
 
       // Updates must keep owner and use allowed status values
       allow update: if signedIn()
-        && resource.data.postedBy == request.auth.uid
-        && (!('status' in request.resource.data) || validProjectStatus(request.resource.data.status));
+        && (!('status' in request.resource.data) || validProjectStatus(request.resource.data.status))
+        && (resource.data.postedBy == request.auth.uid || isAdminUser());
 
       // Deleting a project only checks ownership
-      allow delete: if signedIn() && resource.data.postedBy == request.auth.uid;
+      allow delete: if signedIn() && (resource.data.postedBy == request.auth.uid || isAdminUser());
     }
 
     // Contractor service projects
     match /contractor_projects/{projectId} {
       allow read: if true;
       allow create: if signedIn() && request.resource.data.postedBy == request.auth.uid;
-      allow update, delete: if signedIn() && resource.data.postedBy == request.auth.uid;
+      allow update, delete: if signedIn() && (resource.data.postedBy == request.auth.uid || isAdminUser());
     }
 
     // Bids
@@ -89,10 +89,11 @@ service cloud.firestore {
         request.auth.uid == resource.data.contractorId ||
         request.auth.uid == resource.data.customerId ||
         isProjectOwner(resource.data.projectId) ||
-        isContractorProjectOwner(resource.data.projectId)
+        isContractorProjectOwner(resource.data.projectId) ||
+        isAdminUser()
       );
 
-      allow delete: if false;
+      allow delete: if isAdminUser();
     }
 
     // Chats

@@ -239,8 +239,8 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
       } else if (error.code === 'auth/quota-exceeded') {
         errorMessage = "SMS quota exceeded. Please try again later.";
       } else if (error.code === 'auth/invalid-app-credential') {
-        errorMessage = "Phone verification service is temporarily unavailable. Please try again later or contact support.";
-        console.error('reCAPTCHA configuration issue - check Firebase Console settings');
+        errorMessage = "Phone verification blocked: Firebase rejected the app credential. Confirm the current domain is authorized, the Firebase config (API key/authDomain) matches this project, reCAPTCHA rendered, and App Check (if enforced) is configured.";
+        console.error('reCAPTCHA configuration or App Check issue - check Firebase Console settings');
       } else if (error.code === 'auth/captcha-check-failed') {
         errorMessage = "Security verification failed. Please refresh the page and try again.";
       }

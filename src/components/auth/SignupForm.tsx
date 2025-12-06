@@ -57,6 +57,33 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
     'Interior Design', 'Architecture', 'Landscaping', 'Roofing', 'Flooring'
   ];
 
+  const validatePhone = (value: string) => {
+    // Mirror backend validation in AuthContext (Indian numbers)
+    const phoneRegex = /^\+91[6-9]\d{9}$/;
+    return phoneRegex.test(value);
+  };
+
+  const ensureContractorFields = () => {
+    if (userType !== 'contractor') return true;
+    if (!formData.companyName.trim() || !formData.serviceCategory.trim()) {
+      toast({
+        title: "Missing contractor details",
+        description: "Company name and service category are required for contractors.",
+        variant: "destructive"
+      });
+      return false;
+    }
+    if (!formData.experience || Number(formData.experience) < 0) {
+      toast({
+        title: "Invalid experience",
+        description: "Enter a non-negative number of years.",
+        variant: "destructive"
+      });
+      return false;
+    }
+    return true;
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -111,12 +138,26 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
       return;
     }
 
+    const phone = `${countryCode}${formData.mobile}`;
+    if (!validatePhone(phone)) {
+      toast({
+        title: "Invalid phone number",
+        description: "Use +91 followed by a 10-digit mobile starting with 6-9.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!ensureContractorFields()) {
+      return;
+    }
+
     setLoading(true);
     
     try {
       const userData = {
         userType,
-        mobile: `${countryCode}${formData.mobile}`,
+        mobile: phone,
         city: formData.city,
         ...(userType === 'contractor' && {
           companyName: formData.companyName,
@@ -187,13 +228,27 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
       return;
     }
 
+    const phone = `${countryCode}${formData.mobile}`;
+    if (!validatePhone(phone)) {
+      toast({
+        title: "Invalid phone number",
+        description: "Use +91 followed by a 10-digit mobile starting with 6-9.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!ensureContractorFields()) {
+      return;
+    }
+
     setLoading(true);
     
     try {
       const userData = {
         fullName: formData.fullName,
         userType,
-        mobile: `${countryCode}${formData.mobile}`,
+        mobile: phone,
         city: formData.city,
         ...(userType === 'contractor' && {
           companyName: formData.companyName,

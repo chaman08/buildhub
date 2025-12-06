@@ -538,7 +538,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (recaptchaContainer) {
         recaptchaContainer.innerHTML = '';
       }
-      throw error;
+      const code = error?.code as string | undefined;
+      const messageMap: Record<string, string> = {
+        'auth/invalid-app-credential': 'Phone OTP is blocked: invalid app credential. Check your Firebase web config, reCAPTCHA site key, and App Check settings.',
+        'auth/missing-app-credential': 'Phone OTP is blocked: missing app credential. Ensure reCAPTCHA rendered and Firebase config is correct.',
+        'auth/app-not-authorized': 'This app is not authorized for phone auth. Verify the authorized domain and API key in Firebase.',
+      };
+      const friendly = (code && messageMap[code]) || error?.message || 'Failed to send OTP. Please try again.';
+      throw new Error(friendly);
     }
   };
 
@@ -578,7 +585,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isVerificationComplete = (): boolean => {
     if (!userProfile) return false;
-    return userProfile.isEmailVerified || userProfile.isPhoneVerified;
+    // Allow access if either email or phone is verified
+    return !!(userProfile.isEmailVerified || userProfile.isPhoneVerified);
   };
 
   const isAdmin = (): boolean => {

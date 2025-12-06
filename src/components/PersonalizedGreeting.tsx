@@ -34,6 +34,7 @@ const PersonalizedGreeting: React.FC = () => {
 
   const isVerificationIncomplete = () => {
     if (!userProfile) return true;
+    // Require at least one verification to be complete
     return !userProfile.isEmailVerified && !userProfile.isPhoneVerified;
   };
 
