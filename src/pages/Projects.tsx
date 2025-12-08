@@ -64,6 +64,7 @@ const Projects = () => {
       console.log('Fetching projects from Firestore...');
       const baseQuery = query(
         collection(db, 'projects'),
+        where('status', '==', 'open'), // Only fetch open projects to satisfy Firestore rules (drafts are private)
         orderBy('createdAt', 'desc')
       );
 
@@ -75,10 +76,9 @@ const Projects = () => {
         ...doc.data()
       })) as Project[];
 
-      const openFirstBatch = firstBatch.filter(project => project.status === 'open');
-      setProjects(openFirstBatch);
+      setProjects(firstBatch);
       setAvailableLocations(
-        [...new Set(openFirstBatch.map(project => project.location).filter(Boolean))].sort()
+        [...new Set(firstBatch.map(project => project.location).filter(Boolean))].sort()
       );
       setLoading(false);
 
