@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 import PostProjectDialog from '@/components/dashboard/PostProjectDialog';
-import { createBidAcceptedNotification, createBidRejectedNotification } from '@/utils/notifications';
 import ProjectProgressDialog from '@/components/dashboard/ProjectProgressDialog';
 
 interface AcceptedProject {
@@ -75,7 +75,7 @@ interface ProjectBid {
 }
 
 const AcceptedProjects: React.FC = () => {
-  const { currentUser, userProfile } = useAuth();
+  const { currentUser } = useAuth();
   const [acceptedProjects, setAcceptedProjects] = useState<AcceptedProject[]>([]);
   const [contractorProjects, setContractorProjects] = useState<ContractorProject[]>([]);
   const [projectBids, setProjectBids] = useState<{[projectId: string]: ProjectBid[]}>({});
@@ -237,40 +237,31 @@ const AcceptedProjects: React.FC = () => {
     try {
       const newStatus: 'accepted' | 'rejected' = action === 'accept' ? 'accepted' : 'rejected';
       
-      await updateDoc(doc(db, 'bids', bidId), {
-        status: newStatus,
-        updatedAt: new Date()
-      });
+      if (action === 'accept') {
+        const acceptBidFn = httpsCallable(functions, 'acceptBid');
+        await acceptBidFn({ bidId });
+      } else {
+        await updateDoc(doc(db, 'bids', bidId), {
+          status: newStatus,
+          updatedAt: new Date()
+        });
+      }
 
       // Update local state
       if (selectedProjectForBids) {
-        const updatedBids = projectBids[selectedProjectForBids.id].map(bid =>
-          bid.id === bidId ? { ...bid, status: newStatus } : bid
-        );
+        const updatedBids = projectBids[selectedProjectForBids.id].map(bid => {
+          if (bid.id === bidId) {
+            return { ...bid, status: newStatus };
+          }
+          if (action === 'accept' && (bid.status === 'pending' || bid.status === 'shortlisted')) {
+            return { ...bid, status: 'rejected' as const };
+          }
+          return bid;
+        });
         setProjectBids({
           ...projectBids,
           [selectedProjectForBids.id]: updatedBids
         });
-
-        // Create notification for the contractor
-        const bid = updatedBids.find(b => b.id === bidId);
-        if (bid) {
-          if (action === 'accept') {
-            await createBidAcceptedNotification(
-              bid.contractorId,
-              selectedProjectForBids.id,
-              selectedProjectForBids.title,
-              userProfile?.fullName || 'Customer'
-            );
-          } else {
-            await createBidRejectedNotification(
-              bid.contractorId,
-              selectedProjectForBids.id,
-              selectedProjectForBids.title,
-              userProfile?.fullName || 'Customer'
-            );
-          }
-        }
       }
 
       toast({

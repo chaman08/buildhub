@@ -67,6 +67,20 @@ service firebase.storage {
           get(/databases/(default)/documents/projects/$(projectId)).data.postedBy == request.auth.uid;
       }
 
+      function isProjectParticipant() {
+        return request.auth != null &&
+          exists(/databases/(default)/documents/projects/$(projectId)) &&
+          (
+            get(/databases/(default)/documents/projects/$(projectId)).data.postedBy == request.auth.uid ||
+            get(/databases/(default)/documents/projects/$(projectId)).data.acceptedContractorId == request.auth.uid
+          );
+      }
+
+      function projectIsPublic() {
+        return exists(/databases/(default)/documents/projects/$(projectId)) &&
+          get(/databases/(default)/documents/projects/$(projectId)).data.status != 'draft';
+      }
+
       function sizeOk() {
         return request.resource.size < 10 * 1024 * 1024; // 10 MB max
       }
@@ -84,7 +98,33 @@ service firebase.storage {
 
       // Owners can upload; any signed-in user can view attachments when bidding
       allow write: if isProjectOwner() && sizeOk() && typeOk();
-      allow read: if request.auth != null;
+      // Read allowed only to project participants or when project is not draft
+      allow read: if (request.auth != null) && (isProjectParticipant() || projectIsPublic() || isAdmin());
+    }
+
+    // Chat attachments scoped to a conversation
+    match /chatAttachments/{conversationId}/{filename} {
+      function isChatParticipant() {
+        return request.auth != null
+          && exists(/databases/(default)/documents/chatThreads/$(conversationId))
+          && request.auth.uid in get(/databases/(default)/documents/chatThreads/$(conversationId)).data.participants;
+      }
+
+      function sizeOk() {
+        return request.resource.size < 10 * 1024 * 1024;
+      }
+
+      function typeOk() {
+        return request.resource.contentType in [
+          'image/jpeg',
+          'image/png',
+          'image/webp',
+          'application/pdf'
+        ];
+      }
+
+      allow write: if isChatParticipant() && sizeOk() && typeOk();
+      allow read: if isChatParticipant();
     }
 
     // Default deny

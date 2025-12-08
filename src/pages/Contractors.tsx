@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Search, MapPin, Star, Shield, Phone, Mail } from 'lucide-react';
+import { buildTrustBadges } from '@/utils/trust';
 
 interface Contractor {
   uid: string;
@@ -23,6 +24,10 @@ interface Contractor {
   experience: number;
   verified: boolean;
   kycStatus?: 'not_started' | 'pending' | 'under_review' | 'needs_info' | 'verified' | 'rejected';
+  profileComplete?: boolean;
+  isEmailVerified?: boolean;
+  isPhoneVerified?: boolean;
+  verificationBadge?: boolean;
   rating?: number;
   reviewsCount?: number;
   mobile: string;
@@ -334,93 +339,109 @@ const Contractors = () => {
 
         {/* Contractors Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredContractors.map((contractor, index) => (
-            <Card 
-              key={contractor.uid} 
-              className="hover:shadow-lg transition-shadow animate-card"
-              style={{ animationDelay: `${index * 70}ms` }}
-            >
-              <CardHeader>
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-16 w-16">
-                    <AvatarImage src={contractor.profilePicture} />
-                    <AvatarFallback className="text-lg">
-                      {contractor.fullName.charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-lg">{contractor.fullName}</h3>
-                      {contractor.verified && (
-                        <Shield className="h-4 w-4 text-green-600" />
+          {filteredContractors.map((contractor, index) => {
+            const trustBadges = buildTrustBadges(contractor).slice(0, 3);
+            return (
+              <Card 
+                key={contractor.uid} 
+                className="hover:shadow-lg transition-shadow animate-card"
+                style={{ animationDelay: `${index * 70}ms` }}
+              >
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-16 w-16">
+                      <AvatarImage src={contractor.profilePicture} />
+                      <AvatarFallback className="text-lg">
+                        {contractor.fullName.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-lg">{contractor.fullName}</h3>
+                        {contractor.verified && (
+                          <Shield className="h-4 w-4 text-green-600" />
+                        )}
+                        {contractor.kycStatus === 'verified' && (
+                          <Badge variant="outline" className="text-blue-700 border-blue-200 bg-blue-50">
+                            <Shield className="h-3 w-3 mr-1" /> KYC
+                          </Badge>
+                        )}
+                      </div>
+                      {contractor.companyName && (
+                        <p className="text-sm text-gray-600">{contractor.companyName}</p>
                       )}
-                      {contractor.kycStatus === 'verified' && (
-                        <Badge variant="outline" className="text-blue-700 border-blue-200 bg-blue-50">
-                          <Shield className="h-3 w-3 mr-1" /> KYC
-                        </Badge>
+                      {trustBadges.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {trustBadges.map((badge) => (
+                            <Badge
+                              key={`${contractor.uid}-${badge.label}`}
+                              variant="outline"
+                              className={`${badge.className} border`}
+                            >
+                              {badge.label}
+                            </Badge>
+                          ))}
+                        </div>
                       )}
                     </div>
-                    {contractor.companyName && (
-                      <p className="text-sm text-gray-600">{contractor.companyName}</p>
-                    )}
                   </div>
-                </div>
-              </CardHeader>
-              
-              <CardContent className="space-y-4">
-                <Badge variant="outline" className="w-fit">
-                  {contractor.serviceCategory}
-                </Badge>
+                </CardHeader>
+                
+                <CardContent className="space-y-4">
+                  <Badge variant="outline" className="w-fit">
+                    {contractor.serviceCategory}
+                  </Badge>
 
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <MapPin className="h-4 w-4" />
-                  {contractor.city}
-                </div>
-
-                <div className="text-sm">
-                  <span className="font-medium">{contractor.experience}+ years</span> experience
-                </div>
-
-                {contractor.rating && (
-                  <div className="flex items-center gap-1">
-                    <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                    <span className="font-medium">{contractor.rating}</span>
-                    {contractor.reviewsCount && (
-                      <span className="text-gray-500 text-sm">({contractor.reviewsCount} reviews)</span>
-                    )}
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <MapPin className="h-4 w-4" />
+                    {contractor.city}
                   </div>
-                )}
 
-                {contractor.bio && (
-                  <p className="text-sm text-gray-600 line-clamp-2">{contractor.bio}</p>
-                )}
+                  <div className="text-sm">
+                    <span className="font-medium">{contractor.experience}+ years</span> experience
+                  </div>
 
-                <div className="flex gap-2 pt-4 border-t">
-                  <Button 
-                    size="sm" 
-                    className="flex-1"
-                    onClick={() => handleViewProfile(contractor.uid)}
-                  >
-                    View Profile
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => handleCall(contractor.mobile)}
-                  >
-                    <Phone className="h-4 w-4" />
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => handleEmail(contractor.email)}
-                  >
-                    <Mail className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  {contractor.rating && (
+                    <div className="flex items-center gap-1">
+                      <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                      <span className="font-medium">{contractor.rating}</span>
+                      {contractor.reviewsCount && (
+                        <span className="text-gray-500 text-sm">({contractor.reviewsCount} reviews)</span>
+                      )}
+                    </div>
+                  )}
+
+                  {contractor.bio && (
+                    <p className="text-sm text-gray-600 line-clamp-2">{contractor.bio}</p>
+                  )}
+
+                  <div className="flex gap-2 pt-4 border-t">
+                    <Button 
+                      size="sm" 
+                      className="flex-1"
+                      onClick={() => handleViewProfile(contractor.uid)}
+                    >
+                      View Profile
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleCall(contractor.mobile)}
+                    >
+                      <Phone className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleEmail(contractor.email)}
+                    >
+                      <Mail className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         {filteredContractors.length === 0 && contractors.length > 0 && (

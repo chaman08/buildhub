@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Star } from 'lucide-react';
-import { doc, addDoc, collection, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, addDoc, collection, updateDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -38,6 +38,21 @@ const RatingModal: React.FC<RatingModalProps> = ({
 
     setSubmitting(true);
     try {
+      // Validate project completion and ownership before allowing a rating
+      const projectRef = doc(db, 'projects', projectId);
+      const projectSnap = await getDoc(projectRef);
+      if (!projectSnap.exists()) {
+        throw new Error('Project not found.');
+      }
+      const projectData = projectSnap.data();
+      const isOwner = projectData.postedBy === currentUser.uid;
+      const isCompleted = projectData.status === 'completed';
+      const contractorMatches = projectData.acceptedContractorId === contractorId;
+
+      if (!isOwner || !isCompleted || !contractorMatches) {
+        throw new Error('You can only rate the contractor for a completed project you own.');
+      }
+
       // Add rating to ratings collection
       await addDoc(collection(db, 'ratings'), {
         contractorId,
@@ -62,6 +77,7 @@ const RatingModal: React.FC<RatingModalProps> = ({
       onSubmitted?.();
     } catch (error) {
       console.error('Error submitting rating:', error);
+      alert(error instanceof Error ? error.message : 'Unable to submit rating. Please try again.');
     } finally {
       setSubmitting(false);
     }

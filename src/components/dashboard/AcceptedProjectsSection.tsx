@@ -1,13 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, limit, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Activity, Mail, MessageCircle, Calendar, DollarSign, MapPin, Eye } from 'lucide-react';
+import { Activity, Mail, MessageCircle, Calendar, DollarSign, MapPin, Eye, Image as ImageIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ProjectProgressDialog from './ProjectProgressDialog';
 
@@ -24,6 +24,13 @@ interface AcceptedProject {
   acceptedBidAmount: number;
   timeline: string;
   status: 'in_progress' | 'completed';
+  latestProgress?: {
+    percentComplete: number;
+    status: string;
+    note?: string;
+    photo?: string;
+    createdAt?: any;
+  };
 }
 
 const AcceptedProjectsSection: React.FC = () => {
@@ -70,6 +77,30 @@ const AcceptedProjectsSection: React.FC = () => {
             // Fetch accepted bid details
             const bidDoc = await getDoc(doc(db, 'bids', projectData.acceptedBidId));
             const bidData = bidDoc.exists() ? bidDoc.data() : null;
+
+            // Fetch latest progress update
+            let latestProgress;
+            try {
+              const progressQuery = query(
+                collection(db, 'projectProgress'),
+                where('projectId', '==', projectDoc.id),
+                orderBy('createdAt', 'desc'),
+                limit(1)
+              );
+              const progressSnap = await getDocs(progressQuery);
+              const latest = progressSnap.docs[0]?.data() as any;
+              if (latest) {
+                latestProgress = {
+                  percentComplete: latest.percentComplete ?? 0,
+                  status: latest.status ?? 'in_progress',
+                  note: latest.note,
+                  photo: latest.photos?.[0],
+                  createdAt: latest.createdAt
+                };
+              }
+            } catch (err) {
+              console.warn('Progress fetch failed for project', projectDoc.id, err);
+            }
             
             return {
               id: projectDoc.id,
@@ -83,7 +114,8 @@ const AcceptedProjectsSection: React.FC = () => {
               contractorPhone: contractorData?.mobile || '',
               acceptedBidAmount: bidData?.priceQuoted || 0,
               timeline: bidData?.timeline || 'N/A',
-              status: projectData.status
+              status: projectData.status,
+              latestProgress
             };
           } catch (error) {
             console.error('Error fetching project details:', error);
@@ -108,6 +140,14 @@ const AcceptedProjectsSection: React.FC = () => {
     if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)} L`;
     return `₹${amount.toLocaleString('en-IN')}`;
   };
+
+  const formatProgressDate = (date: any) => {
+    if (!date) return 'N/A';
+    const parsedDate = typeof date.toDate === 'function' ? date.toDate() : new Date(date);
+    if (!(parsedDate instanceof Date) || isNaN(parsedDate.getTime())) return 'N/A';
+    return parsedDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -198,22 +238,64 @@ const AcceptedProjectsSection: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Contractor Information */}
-                <div className="bg-green-50 p-3 rounded-lg border border-green-200">
-                  <h4 className="font-medium text-sm mb-2 text-green-800">👷 Assigned Contractor</h4>
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback className="text-xs bg-green-100">
-                        {project.contractorName.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">{project.contractorName}</p>
-                      <div className="text-xs text-gray-600 mt-1">
-                        <p>📧 {project.contractorEmail}</p>
-                        <p>📞 {project.contractorPhone}</p>
+                {/* Contractor & Progress */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                    <h4 className="font-medium text-sm mb-2 text-green-800">Assigned Contractor</h4>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback className="text-xs bg-green-100">
+                          {project.contractorName.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 space-y-1">
+                        <p className="font-medium text-sm">{project.contractorName}</p>
+                        {project.contractorEmail && (
+                          <p className="text-xs text-gray-700 break-all">{project.contractorEmail}</p>
+                        )}
+                        {project.contractorPhone && (
+                          <p className="text-xs text-gray-700">{project.contractorPhone}</p>
+                        )}
                       </div>
                     </div>
+                  </div>
+
+                  <div className="p-3 rounded-lg border border-gray-200 bg-white">
+                    <div className="flex items-center justify-between mb-1">
+                      <h4 className="font-medium text-sm text-gray-800">Latest progress</h4>
+                      {project.latestProgress && (
+                        <Badge variant="outline" className="capitalize">
+                          {project.latestProgress.status.replace('_', ' ')}
+                        </Badge>
+                      )}
+                    </div>
+                    {project.latestProgress ? (
+                      <div className="text-sm text-gray-700 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-500">Percent complete</span>
+                          <span className="font-semibold">{project.latestProgress.percentComplete ?? 0}%</span>
+                        </div>
+                        {project.latestProgress.note && (
+                          <p className="text-gray-700">Note: {project.latestProgress.note}</p>
+                        )}
+                        <p className="text-xs text-gray-500">
+                          Updated {formatProgressDate(project.latestProgress.createdAt)}
+                        </p>
+                        {project.latestProgress.photo && (
+                          <Button
+                            variant="link"
+                            size="sm"
+                            className="px-0 text-green-700 flex items-center gap-2"
+                            onClick={() => window.open(project.latestProgress?.photo, '_blank')}
+                          >
+                            <ImageIcon className="h-4 w-4" />
+                            View latest photo
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">No progress updates yet.</p>
+                    )}
                   </div>
                 </div>
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, onSnapshot, getDocs } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, getDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,10 +7,12 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { MessageCircle, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { buildConversationId, normalizeParticipants, getCounterpartyId } from '@/utils/chat';
 
 interface ChatData {
   id: string;
   projectId: string;
+  conversationId?: string;
   senderId: string;
   senderName: string;
   senderType: 'customer' | 'contractor';
@@ -20,7 +22,11 @@ interface ChatData {
   participants: string[];
   message: string;
   timestamp: any;
-  read: boolean;
+  attachments?: string[];
+  read?: boolean;
+  readBy?: Record<string, any>;
+  deliveredTo?: Record<string, any>;
+  status?: 'sent' | 'delivered' | 'read';
 }
 
 interface Conversation {
@@ -41,12 +47,13 @@ interface ChatListProps {
 }
 
 const ChatList: React.FC<ChatListProps> = ({ onSelectChat, conversationsCallback }) => {
-  const { currentUser, userProfile } = useAuth();
+  const { currentUser } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!currentUser) return;
+    let unsubscribe: (() => void) | undefined;
 
     const fetchConversations = async () => {
       try {
@@ -57,74 +64,72 @@ const ChatList: React.FC<ChatListProps> = ({ onSelectChat, conversationsCallback
           orderBy('timestamp', 'desc')
         );
 
-        const unsubscribe = onSnapshot(chatsQuery, async (snapshot) => {
+        unsubscribe = onSnapshot(chatsQuery, async (snapshot) => {
           const chatsData = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
           })) as ChatData[];
 
-          // Group by project and recipient
+          // Group by normalized conversation id
           const conversationMap = new Map<string, Conversation>();
 
           for (const chat of chatsData) {
-            let key = '';
-            if (!chat.projectId) {
-              // Direct chat: key by sorted user IDs
-              const ids = [chat.senderId, chat.recipientId].sort();
-              key = ids.join('-');
-            } else {
-              // Project chat: key by project and recipient
-              key = `${chat.projectId}-${chat.recipientId}`;
-            }
-            
-            if (!conversationMap.has(key)) {
+            const sortedParticipants = normalizeParticipants(chat.participants || []);
+            const conversationId = chat.conversationId ||
+              (sortedParticipants.length === 2
+                ? buildConversationId(chat.projectId, sortedParticipants)
+                : chat.id);
+
+            const otherUserId =
+              getCounterpartyId(sortedParticipants, currentUser.uid) ||
+              (chat.senderId === currentUser.uid ? chat.recipientId : chat.senderId);
+            if (!otherUserId) continue;
+
+            const otherName = otherUserId === chat.senderId ? chat.senderName : chat.recipientName;
+            const otherType = otherUserId === chat.senderId ? chat.senderType : chat.recipientType;
+            const messagePreview = chat.message || (chat.attachments?.length ? 'Sent an attachment' : '');
+
+            if (!conversationMap.has(conversationId)) {
               let projectTitle = 'Direct Message';
               if (chat.projectId) {
-                // Get project details
-                const projectQuery = query(
-                  collection(db, 'projects'),
-                  where('__name__', '==', chat.projectId)
-                );
-                const projectSnapshot = await getDocs(projectQuery);
-                const projectData = projectSnapshot.docs[0]?.data();
-                projectTitle = projectData?.title || 'Unknown Project';
+                const projectDoc = await getDoc(doc(db, 'projects', chat.projectId));
+                projectTitle = projectDoc.exists() ? (projectDoc.data()?.title || 'Unknown Project') : 'Unknown Project';
               }
 
-              conversationMap.set(key, {
-                id: key,
+              conversationMap.set(conversationId, {
+                id: conversationId,
                 projectId: chat.projectId,
-                projectTitle: projectTitle,
-                recipientId: chat.recipientId,
-                recipientName: chat.recipientName,
-                recipientType: chat.recipientType,
-                lastMessage: chat.message,
+                projectTitle,
+                recipientId: otherUserId,
+                recipientName: otherName || 'User',
+                recipientType: otherType || 'contractor',
+                lastMessage: messagePreview,
                 lastMessageTime: chat.timestamp,
                 unreadCount: 0
               });
             }
 
-            // Update if this is a more recent message
-            const existing = conversationMap.get(key)!;
-            if (!existing.lastMessageTime || 
+            const existing = conversationMap.get(conversationId)!;
+            if (!existing.lastMessageTime ||
                 (chat.timestamp && chat.timestamp > existing.lastMessageTime)) {
-              existing.lastMessage = chat.message;
+              existing.lastMessage = messagePreview;
               existing.lastMessageTime = chat.timestamp;
             }
 
-            // Count unread messages
-            if (!chat.read && chat.senderId !== currentUser.uid) {
+            const hasRead = chat.readBy ? Boolean(chat.readBy[currentUser.uid]) : chat.read;
+            if (!hasRead && chat.senderId !== currentUser.uid) {
               existing.unreadCount++;
             }
           }
 
-          setConversations(Array.from(conversationMap.values()));
+          const conversationList = Array.from(conversationMap.values());
+          setConversations(conversationList);
           if (conversationsCallback) {
-            conversationsCallback(Array.from(conversationMap.values()));
+            conversationsCallback(conversationList);
           }
           setLoading(false);
         });
 
-        return () => unsubscribe();
       } catch (error) {
         console.error('Error fetching conversations:', error);
         setLoading(false);
@@ -132,6 +137,12 @@ const ChatList: React.FC<ChatListProps> = ({ onSelectChat, conversationsCallback
     };
 
     fetchConversations();
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, [currentUser]);
 
   const formatTime = (timestamp: any) => {

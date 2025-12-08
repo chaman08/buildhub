@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, doc, updateDoc, getDoc, writeBatch } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { collection, query, where, getDocs, doc, updateDoc, getDoc } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Star, Phone, Mail, MessageCircle, CheckCircle, X, ArrowLeft } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
-import { createBidAcceptedNotification, createBidRejectedNotification } from '@/utils/notifications';
+import { buildTrustBadges } from '@/utils/trust';
 
 interface Bid {
   id: string;
@@ -19,6 +19,12 @@ interface Bid {
   contractorName: string;
   contractorEmail?: string;
   contractorPhone?: string;
+  contractorVerified?: boolean;
+  contractorVerificationBadge?: boolean;
+  contractorKycStatus?: 'not_started' | 'pending' | 'under_review' | 'needs_info' | 'verified' | 'rejected';
+  contractorProfileComplete?: boolean;
+  contractorIsEmailVerified?: boolean;
+  contractorIsPhoneVerified?: boolean;
   contractorRating: number;
   priceQuoted: number;
   timeline: string;
@@ -28,13 +34,12 @@ interface Bid {
 }
 
 const BidsSection: React.FC = () => {
-  const { currentUser, userProfile } = useAuth();
+  const { currentUser } = useAuth();
   const [bids, setBids] = useState<Bid[]>([]);
   const [loading, setLoading] = useState(true);
   const [filteredProjectId, setFilteredProjectId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Get project ID from URL if present
     const hash = window.location.hash;
     const projectIdMatch = hash.match(/projectId=([^&]+)/);
     if (projectIdMatch) {
@@ -50,9 +55,6 @@ const BidsSection: React.FC = () => {
     if (!currentUser) return;
 
     try {
-      console.log('Fetching received bids...');
-      
-      // Get all projects posted by current user
       const projectsQuery = query(
         collection(db, 'projects'),
         where('postedBy', '==', currentUser.uid)
@@ -70,7 +72,6 @@ const BidsSection: React.FC = () => {
         return;
       }
 
-      // If filtering by project ID, only get bids for that project
       const bidsQuery = query(
         collection(db, 'bids'),
         where('projectId', 'in', filteredProjectId ? [filteredProjectId] : projectIds)
@@ -80,12 +81,11 @@ const BidsSection: React.FC = () => {
       const bidsData = await Promise.all(
         bidsSnapshot.docs.map(async (bidDoc) => {
           const bidData = bidDoc.data();
-          
-          // Fetch contractor details
+
           try {
             const contractorDoc = await getDoc(doc(db, 'users', bidData.contractorId));
             const contractorData = contractorDoc.exists() ? contractorDoc.data() : null;
-            
+
             return {
               id: bidDoc.id,
               projectId: bidData.projectId,
@@ -94,6 +94,12 @@ const BidsSection: React.FC = () => {
               contractorName: contractorData?.fullName || 'Unknown Contractor',
               contractorEmail: contractorData?.email,
               contractorPhone: contractorData?.mobile,
+              contractorVerified: contractorData?.verified || contractorData?.verificationBadge,
+              contractorVerificationBadge: contractorData?.verificationBadge,
+              contractorKycStatus: contractorData?.kycStatus,
+              contractorProfileComplete: contractorData?.profileComplete,
+              contractorIsEmailVerified: contractorData?.isEmailVerified,
+              contractorIsPhoneVerified: contractorData?.isPhoneVerified,
               contractorRating: contractorData?.rating || 4.0,
               priceQuoted: bidData.priceQuoted,
               timeline: bidData.timeline,
@@ -109,7 +115,6 @@ const BidsSection: React.FC = () => {
       );
 
       const validBids = bidsData.filter(bid => bid !== null) as Bid[];
-      console.log('Received bids fetched:', validBids.length);
       setBids(validBids);
     } catch (error) {
       console.error('Error fetching received bids:', error);
@@ -125,78 +130,60 @@ const BidsSection: React.FC = () => {
   };
 
   const handleAcceptBid = async (bid: Bid) => {
+    const projectAcceptedId = bids.find((b) => b.projectId === bid.projectId && b.status === 'accepted')?.id;
+
+    if (projectAcceptedId && projectAcceptedId !== bid.id) {
+      toast({
+        title: "Bid already accepted",
+        description: "You’ve already accepted another bid for this project.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!(bid.status === 'pending' || bid.status === 'shortlisted')) {
+      toast({
+        title: "Cannot accept",
+        description: "Only pending or shortlisted bids can be accepted.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
-      console.log('Starting bid acceptance process for bid:', bid.id);
-      
-      const batch = writeBatch(db);
-      
-      // Update accepted bid status
-      const acceptedBidRef = doc(db, 'bids', bid.id);
-      console.log('Updating bid document:', bid.id);
-      
-      batch.update(acceptedBidRef, {
-        status: 'accepted',
-        acceptedAt: new Date(),
-        updatedAt: new Date(),
-        projectStatus: 'in_progress'
-      });
+      const acceptBidFn = httpsCallable(functions, 'acceptBid');
+      await acceptBidFn({ bidId: bid.id });
 
-      // Update project status and details
-      const projectRef = doc(db, 'projects', bid.projectId);
-      console.log('Updating project document:', bid.projectId);
-      
-      // First verify the project exists
-      const projectDoc = await getDoc(projectRef);
-      if (!projectDoc.exists()) {
-        throw new Error(`Project ${bid.projectId} not found`);
-      }
-
-      batch.update(projectRef, {
-        status: 'in_progress',
-        acceptedContractorId: bid.contractorId,
-        acceptedBidId: bid.id,
-        acceptedBidAmount: bid.priceQuoted,
-        acceptedTimeline: bid.timeline,
-        updatedAt: new Date()
-      });
-
-      console.log('Committing batch updates...');
-      await batch.commit();
-      console.log('Batch updates committed successfully');
-
-      // Update local state - only update the accepted bid
       setBids(prevBids => 
-        prevBids.map(b => 
-          b.id === bid.id ? { ...b, status: 'accepted' as const } : b
-        )
-      );
-
-      await createBidAcceptedNotification(
-        bid.contractorId,
-        bid.projectId,
-        bid.projectTitle,
-        userProfile?.fullName || 'Customer'
+        prevBids.map((b) => {
+          if (b.projectId !== bid.projectId) return b;
+          if (b.id === bid.id) {
+            return { ...b, status: 'accepted' as const };
+          }
+          if (b.status === 'pending' || b.status === 'shortlisted') {
+            return { ...b, status: 'rejected' as const };
+          }
+          return b;
+        })
       );
 
       toast({
-        title: "Bid Accepted! 🎉",
+        title: "Bid accepted",
         description: `You've accepted ${bid.contractorName}'s bid for ${bid.projectTitle}. Other bids remain available for consideration.`,
       });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Detailed error in handleAcceptBid:', error);
       
-      // More specific error messages based on the error type
       let errorMessage = "Failed to accept bid. Please try again.";
-      
-      if (error instanceof Error) {
-        if (error.message.includes('not found')) {
-          errorMessage = "Project not found. The project may have been deleted.";
-        } else if (error.message.includes('permission-denied')) {
-          errorMessage = "Permission denied. Please make sure you have the right access.";
-        } else if (error.message.includes('already-exists')) {
-          errorMessage = "This bid has already been accepted.";
-        }
+      const code = error?.code as string | undefined;
+
+      if (code === 'permission-denied') {
+        errorMessage = "Only the project owner can accept bids.";
+      } else if (code === 'failed-precondition') {
+        errorMessage = "Bid could not be accepted (already resolved or project already locked).";
+      } else if (error instanceof Error && error.message.includes('not found')) {
+        errorMessage = "Project not found. The project may have been deleted.";
       }
 
       toast({
@@ -208,6 +195,15 @@ const BidsSection: React.FC = () => {
   };
 
   const handleRejectBid = async (bid: Bid) => {
+    if (!(bid.status === 'pending' || bid.status === 'shortlisted')) {
+      toast({
+        title: "Cannot update bid",
+        description: "Only pending or shortlisted bids can be updated.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       const bidRef = doc(db, 'bids', bid.id);
       await updateDoc(bidRef, {
@@ -216,18 +212,10 @@ const BidsSection: React.FC = () => {
         updatedAt: new Date()
       });
 
-      // Update local state
       setBids(prevBids => 
         prevBids.map(b => 
           b.id === bid.id ? { ...b, status: 'rejected' as const } : b
         )
-      );
-
-      await createBidRejectedNotification(
-        bid.contractorId,
-        bid.projectId,
-        bid.projectTitle,
-        userProfile?.fullName || 'Customer'
       );
 
       toast({
@@ -305,153 +293,144 @@ const BidsSection: React.FC = () => {
         </Card>
       ) : (
         <div className="space-y-4">
-          {bids.map((bid) => (
-            <Card key={bid.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex flex-col sm:flex-row items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <CardTitle className="text-base md:text-lg line-clamp-2 pr-2">{bid.projectTitle}</CardTitle>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Badge className={`${getStatusColor(bid.status)} text-xs`} variant="secondary">
-                        {bid.status.charAt(0).toUpperCase() + bid.status.slice(1)}
-                      </Badge>
-                    </div>
-                  </div>
-                  <span className="text-xs md:text-sm text-gray-500 whitespace-nowrap">
-                    {bid.createdAt && new Date(bid.createdAt.toDate()).toLocaleDateString()}
-                  </span>
-                </div>
-              </CardHeader>
-              
-              <CardContent className="space-y-4 pt-0">
-                {/* Contractor Info - Mobile Layout */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <Avatar className="h-10 w-10 md:h-12 md:w-12 flex-shrink-0">
-                      <AvatarFallback className="text-sm">
-                        {bid.contractorName.split(' ').map(n => n[0]).join('')}
-                      </AvatarFallback>
-                    </Avatar>
+          {bids.map((bid) => {
+            const acceptedBidIdForProject = bids.find((b) => b.projectId === bid.projectId && b.status === 'accepted')?.id;
+            const trustBadges = buildTrustBadges({
+              verified: bid.contractorVerified,
+              verificationBadge: bid.contractorVerificationBadge,
+              kycStatus: bid.contractorKycStatus,
+              profileComplete: bid.contractorProfileComplete,
+              isEmailVerified: bid.contractorIsEmailVerified,
+              isPhoneVerified: bid.contractorIsPhoneVerified
+            }).slice(0, 3);
+            return (
+              <Card key={bid.id} className="hover:shadow-lg transition-shadow">
+                <CardHeader className="pb-3">
+                  <div className="flex flex-col sm:flex-row items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-sm md:text-base truncate">{bid.contractorName}</h4>
-                      <div className="flex items-center gap-1">
-                        <Star className="h-3 w-3 md:h-4 md:w-4 text-yellow-500 fill-current" />
-                        <span className="text-xs md:text-sm text-gray-600">{bid.contractorRating}</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Price and Timeline - Stacked on mobile */}
-                  <div className="w-full sm:w-auto text-left sm:text-right">
-                    <div className="font-semibold text-base md:text-lg text-green-600">{formatBudget(bid.priceQuoted)}</div>
-                    <div className="text-xs md:text-sm text-gray-500">Timeline: {bid.timeline}</div>
-                  </div>
-                </div>
-
-                {/* Contact Info for Accepted Bids */}
-                {bid.status === 'accepted' && (
-                  <div className="bg-green-50 p-3 rounded-lg">
-                    <h5 className="font-medium text-sm text-green-800 mb-2">Contact Information</h5>
-                    <div className="space-y-1 text-sm text-green-700">
-                      {bid.contractorEmail && (
-                        <div className="flex items-center gap-2">
-                          <Mail className="h-3 w-3" />
-                          <span className="truncate">{bid.contractorEmail}</span>
-                        </div>
-                      )}
-                      {bid.contractorPhone && (
-                        <div className="flex items-center gap-2">
-                          <Phone className="h-3 w-3" />
-                          <span>{bid.contractorPhone}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Message */}
-                <div className="bg-gray-50 p-3 rounded-lg">
-                  <p className="text-gray-600 text-sm leading-relaxed">
-                    "{bid.message}"
-                  </p>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex flex-col gap-3 pt-4 border-t">
-                  {bid.status === 'pending' && (
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <Button 
-                        size="sm" 
-                        className="w-full sm:flex-1 text-xs md:text-sm"
-                        onClick={() => handleAcceptBid(bid)}
-                      >
-                        <CheckCircle className="h-3 w-3 md:h-4 md:w-4 mr-1" />
-                        Accept Bid
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="w-full sm:flex-1 text-xs md:text-sm"
-                        onClick={() => handleRejectBid(bid)}
-                      >
-                        <X className="h-3 w-3 md:h-4 md:w-4 mr-1" />
-                        Reject
-                      </Button>
-                    </div>
-                  )}
-                  
-                  {bid.status === 'accepted' && (
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <div className="flex-1 text-center py-2">
-                        <Badge className="bg-green-100 text-green-800 text-xs">
-                          ✅ Accepted - Contact details above
+                      <CardTitle className="text-base md:text-lg line-clamp-2 pr-2">{bid.projectTitle}</CardTitle>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Badge className={`${getStatusColor(bid.status)} text-xs`} variant="secondary">
+                          {bid.status.charAt(0).toUpperCase() + bid.status.slice(1)}
                         </Badge>
                       </div>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="text-xs md:text-sm"
-                        onClick={() => handleRejectBid(bid)}
-                      >
-                        <X className="h-3 w-3 md:h-4 md:w-4 mr-1" />
-                        Withdraw
-                      </Button>
                     </div>
-                  )}
-                  
-                  {bid.status === 'rejected' && (
-                    <div className="text-center py-2">
-                      <Badge className="bg-red-100 text-red-800 text-xs">
-                        ❌ Rejected
-                      </Badge>
-                    </div>
-                  )}
-                  
-                  {/* Communication Buttons */}
-                  <div className="flex gap-2 justify-center sm:justify-start">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex-1 sm:flex-none text-xs"
-                      onClick={() => window.location.href = `mailto:${bid.contractorEmail}`}
-                    >
-                      <Mail className="h-3 w-3 md:h-4 md:w-4 mr-1" />
-                      <span className="hidden xs:inline">Email</span>
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex-1 sm:flex-none text-xs"
-                      onClick={() => window.location.href = '/messages'}
-                    >
-                      <MessageCircle className="h-3 w-3 md:h-4 md:w-4 mr-1" />
-                      <span className="hidden xs:inline">Chat</span>
-                    </Button>
+                    <span className="text-xs md:text-sm text-gray-500 whitespace-nowrap">
+                      {bid.createdAt && new Date(bid.createdAt.toDate()).toLocaleDateString()}
+                    </span>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardHeader>
+                
+                <CardContent className="space-y-4 pt-0">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <Avatar className="h-10 w-10 md:h-12 md:w-12 flex-shrink-0">
+                        <AvatarFallback className="text-sm">
+                          {bid.contractorName.split(' ').map(n => n[0]).join('')}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium text-sm md:text-base truncate">{bid.contractorName}</h4>
+                        <div className="flex items-center gap-1">
+                          <Star className="h-3 w-3 md:h-4 md:w-4 text-yellow-500 fill-current" />
+                          <span className="text-xs md:text-sm text-gray-600">{bid.contractorRating}</span>
+                        </div>
+                        {trustBadges.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-1">
+                            {trustBadges.map((badge) => (
+                              <Badge
+                                key={`${bid.id}-${badge.label}`}
+                                variant="outline"
+                                className={`${badge.className} border`}
+                              >
+                                {badge.label}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="w-full sm:w-auto text-left sm:text-right">
+                      <div className="font-semibold text-base md:text-lg text-green-600">{formatBudget(bid.priceQuoted)}</div>
+                      <div className="text-xs md:text-sm text-gray-500">Timeline: {bid.timeline}</div>
+                    </div>
+                  </div>
+
+                  {bid.status === 'accepted' && (
+                    <div className="bg-green-50 p-3 rounded-lg">
+                      <h5 className="font-medium text-sm text-green-800 mb-2">Contact Information</h5>
+                      <div className="space-y-1 text-sm text-green-700">
+                        {bid.contractorEmail && (
+                          <div className="flex items-center gap-2">
+                            <Mail className="h-3 w-3" />
+                            <span className="truncate">{bid.contractorEmail}</span>
+                          </div>
+                        )}
+                        {bid.contractorPhone && (
+                          <div className="flex items-center gap-2">
+                            <Phone className="h-3 w-3" />
+                            <span>{bid.contractorPhone}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <p className="text-gray-600 text-sm leading-relaxed">
+                      "{bid.message}"
+                    </p>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-col gap-3 pt-4 border-t">
+                    {(bid.status === 'pending' || bid.status === 'shortlisted') && (
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <Button 
+                          size="sm" 
+                          className="w-full sm:flex-1 text-xs md:text-sm"
+                          onClick={() => handleAcceptBid(bid)}
+                          disabled={!!acceptedBidIdForProject && acceptedBidIdForProject !== bid.id}
+                        >
+                          <CheckCircle className="h-3 w-3 md:h-4 md:w-4 mr-1" />
+                          {acceptedBidIdForProject && acceptedBidIdForProject !== bid.id ? 'Accepted elsewhere' : 'Accept Bid'}
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full sm:flex-1 text-xs md:text-sm"
+                          onClick={() => handleRejectBid(bid)}
+                          disabled={!!acceptedBidIdForProject && acceptedBidIdForProject !== bid.id}
+                        >
+                          <X className="h-3 w-3 md:h-4 md:w-4 mr-1" />
+                          Reject
+                        </Button>
+                      </div>
+                    )}
+                    
+                    {bid.status === 'accepted' && (
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <div className="flex-1 text-center py-2">
+                          <Badge className="bg-green-100 text-green-800 text-xs">
+                            Accepted - Contact details above
+                          </Badge>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {bid.status === 'rejected' && (
+                      <div className="text-center py-2">
+                        <Badge className="bg-red-100 text-red-800 text-xs">
+                          Rejected
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

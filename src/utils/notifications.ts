@@ -9,7 +9,7 @@ interface CreateNotificationParams {
   type: NotificationType;
   projectId?: string;
   projectTitle?: string;
-  senderId?: string;
+  senderId: string;
   senderName?: string;
 }
 
@@ -22,6 +22,10 @@ export const createNotification = async ({
   senderId,
   senderName
 }: CreateNotificationParams) => {
+  if (!senderId) {
+    console.error('Sender ID is required to create a notification');
+    return;
+  }
   try {
     await addDoc(collection(db, 'notifications'), {
       recipientId,
@@ -44,7 +48,8 @@ export const createBidAcceptedNotification = async (
   contractorId: string,
   projectId: string,
   projectTitle: string,
-  customerName: string
+  customerName: string,
+  senderId: string
 ) => {
   await createNotification({
     recipientId: contractorId,
@@ -52,6 +57,7 @@ export const createBidAcceptedNotification = async (
     type: 'bid_update',
     projectId,
     projectTitle,
+    senderId,
     senderName: customerName
   });
 };
@@ -60,7 +66,8 @@ export const createBidRejectedNotification = async (
   contractorId: string,
   projectId: string,
   projectTitle: string,
-  customerName: string
+  customerName: string,
+  senderId: string
 ) => {
   await createNotification({
     recipientId: contractorId,
@@ -68,6 +75,7 @@ export const createBidRejectedNotification = async (
     type: 'bid_update',
     projectId,
     projectTitle,
+    senderId,
     senderName: customerName
   });
 };
@@ -77,7 +85,8 @@ export const createPaymentNotification = async (
   projectId: string,
   projectTitle: string,
   amount: number,
-  customerName: string
+  customerName: string,
+  senderId: string
 ) => {
   await createNotification({
     recipientId: contractorId,
@@ -85,6 +94,7 @@ export const createPaymentNotification = async (
     type: 'payment',
     projectId,
     projectTitle,
+    senderId,
     senderName: customerName
   });
 };
@@ -94,7 +104,8 @@ export const createReviewNotification = async (
   projectId: string,
   projectTitle: string,
   customerName: string,
-  rating: number
+  rating: number,
+  senderId: string
 ) => {
   await createNotification({
     recipientId: contractorId,
@@ -102,6 +113,7 @@ export const createReviewNotification = async (
     type: 'review',
     projectId,
     projectTitle,
+    senderId,
     senderName: customerName
   });
 };

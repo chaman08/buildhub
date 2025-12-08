@@ -19,6 +19,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { evaluateTrustGate } from '@/utils/trust';
 
 const bidSchema = z.object({
   priceQuoted: z.number().min(1, 'Price must be greater than 0'),
@@ -52,12 +53,14 @@ interface ContractorBidModalProps {
 }
 
 const ContractorBidModal = ({ open, onOpenChange, project, onBidSubmitted }: ContractorBidModalProps) => {
-  const { currentUser, userProfile, isVerificationComplete } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const requiresKyc =
     (project?.budget || 0) >= 100000 || (project?.projectType === 'government');
   const kycVerified = userProfile?.kycStatus === 'verified';
+  const trustGate = evaluateTrustGate(userProfile, 'bid', { requireKyc: userProfile?.userType === 'contractor' });
+  const needsStrictKyc = requiresKyc && !kycVerified;
 
   const form = useForm<BidFormData>({
     resolver: zodResolver(bidSchema),
@@ -78,10 +81,12 @@ const ContractorBidModal = ({ open, onOpenChange, project, onBidSubmitted }: Con
       return;
     }
 
-    if (requiresKyc && !kycVerified) {
+    if (!trustGate.allowed || needsStrictKyc) {
       toast({
-        title: 'KYC verification required',
-        description: 'Complete KYC to bid on high-value or government projects.',
+        title: 'Update your profile',
+        description: needsStrictKyc
+          ? 'This project requires verified KYC before bidding.'
+          : trustGate.reason || 'Complete your profile to place a bid.',
         variant: 'destructive',
       });
       return;
@@ -139,13 +144,25 @@ const ContractorBidModal = ({ open, onOpenChange, project, onBidSubmitted }: Con
     return `₹${amount.toLocaleString('en-IN')}`;
   };
   
-  // Require email or phone verified before bidding
-  if (!isVerificationComplete()) {
+  const gatingMessage = (() => {
+    if (!currentUser || !userProfile) {
+      return 'Please log in to place a bid.';
+    }
+    if (!trustGate.allowed) {
+      return trustGate.reason || 'Complete your profile to place a bid.';
+    }
+    if (needsStrictKyc) {
+      return 'This project requires verified KYC before you can bid.';
+    }
+    return 'Complete your profile to place a bid.';
+  })();
+
+  if (!currentUser || !userProfile || !trustGate.allowed || needsStrictKyc) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent>
-            <ProfileCompletionRequired 
-            message="Verify your email or phone number to place a bid."
+          <ProfileCompletionRequired 
+            message={gatingMessage}
           />
         </DialogContent>
       </Dialog>

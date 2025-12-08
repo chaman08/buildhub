@@ -1,23 +1,45 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
+  serverTimestamp,
+  doc,
+  updateDoc,
+  getDoc,
+  setDoc,
+} from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, functions, storage } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Send, MessageCircle } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Send, MessageCircle, Paperclip, File, Check, CheckCheck, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import { evaluateTrustGate } from '@/utils/trust';
+import { buildConversationId, normalizeParticipants } from '@/utils/chat';
 
 interface ChatMessage {
   id: string;
   projectId: string;
+  conversationId?: string;
   senderId: string;
   senderName: string;
   senderType: 'customer' | 'contractor';
+  recipientId: string;
   message: string;
+  attachments?: string[];
   timestamp: any;
-  read: boolean;
+  read?: boolean;
+  deliveredTo?: Record<string, any>;
+  readBy?: Record<string, any>;
+  status?: 'sent' | 'delivered' | 'read';
   participants: string[];
 }
 
@@ -37,48 +59,62 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   recipientType
 }) => {
   const { currentUser, userProfile } = useAuth();
+  const { toast } = useToast();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const participants = useMemo(
+    () => (currentUser ? normalizeParticipants([currentUser.uid, recipientId]) : []),
+    [currentUser, recipientId]
+  );
+
+  const conversationId = useMemo(() => {
+    if (!currentUser || !recipientId) return '';
+    try {
+      return buildConversationId(projectId, participants);
+    } catch {
+      return '';
+    }
+  }, [currentUser, projectId, participants, recipientId]);
 
   useEffect(() => {
-    if (!currentUser || !recipientId) return;
+    if (!currentUser || !recipientId || !conversationId) return;
 
-    const participants = [currentUser.uid, recipientId].sort();
-
-    // Query for messages in this conversation
-    const messagesQuery = projectId 
-      ? query(
-          collection(db, 'chats'),
-          where('projectId', '==', projectId),
-          where('participants', 'array-contains', currentUser.uid), // Still useful for project-based filtering
-          orderBy('timestamp', 'asc')
-        )
-      : query(
-          collection(db, 'chats'),
-          where('participants', '==', participants),
-          orderBy('timestamp', 'asc')
-        );
+    const messagesQuery = query(
+      collection(db, 'chats'),
+      where('participants', 'array-contains', currentUser.uid),
+      orderBy('timestamp', 'asc')
+    );
 
     const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
-      const messagesData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as ChatMessage[];
-      
-      // For project-based chats, we might still need to filter if multiple parties are involved
-      if (projectId) {
-        setMessages(messagesData.filter(msg => 
-          msg.participants.includes(currentUser.uid) && msg.participants.includes(recipientId)
-        ));
-      } else {
-        setMessages(messagesData);
-      }
+      const messagesData = snapshot.docs
+        .map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as ChatMessage[];
+
+      const filtered = messagesData.filter((msg) => {
+        const msgParticipants = normalizeParticipants(msg.participants || []);
+        const samePair =
+          participants.length === 2 &&
+          msgParticipants.length === 2 &&
+          msgParticipants[0] === participants[0] &&
+          msgParticipants[1] === participants[1];
+        const sameProject = (msg.projectId || '') === (projectId || '');
+        const matchesConversation = msg.conversationId === conversationId;
+        return (matchesConversation || (samePair && sameProject));
+      });
+
+      setMessages(filtered);
     });
 
     return () => unsubscribe();
-  }, [projectId, currentUser, recipientId]);
+  }, [conversationId, currentUser, recipientId, participants, projectId]);
 
   useEffect(() => {
     scrollToBottom();
@@ -88,48 +124,150 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const ensureThreadDocument = async () => {
+    if (!conversationId || participants.length !== 2) return;
+    const threadRef = doc(db, 'chatThreads', conversationId);
+    const snap = await getDoc(threadRef);
+    if (!snap.exists()) {
+      await setDoc(
+        threadRef,
+        {
+          participants,
+          projectId: projectId || '',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        },
+        { merge: true }
+      );
+    }
+  };
+
+  const uploadSelectedAttachments = async (): Promise<string[]> => {
+    if (!attachments.length || !conversationId) return [];
+    setUploading(true);
+    try {
+      await ensureThreadDocument();
+      const uploads = attachments.slice(0, 5).map(async (file) => {
+        if (file.size > 10 * 1024 * 1024) {
+          throw new Error(`${file.name} is larger than 10MB`);
+        }
+        const storageRef = ref(storage, `chatAttachments/${conversationId}/${Date.now()}_${file.name}`);
+        await uploadBytes(storageRef, file, { contentType: file.type });
+        return getDownloadURL(storageRef);
+      });
+      return await Promise.all(uploads);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const sendMessage = async () => {
-    if (!newMessage.trim() || !currentUser || !userProfile) return;
+    if (!newMessage.trim() && attachments.length === 0) return;
+    if (!currentUser || !userProfile || participants.length !== 2 || !conversationId) {
+      toast({
+        title: 'Sign in required',
+        description: 'Log in to send messages.',
+        variant: 'destructive'
+      });
+      return;
+    }
 
-    const participants = [currentUser.uid, recipientId].sort();
-    const optimisticMessage: ChatMessage = {
-      id: `optimistic-${Date.now()}`,
-      projectId: projectId || '',
-      senderId: currentUser.uid,
-      senderName: userProfile.fullName,
-      senderType: userProfile.userType,
-      message: newMessage.trim(),
-      timestamp: new Date(),
-      read: false,
-      participants: participants,
-    };
-
-    setMessages(prevMessages => [...prevMessages, optimisticMessage]);
-    setNewMessage('');
-    scrollToBottom();
+    const gate = evaluateTrustGate(userProfile, 'message', { requireKyc: userProfile.userType === 'contractor' });
+    if (!gate.allowed) {
+      toast({
+        title: 'Update your profile',
+        description: gate.reason || 'Complete verification to send messages.',
+        variant: 'destructive'
+      });
+      return;
+    }
 
     setLoading(true);
     try {
-      await addDoc(collection(db, 'chats'), {
+      await ensureThreadDocument();
+      const attachmentUrls = await uploadSelectedAttachments();
+      const createChat = httpsCallable(functions, 'createChatMessage');
+      await createChat({
         projectId: projectId || '',
+        recipientId,
+        recipientName,
+        recipientType,
+        message: newMessage.trim(),
+        participants,
+        attachments: attachmentUrls
+      });
+      setNewMessage('');
+      setAttachments([]);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast({
+        title: 'Message not sent',
+        description: 'Please try again in a moment.',
+        variant: 'destructive'
+      });
+      setMessages(prev => [...prev, {
+        id: `error-${Date.now()}`,
+        projectId: projectId || '',
+        conversationId: conversationId || '',
         senderId: currentUser.uid,
         senderName: userProfile.fullName,
         senderType: userProfile.userType,
         recipientId,
-        recipientName,
-        recipientType,
-        participants: participants,
-        message: newMessage.trim(),
-        timestamp: serverTimestamp(),
-        read: false
-      });
-    } catch (error) {
-      console.error('Error sending message:', error);
-      // Optional: Remove the optimistic message on error
-      setMessages(prevMessages => prevMessages.filter(msg => msg.id !== optimisticMessage.id));
+        message: newMessage.trim() || '(failed to send)',
+        attachments: [],
+        timestamp: new Date(),
+        deliveredTo: { [currentUser.uid]: new Date() },
+        readBy: { [currentUser.uid]: new Date() },
+        status: 'sent',
+        participants
+      }]);
     } finally {
       setLoading(false);
+      scrollToBottom();
     }
+  };
+
+  // Mark messages as read when viewing
+  useEffect(() => {
+    const markRead = async () => {
+      if (!currentUser) return;
+      const unread = messages.filter(
+        (m) => m.senderId !== currentUser.uid && !(m.readBy && m.readBy[currentUser.uid])
+      );
+      for (const msg of unread) {
+        try {
+          await updateDoc(doc(db, 'chats', msg.id), {
+            [`deliveredTo.${currentUser.uid}`]: serverTimestamp(),
+            [`readBy.${currentUser.uid}`]: serverTimestamp(),
+            status: 'read'
+          });
+        } catch (err) {
+          console.error('Failed to mark chat message read', err);
+        }
+      }
+    };
+    if (messages.length) {
+      markRead();
+    }
+  }, [messages, currentUser, conversationId]);
+
+  const handleAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const next = [...attachments, ...files].slice(0, 5);
+    if (attachments.length + files.length > 5) {
+      toast({
+        title: 'Too many files',
+        description: 'You can attach up to 5 files per message.',
+        variant: 'destructive'
+      });
+    }
+    setAttachments(next);
+    e.target.value = '';
+  };
+
+  const removeAttachment = (name: string) => {
+    setAttachments((prev) => prev.filter((file) => file.name !== name));
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -152,6 +290,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     } catch {
       return '';
     }
+  };
+
+  const messageStatusLabel = (message: ChatMessage) => {
+    if (message.senderId !== currentUser?.uid) return '';
+    if ((message.readBy && message.readBy[recipientId]) || message.status === 'read') {
+      return 'Read';
+    }
+    if ((message.deliveredTo && message.deliveredTo[recipientId]) || message.status === 'delivered') {
+      return 'Delivered';
+    }
+    return 'Sent';
   };
 
   return (
@@ -179,6 +328,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           ) : (
             messages.map((message) => {
               const isOwnMessage = message.senderId === currentUser?.uid;
+              const status = messageStatusLabel(message);
               
               return (
                 <div
@@ -188,7 +338,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                   {!isOwnMessage && (
                     <Avatar className="h-8 w-8 mt-1">
                       <AvatarFallback>
-                        {message.senderName.charAt(0)}
+                        {message.senderName?.charAt(0) || 'U'}
                       </AvatarFallback>
                     </Avatar>
                   )}
@@ -198,17 +348,47 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                       <p className="text-xs text-gray-500 mb-1">{message.senderName}</p>
                     )}
                     <div
-                      className={`rounded-lg px-3 py-2 ${
+                      className={`rounded-lg px-3 py-2 space-y-2 ${
                         isOwnMessage
                           ? 'bg-blue-500 text-white'
                           : 'bg-gray-100 text-gray-900'
                       }`}
                     >
-                      <p className="text-sm whitespace-pre-wrap">{message.message}</p>
-                      <p className={`text-xs mt-1 ${
+                      {message.message && (
+                        <p className="text-sm whitespace-pre-wrap">{message.message}</p>
+                      )}
+                      {message.attachments && message.attachments.length > 0 && (
+                        <div className="space-y-1">
+                          {message.attachments.map((url, idx) => (
+                            <a
+                              key={`${message.id}-att-${idx}`}
+                              href={url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className={`flex items-center gap-2 text-sm underline ${isOwnMessage ? 'text-blue-100 hover:text-white' : 'text-blue-700 hover:text-blue-900'}`}
+                            >
+                              <File className="h-4 w-4" />
+                              <span className="truncate max-w-[180px]">
+                                {url.split('/').pop()?.split('?')[0] || `Attachment ${idx + 1}`}
+                              </span>
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                      <p className={`text-xs mt-1 flex items-center gap-2 ${
                         isOwnMessage ? 'text-blue-100' : 'text-gray-500'
                       }`}>
                         {formatTime(message.timestamp)}
+                        {isOwnMessage && status && (
+                          <span className="inline-flex items-center gap-1">
+                            {status === 'Read' ? (
+                              <CheckCheck className="h-3 w-3" />
+                            ) : (
+                              <Check className="h-3 w-3" />
+                            )}
+                            {status}
+                          </span>
+                        )}
                       </p>
                     </div>
                   </div>
@@ -230,7 +410,42 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
       {/* Message Input */}
       <div className="p-4 border-t">
+        {attachments.length > 0 && (
+          <div className="pb-2 flex flex-wrap gap-2">
+            {attachments.map((file) => (
+              <Badge key={file.name} variant="secondary" className="flex items-center gap-2 py-1 px-2">
+                <File className="h-3 w-3" />
+                <span className="max-w-[160px] truncate text-xs">{file.name}</span>
+                <button
+                  type="button"
+                  onClick={() => removeAttachment(file.name)}
+                  className="text-gray-500 hover:text-gray-700"
+                  aria-label={`Remove ${file.name}`}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            ))}
+          </div>
+        )}
         <div className="flex gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/*,.pdf"
+            onChange={handleAttachmentChange}
+            className="hidden"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={loading || uploading}
+          >
+            <Paperclip className="h-4 w-4" />
+          </Button>
           <Input
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
@@ -241,7 +456,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           />
           <Button
             onClick={sendMessage}
-            disabled={!newMessage.trim() || loading}
+            disabled={(!newMessage.trim() && attachments.length === 0) || loading || uploading}
             size="sm"
           >
             <Send className="h-4 w-4" />
