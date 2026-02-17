@@ -11,9 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MapPin, Calendar, DollarSign, ArrowLeft, Phone, Mail, MessageCircle, Star, Heart, ShieldCheck, ListChecks, Handshake } from 'lucide-react';
+import { MapPin, Calendar, DollarSign, ArrowLeft, Phone, Mail, MessageCircle, Star, Heart, ShieldCheck, ListChecks, Handshake, File } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import BidFormModal from '@/components/BidFormModal';
 import ChatInterface from '@/components/chat/ChatInterface';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -153,7 +152,7 @@ const ProjectDetail = () => {
       const projectDoc = await getDoc(doc(db, 'projects', projectId));
       if (projectDoc.exists()) {
         setProject({ id: projectDoc.id, ...projectDoc.data() } as Project);
-        
+
         const bidsQuery = query(
           collection(db, 'bids'),
           where('projectId', '==', projectId)
@@ -237,23 +236,60 @@ const ProjectDetail = () => {
   }, [project?.id, bids]);
 
   const persistHandoff = async (next: ProjectHandoff) => {
-    if (!project) return;
+    if (!project || !currentUser) return;
 
     try {
       setHandoffSaving(true);
+
+      // Construct the clean data object to match Firestore security rules
+      const handoffData = {
+        projectId: project.id,
+        milestones: (next.milestones || []).map(m => ({
+          id: m.id,
+          title: m.title,
+          status: m.status,
+          ...(m.dueDate ? { dueDate: m.dueDate } : {}),
+          ...(typeof m.amount === 'number' ? { amount: m.amount } : {})
+        })),
+        escrow: {
+          enabled: !!next.escrow?.enabled,
+          ownerConfirmed: !!next.escrow?.ownerConfirmed,
+          contractorConfirmed: !!next.escrow?.contractorConfirmed
+        },
+        kickoff: {
+          owner: next.kickoff?.owner || {},
+          contractor: next.kickoff?.contractor || {}
+        },
+        updatedAt: serverTimestamp(),
+        updatedBy: currentUser.uid
+      };
+
+      console.log('Saving handoff data:', handoffData);
+
       await setDoc(
         doc(db, 'projectHandoffs', project.id),
-        {
-          ...next,
-          projectId: project.id,
-          updatedAt: serverTimestamp(),
-          updatedBy: currentUser?.uid || null
-        },
+        handoffData,
         { merge: true }
       );
+
       setHandoff(next);
-    } catch (error) {
+      toast({
+        title: "Progress saved",
+        description: "Project handoff details updated successfully.",
+      });
+    } catch (error: any) {
       console.error('Error saving handoff:', error);
+
+      let errorMessage = "Failed to update handoff details.";
+      if (error?.code === 'permission-denied') {
+        errorMessage = "Permission denied. Please ensure you are the project owner or the accepted contractor, and that the bid has been officially accepted.";
+      }
+
+      toast({
+        title: "Error saving",
+        description: errorMessage,
+        variant: "destructive"
+      });
     } finally {
       setHandoffSaving(false);
     }
@@ -297,9 +333,9 @@ const ProjectDetail = () => {
 
   const handleUpdateMilestoneStatus = async (id: string) => {
     if (!project || (!isOwner && !isAcceptedContractor) || !handoff) return;
-    const next = {
-      ...(handoff ?? defaultHandoff(project.id)),
-      milestones: (handoff?.milestones || []).map((m) =>
+    const next: ProjectHandoff = {
+      ...handoff,
+      milestones: handoff.milestones.map((m) =>
         m.id === id ? { ...m, status: nextMilestoneStatus(m.status) } : m
       )
     };
@@ -363,9 +399,8 @@ const ProjectDetail = () => {
         completedAt: serverTimestamp()
       });
 
-      setProject({ ...project, status: 'completed' });
+      setProject(prev => prev ? { ...prev, status: 'completed' } : prev);
 
-      // Show rating modal if there's an accepted contractor
       if (acceptedBid) {
         setSelectedContractor({
           id: acceptedBid.contractorId,
@@ -442,7 +477,7 @@ const ProjectDetail = () => {
       if (!customerDoc.exists()) return;
 
       const customerData = customerDoc.data();
-      
+
       const createChat = httpsCallable(functions, 'createChatMessage');
       await createChat({
         projectId: project.id,
@@ -495,7 +530,7 @@ const ProjectDetail = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
-      
+
       <div className="pt-20 px-4 max-w-6xl mx-auto">
         <div className="mb-6">
           <Button variant="ghost" asChild className="mb-4">
@@ -507,9 +542,10 @@ const ProjectDetail = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Project Details */}
+          {/* Main Content Column */}
           <div className="lg:col-span-2 space-y-6">
-            <Card className="mb-6">
+            {/* Project Details */}
+            <Card>
               <CardContent className="p-6">
                 <div className="flex justify-between items-start">
                   <div>
@@ -523,11 +559,10 @@ const ProjectDetail = () => {
                           className="ml-2"
                         >
                           <Heart
-                            className={`h-6 w-6 ${
-                              isProjectBookmarked(project.id)
-                                ? 'fill-blue-600 text-blue-600'
-                                : 'text-gray-400'
-                            }`}
+                            className={`h-6 w-6 ${isProjectBookmarked(project.id)
+                              ? 'fill-blue-600 text-blue-600'
+                              : 'text-gray-400'
+                              }`}
                           />
                         </Button>
                       )}
@@ -545,68 +580,81 @@ const ProjectDetail = () => {
                       project.status === 'open'
                         ? 'default'
                         : project.status === 'in_progress'
-                        ? 'secondary'
-                        : project.status === 'completed'
-                        ? 'default'
-                        : 'destructive'
+                          ? 'secondary'
+                          : project.status === 'completed'
+                            ? 'default'
+                            : 'destructive'
                     }
                     className={
-                      project.status === 'completed' 
-                        ? 'bg-green-600 text-white hover:bg-green-700' 
+                      project.status === 'completed'
+                        ? 'bg-green-600 text-white hover:bg-green-700'
                         : ''
                     }
                   >
                     {project.status.replace('_', ' ').toUpperCase()}
                   </Badge>
                 </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="h-5 w-5 text-green-600" />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-white rounded-xl border border-gray-100 p-4 mb-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-green-50 rounded-full">
+                      <DollarSign className="h-6 w-6 text-green-600" />
+                    </div>
                     <div>
-                      <p className="text-sm text-gray-500">Budget</p>
-                      <p className="font-semibold text-green-600">
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Budget Range</p>
+                      <p className="text-lg font-bold text-green-700">
                         {formatBudget(project.budget)}
-                        {project.budgetMax && project.budgetMax !== project.budget && 
+                        {project.budgetMax && project.budgetMax !== project.budget &&
                           ` - ${formatBudget(project.budgetMax)}`
                         }
                       </p>
                     </div>
                   </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-5 w-5 text-gray-500" />
+
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-blue-50 rounded-full">
+                      <MapPin className="h-6 w-6 text-blue-600" />
+                    </div>
                     <div>
-                      <p className="text-sm text-gray-500">Location</p>
-                      <p className="font-medium">{project.location}</p>
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Location</p>
+                      <p className="text-lg font-semibold text-gray-900">{project.location}</p>
                     </div>
                   </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5 text-gray-500" />
+
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-orange-50 rounded-full">
+                      <Calendar className="h-6 w-6 text-orange-600" />
+                    </div>
                     <div>
-                      <p className="text-sm text-gray-500">Start Date</p>
-                      <p className="font-medium">{formatDate(project.startDate)}</p>
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Start Date</p>
+                      <p className="text-lg font-semibold text-gray-900">{formatDate(project.startDate)}</p>
                     </div>
                   </div>
-                  
+
                   {project.expectedDuration && (
-                    <div>
-                      <p className="text-sm text-gray-500">Expected Duration</p>
-                      <p className="font-medium">{project.expectedDuration}</p>
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 bg-purple-50 rounded-full">
+                        <Calendar className="h-6 w-6 text-purple-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Expected Duration</p>
+                        <p className="text-lg font-semibold text-gray-900">{project.expectedDuration}</p>
+                      </div>
                     </div>
                   )}
                 </div>
 
-                <div>
-                  <h3 className="font-semibold mb-2">Project Description</h3>
-                  <p className="text-gray-700 whitespace-pre-wrap">{project.description}</p>
+                <div className="mb-6">
+                  <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Project Description</h3>
+                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                    <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{project.description}</p>
+                  </div>
                 </div>
 
                 {/* Owner Actions */}
                 {isOwner && project.status === 'in_progress' && acceptedBid && (
                   <div className="pt-4 border-t">
-                    <Button 
+                    <Button
                       onClick={handleMarkCompleted}
                       className="w-full"
                       size="lg"
@@ -619,7 +667,7 @@ const ProjectDetail = () => {
                 {/* Post-completion rating prompt */}
                 {isOwner && project.status === 'completed' && acceptedBid && !project.rated && (
                   <div className="pt-4 border-t">
-                    <Button 
+                    <Button
                       onClick={() => {
                         setSelectedContractor({
                           id: acceptedBid.contractorId,
@@ -639,15 +687,15 @@ const ProjectDetail = () => {
                 {/* Contractor Actions */}
                 {isContractor && !isOwner && project.status === 'open' && (
                   <div className="pt-4 border-t space-y-3">
-                    <Button 
+                    <Button
                       onClick={() => setShowBidModal(true)}
                       className="w-full"
                       size="lg"
                     >
                       Place Your Bid
                     </Button>
-                    
-                    <Button 
+
+                    <Button
                       onClick={handleContactCustomer}
                       variant="outline"
                       className="w-full"
@@ -660,227 +708,16 @@ const ProjectDetail = () => {
                 )}
               </CardContent>
             </Card>
-          </div>
 
-          {/* Handoff & Milestones */}
-          {acceptedBid && (
-            <Card className="border-green-200 bg-white">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-2">
-                    <Handshake className="h-5 w-5 text-green-700" />
-                    Handoff & kickoff
-                  </span>
-                  <Badge variant="outline" className="text-green-700 border-green-200 bg-green-50">
-                    Accepted contractor: {acceptedBid.contractorName || 'Contractor'}
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <ListChecks className="h-5 w-5 text-green-700" />
-                      <div>
-                        <p className="font-semibold text-sm text-gray-900">Milestones</p>
-                        <p className="text-xs text-gray-500">Set deliverables and payment-linked checkpoints.</p>
-                      </div>
-                    </div>
-                    {handoffSaving && (
-                      <Badge variant="outline" className="text-xs">Saving...</Badge>
-                    )}
-                  </div>
-
-                  {handoffLoading ? (
-                    <p className="text-sm text-gray-600">Loading handoff plan...</p>
-                  ) : handoff?.milestones?.length ? (
-                    <div className="space-y-3">
-                      {handoff.milestones.map((milestone) => (
-                        <div
-                          key={milestone.id}
-                          className="rounded-lg border border-gray-200 bg-gray-50 p-3 flex justify-between items-start gap-3"
-                        >
-                          <div className="space-y-1">
-                            <p className="font-medium text-sm text-gray-900">{milestone.title}</p>
-                            <div className="text-xs text-gray-600 space-y-0.5">
-                              {milestone.dueDate && <p>Due: {milestone.dueDate}</p>}
-                              {milestone.amount !== undefined && <p>Amount: {formatBudget(milestone.amount)}</p>}
-                            </div>
-                          </div>
-                          <div className="flex flex-col items-end gap-2">
-                            <Badge
-                              variant="outline"
-                              className={
-                                milestone.status === 'done'
-                                  ? 'bg-green-100 text-green-800 border-green-200'
-                                  : milestone.status === 'agreed'
-                                  ? 'bg-blue-100 text-blue-800 border-blue-200'
-                                  : 'bg-yellow-100 text-yellow-800 border-yellow-200'
-                              }
-                            >
-                              {milestone.status === 'proposed'
-                                ? 'Proposed'
-                                : milestone.status === 'agreed'
-                                ? 'Agreed'
-                                : 'Done'}
-                            </Badge>
-                            {(isOwner || isAcceptedContractor) && milestone.status !== 'done' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleUpdateMilestoneStatus(milestone.id)}
-                                disabled={handoffSaving}
-                              >
-                                Mark {milestone.status === 'proposed' ? 'agreed' : 'done'}
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-600">No milestones yet. Add the first one below.</p>
-                  )}
-
-                  {(isOwner || isAcceptedContractor) && (
-                    <form onSubmit={handleAddMilestone} className="grid grid-cols-1 md:grid-cols-4 gap-3 pt-2 border-t mt-2">
-                      <div className="md:col-span-2 space-y-1">
-                        <Label className="text-xs text-gray-600">Title</Label>
-                        <Input
-                          value={newMilestone.title}
-                          onChange={(e) => setNewMilestone(prev => ({ ...prev, title: e.target.value }))}
-                          placeholder="e.g., Mobilization & site prep"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-gray-600">Due date</Label>
-                        <Input
-                          type="date"
-                          value={newMilestone.dueDate}
-                          onChange={(e) => setNewMilestone(prev => ({ ...prev, dueDate: e.target.value }))}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-gray-600">Amount</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          value={newMilestone.amount}
-                          onChange={(e) => setNewMilestone(prev => ({ ...prev, amount: e.target.value }))}
-                          placeholder="Optional"
-                        />
-                      </div>
-                      <div className="md:col-span-4 flex justify-end">
-                        <Button type="submit" disabled={handoffSaving}>
-                          Add milestone
-                        </Button>
-                      </div>
-                    </form>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="rounded-lg border border-green-100 bg-green-50 p-3 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <ShieldCheck className="h-5 w-5 text-green-700" />
-                      <div>
-                        <p className="font-semibold text-sm text-gray-900">Escrow / payment confirmation</p>
-                        <p className="text-xs text-gray-600">Track deposit and release confirmations.</p>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="flex items-center gap-2 text-sm text-gray-800">
-                        <input
-                          type="checkbox"
-                          checked={handoff?.escrow?.enabled || false}
-                          onChange={() => handleEscrowToggle('enabled')}
-                          disabled={!isOwner && !isAcceptedContractor}
-                          className="accent-green-600"
-                        />
-                        Escrow or payment schedule is required
-                      </label>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                        <label className="flex items-center gap-2 text-gray-800">
-                          <input
-                            type="checkbox"
-                            checked={handoff?.escrow?.ownerConfirmed || false}
-                            onChange={() => handleEscrowToggle('ownerConfirmed')}
-                            disabled={!isOwner}
-                            className="accent-green-600"
-                          />
-                          Customer confirmed deposit
-                        </label>
-                        <label className="flex items-center gap-2 text-gray-800">
-                          <input
-                            type="checkbox"
-                            checked={handoff?.escrow?.contractorConfirmed || false}
-                            onChange={() => handleEscrowToggle('contractorConfirmed')}
-                            disabled={!isAcceptedContractor}
-                            className="accent-green-600"
-                          />
-                          Contractor confirmed receipt
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-lg border border-gray-200 bg-slate-50 p-3 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Handshake className="h-5 w-5 text-blue-700" />
-                      <div>
-                        <p className="font-semibold text-sm text-gray-900">Kickoff checklist</p>
-                        <p className="text-xs text-gray-600">Each side checks off their own items.</p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="space-y-2">
-                        <p className="text-xs font-semibold text-gray-700">Customer</p>
-                        {ownerKickoffItems.map((item) => (
-                          <label key={item.id} className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-2 py-1 text-sm">
-                            <input
-                              type="checkbox"
-                              checked={handoff?.kickoff?.owner?.[item.id] || false}
-                              onChange={() => handleToggleKickoff('owner', item.id)}
-                              disabled={!isOwner}
-                              className="accent-blue-600"
-                            />
-                            <span className="text-gray-800">{item.label}</span>
-                          </label>
-                        ))}
-                      </div>
-                      <div className="space-y-2">
-                        <p className="text-xs font-semibold text-gray-700">Contractor</p>
-                        {contractorKickoffItems.map((item) => (
-                          <label key={item.id} className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-2 py-1 text-sm">
-                            <input
-                              type="checkbox"
-                              checked={handoff?.kickoff?.contractor?.[item.id] || false}
-                              onChange={() => handleToggleKickoff('contractor', item.id)}
-                              disabled={!isAcceptedContractor}
-                              className="accent-blue-600"
-                            />
-                            <span className="text-gray-800">{item.label}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Bids Section */}
-          <div className="space-y-6">
-            <Card>
+            {/* Bids Section - Stacked under Description */}
+            <Card className="shadow-sm border-gray-200">
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   Bids Received
                   <Badge variant="outline">{bids.length}</Badge>
                 </CardTitle>
               </CardHeader>
-              
+
               <CardContent>
                 {bids.length === 0 ? (
                   <p className="text-gray-500 text-center py-8">
@@ -889,6 +726,7 @@ const ProjectDetail = () => {
                 ) : (
                   <div className="space-y-4">
                     {bids.map((bid) => {
+                      const isAccepted = bid.status === 'accepted';
                       const trustBadges = buildTrustBadges({
                         verified: bid.contractorVerified,
                         verificationBadge: bid.contractorVerificationBadge,
@@ -899,56 +737,81 @@ const ProjectDetail = () => {
                       }).slice(0, 3);
 
                       return (
-                        <div key={bid.id} className="border rounded-lg p-4">
-                          <div className="flex items-start gap-3">
-                            <Avatar className="h-10 w-10">
-                              <AvatarFallback>
+                        <div
+                          key={bid.id}
+                          className={`group border rounded-xl p-5 transition-all hover:shadow-md ${isAccepted
+                            ? 'bg-blue-50/50 border-blue-200 ring-1 ring-blue-100'
+                            : 'bg-white hover:border-gray-300'
+                            }`}
+                        >
+                          <div className="flex flex-col sm:flex-row items-start gap-4">
+                            <Avatar className="h-12 w-12 border-2 border-white shadow-sm">
+                              <AvatarFallback className="bg-blue-100 text-blue-700 font-bold">
                                 {bid.contractorName?.charAt(0) || 'C'}
                               </AvatarFallback>
                             </Avatar>
-                            
-                            <div className="flex-1">
-                              <div className="flex justify-between items-start mb-2">
-                                <h4 className="font-medium">{bid.contractorName}</h4>
-                                <Badge variant={bid.status === 'pending' ? 'secondary' : 'default'}>
-                                  {bid.status}
+
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-wrap justify-between items-start gap-2 mb-2">
+                                <div>
+                                  <h4 className="font-bold text-gray-900 group-hover:text-blue-700 transition-colors">
+                                    {bid.contractorName}
+                                  </h4>
+                                  {trustBadges.length > 0 && (
+                                    <div className="flex flex-wrap gap-1.5 mt-1">
+                                      {trustBadges.map((badge) => (
+                                        <Badge
+                                          key={`${bid.id}-${badge.label}`}
+                                          variant="outline"
+                                          className={`${badge.className} text-[10px] h-5 px-1.5 border-none bg-opacity-10`}
+                                        >
+                                          {badge.label}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                                <Badge
+                                  variant={isAccepted ? 'default' : 'secondary'}
+                                  className={isAccepted ? 'bg-blue-600' : ''}
+                                >
+                                  {bid.status.toUpperCase()}
                                 </Badge>
                               </div>
-                              {trustBadges.length > 0 && (
-                                <div className="flex flex-wrap gap-1.5 mb-2">
-                                  {trustBadges.map((badge) => (
-                                    <Badge
-                                      key={`${bid.id}-${badge.label}`}
-                                      variant="outline"
-                                      className={`${badge.className} border`}
-                                    >
-                                      {badge.label}
-                                    </Badge>
-                                  ))}
+
+                              <div className="grid grid-cols-2 gap-4 text-sm mb-3">
+                                <div className="p-2 bg-gray-50 rounded-lg">
+                                  <p className="text-gray-500 text-[10px] uppercase font-bold tracking-tight">Bid Amount</p>
+                                  <p className="font-bold text-green-700">{formatBudget(bid.priceQuoted)}</p>
                                 </div>
-                              )}
-                              
-                              <div className="text-sm space-y-1">
-                                <p><strong>Quote:</strong> {formatBudget(bid.priceQuoted)}</p>
-                                <p><strong>Timeline:</strong> {bid.timeline}</p>
+                                <div className="p-2 bg-gray-50 rounded-lg">
+                                  <p className="text-gray-500 text-[10px] uppercase font-bold tracking-tight">Timeline</p>
+                                  <p className="font-bold text-gray-900">{bid.timeline}</p>
+                                </div>
                               </div>
-                              
-                              <p className="text-sm text-gray-600 mt-2">{bid.message}</p>
-                              
+
+                              <div className="bg-white/50 rounded-lg p-3 border border-gray-100 mb-4">
+                                <p className="text-sm text-gray-600 line-clamp-3 italic">"{bid.message}"</p>
+                              </div>
+
                               {isOwner && (
-                                <div className="flex gap-2 mt-3">
-                                  <Button size="sm" variant="outline">
-                                    <Phone className="h-4 w-4" />
+                                <div className="flex flex-wrap gap-2">
+                                  <Button size="sm" variant="outline" className="h-9 px-4 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300">
+                                    <Phone className="h-3.5 w-3.5 mr-2" />
+                                    Call
                                   </Button>
-                                  <Button size="sm" variant="outline">
-                                    <Mail className="h-4 w-4" />
+                                  <Button size="sm" variant="outline" className="h-9 px-4 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300">
+                                    <Mail className="h-3.5 w-3.5 mr-2" />
+                                    Email
                                   </Button>
-                                  <Button 
-                                    size="sm" 
+                                  <Button
+                                    size="sm"
                                     variant="outline"
                                     onClick={() => handleContactContractor(bid.contractorId, bid.contractorName || 'Contractor')}
+                                    className="h-9 px-4 hover:bg-blue-600 hover:text-white transition-all bg-white"
                                   >
-                                    <MessageCircle className="h-4 w-4" />
+                                    <MessageCircle className="h-3.5 w-3.5 mr-2" />
+                                    Message
                                   </Button>
                                 </div>
                               )}
@@ -962,12 +825,184 @@ const ProjectDetail = () => {
               </CardContent>
             </Card>
           </div>
+
+          {/* Right Sidebar Column */}
+          <div className="space-y-6">
+            {/* Handoff & Milestones */}
+            {acceptedBid && (
+              <Card className="border-green-200 bg-white shadow-sm sticky top-24">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex flex-col gap-2">
+                    <span className="flex items-center gap-2 text-green-700">
+                      <Handshake className="h-5 w-5" />
+                      Handoff & kickoff
+                    </span>
+                    <Badge variant="outline" className="text-[10px] font-normal text-green-700 border-green-200 bg-green-50 w-fit">
+                      Contractor: {acceptedBid.contractorName || 'Contractor'}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Milestones Subsection */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <ListChecks className="h-4 w-4 text-green-700" />
+                        <p className="font-bold text-xs uppercase tracking-wider text-gray-500">Milestones</p>
+                      </div>
+                      {handoffSaving && (
+                        <Badge variant="outline" className="text-[10px] animate-pulse">Saving...</Badge>
+                      )}
+                    </div>
+
+                    {handoffLoading ? (
+                      <p className="text-sm text-gray-600">Loading...</p>
+                    ) : handoff?.milestones?.length ? (
+                      <div className="space-y-3">
+                        {handoff.milestones.map((milestone) => (
+                          <div
+                            key={milestone.id}
+                            className="rounded-lg border border-gray-100 bg-gray-50/50 p-3 space-y-2"
+                          >
+                            <div className="flex justify-between items-start gap-2">
+                              <p className="font-bold text-sm text-gray-900 leading-tight">{milestone.title}</p>
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] px-1.5 h-5 ${milestone.status === 'done'
+                                  ? 'bg-green-100 text-green-800 border-green-200'
+                                  : milestone.status === 'agreed'
+                                    ? 'bg-blue-100 text-blue-800 border-blue-200'
+                                    : 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                                  }`}
+                              >
+                                {milestone.status.toUpperCase()}
+                              </Badge>
+                            </div>
+                            <div className="flex justify-between items-center text-[11px] text-gray-500">
+                              <span>{milestone.dueDate ? `Due: ${milestone.dueDate}` : 'No date'}</span>
+                              <span className="font-bold text-gray-700">{milestone.amount ? formatBudget(milestone.amount) : ''}</span>
+                            </div>
+                            {(isOwner || isAcceptedContractor) && milestone.status !== 'done' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="w-full h-8 text-xs bg-white hover:bg-green-50 hover:text-green-700 hover:border-green-200"
+                                onClick={() => handleUpdateMilestoneStatus(milestone.id)}
+                                disabled={handoffSaving}
+                              >
+                                Mark {milestone.status === 'proposed' ? 'agreed' : 'done'}
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-500 text-center py-4 italic border border-dashed rounded-lg">No milestones added yet.</p>
+                    )}
+
+                    {(isOwner || isAcceptedContractor) && (
+                      <form onSubmit={handleAddMilestone} className="space-y-3 pt-3 border-t">
+                        <Input
+                          value={newMilestone.title}
+                          onChange={(e) => setNewMilestone(prev => ({ ...prev, title: e.target.value }))}
+                          placeholder="Milestone title..."
+                          required
+                          className="h-9 text-sm"
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <Input
+                            type="date"
+                            value={newMilestone.dueDate}
+                            onChange={(e) => setNewMilestone(prev => ({ ...prev, dueDate: e.target.value }))}
+                            className="h-9 text-sm"
+                          />
+                          <Input
+                            type="number"
+                            value={newMilestone.amount}
+                            onChange={(e) => setNewMilestone(prev => ({ ...prev, amount: e.target.value }))}
+                            placeholder="Amount ₹"
+                            className="h-9 text-sm"
+                          />
+                        </div>
+                        <Button type="submit" disabled={handoffSaving} className="w-full h-9 text-sm">
+                          Add Milestone
+                        </Button>
+                      </form>
+                    )}
+                  </div>
+
+                  {/* Financial & Kickoff Section */}
+                  <div className="space-y-4 pt-4 border-t">
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck className="h-4 w-4 text-green-700" />
+                        <p className="font-bold text-xs uppercase tracking-wider text-gray-500">Financials</p>
+                      </div>
+                      <label className={`flex items-start gap-3 p-3 rounded-lg border transition-all ${handoff?.escrow?.enabled ? 'bg-green-50 border-green-200' : 'bg-white border-gray-100'} cursor-pointer`}>
+                        <input
+                          type="checkbox"
+                          checked={handoff?.escrow?.enabled || false}
+                          onChange={() => handleEscrowToggle('enabled')}
+                          disabled={!isOwner && !isAcceptedContractor}
+                          className="mt-0.5 h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                        />
+                        <span className="text-xs font-medium text-gray-700">Project requires Escrow / Payment schedule</span>
+                      </label>
+                    </div>
+
+                    <div className="space-y-3 pt-2">
+                      <div className="flex items-center gap-2">
+                        <ListChecks className="h-4 w-4 text-blue-700" />
+                        <p className="font-bold text-xs uppercase tracking-wider text-gray-500">Kickoff checklist</p>
+                      </div>
+                      <div className="space-y-4">
+                        <div>
+                          <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Customer Actions</p>
+                          <div className="space-y-1.5">
+                            {ownerKickoffItems.map((item) => (
+                              <label key={item.id} className={`flex items-start gap-2.5 p-2 rounded-md border text-[11px] ${handoff?.kickoff?.owner?.[item.id] ? 'bg-blue-50 border-blue-200' : 'bg-white border-gray-100'} ${!isOwner ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:border-blue-100'}`}>
+                                <input
+                                  type="checkbox"
+                                  checked={handoff?.kickoff?.owner?.[item.id] || false}
+                                  onChange={() => handleToggleKickoff('owner', item.id)}
+                                  disabled={!isOwner}
+                                  className="mt-0.5 h-3.5 w-3.5 rounded border-gray-300 text-blue-600"
+                                />
+                                <span className="font-medium text-gray-700">{item.label}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Contractor Actions</p>
+                          <div className="space-y-1.5">
+                            {contractorKickoffItems.map((item) => (
+                              <label key={item.id} className={`flex items-start gap-2.5 p-2 rounded-md border text-[11px] ${handoff?.kickoff?.contractor?.[item.id] ? 'bg-blue-50 border-blue-200' : 'bg-white border-gray-100'} ${!isAcceptedContractor ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:border-blue-100'}`}>
+                                <input
+                                  type="checkbox"
+                                  checked={handoff?.kickoff?.contractor?.[item.id] || false}
+                                  onChange={() => handleToggleKickoff('contractor', item.id)}
+                                  disabled={!isAcceptedContractor}
+                                  className="mt-0.5 h-3.5 w-3.5 rounded border-gray-300 text-blue-600"
+                                />
+                                <span className="font-medium text-gray-700">{item.label}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Bid Modal */}
       {isContractor && !isOwner && (
-        <BidFormModal 
+        <BidFormModal
           open={showBidModal}
           onOpenChange={setShowBidModal}
           project={project}
@@ -993,7 +1028,7 @@ const ProjectDetail = () => {
       </Dialog>
 
       {/* Rating Modal */}
-      {selectedContractor && (
+      {selectedContractor && project && (
         <RatingModal
           open={showRatingModal}
           onOpenChange={setShowRatingModal}
