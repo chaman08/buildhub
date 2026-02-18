@@ -70,7 +70,7 @@ interface ProjectBid {
   priceQuoted: number;
   timeline: string;
   proposal: string;
-  status: 'pending' | 'accepted' | 'rejected';
+  status: 'pending' | 'shortlisted' | 'accepted' | 'rejected';
   createdAt: any;
 }
 
@@ -448,7 +448,7 @@ const AcceptedProjects: React.FC = () => {
                           className="flex-1"
                           onClick={() => window.open(`tel:${project.customerPhone}`)}
                         >
-                          dY"z Call
+                          📞 Call
                         </Button>
                       )}
                     </div>
