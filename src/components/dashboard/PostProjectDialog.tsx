@@ -16,7 +16,7 @@ interface PostProjectDialogProps {
 const PostProjectDialog = ({ open, onOpenChange, onProjectPosted }: PostProjectDialogProps) => {
   const { currentUser, isVerificationComplete } = useAuth();
   const navigate = useNavigate();
-  
+
   // If user is not logged in, redirect to auth page
   if (!currentUser) {
     navigate('/auth');
@@ -28,7 +28,7 @@ const PostProjectDialog = ({ open, onOpenChange, onProjectPosted }: PostProjectD
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-md">
-            <ProfileCompletionRequired 
+          <ProfileCompletionRequired
             message="Verify your email or phone number before posting a project."
           />
         </DialogContent>

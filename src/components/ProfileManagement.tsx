@@ -12,6 +12,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { toast } from '@/components/ui/use-toast';
 import { Upload, X, FileText, Image as ImageIcon, User, Building2 } from 'lucide-react';
 import ProfilePictureUpload from '@/components/ProfilePictureUpload';
+import ServiceCategorySelector from './ServiceCategorySelector';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { INDIA_STATES, STATE_CITIES } from '@/lib/india-locations';
 
 export const ProfileManagement = () => {
   const { currentUser, userProfile, refreshUserProfile, markProfileComplete } = useAuth();
@@ -23,10 +26,11 @@ export const ProfileManagement = () => {
     fullName: '',
     mobile: '',
     city: '',
+    state: '',
     occupation: '',
     userType: 'customer',
     companyName: '',
-    serviceCategory: '',
+    serviceCategory: [] as string[],
     experience: '',
     bio: '',
   });
@@ -43,10 +47,11 @@ export const ProfileManagement = () => {
         fullName: userProfile.fullName || '',
         mobile: userProfile.mobile || '',
         city: userProfile.city || '',
+        state: userProfile.state || '',
         occupation: userProfile.occupation || '',
         userType: userProfile.userType || 'customer',
         companyName: userProfile.companyName || '',
-        serviceCategory: userProfile.serviceCategory || '',
+        serviceCategory: userProfile.serviceCategory ? (Array.isArray(userProfile.serviceCategory) ? userProfile.serviceCategory : userProfile.serviceCategory.split(', ').filter(Boolean)) : [] as string[],
         experience: userProfile.experience?.toString() || '',
         bio: userProfile.bio || '',
       });
@@ -115,10 +120,10 @@ export const ProfileManagement = () => {
       const certRef = ref(storage, `certificates/${userId}/${timestamp}_${file.name}`);
       await uploadBytes(certRef, file);
       const downloadURL = await getDownloadURL(certRef);
-      
+
       const newCertificates = [...certificates, downloadURL];
       setCertificates(newCertificates);
-      
+
       // Update user profile with new certificate
       const userRef = doc(db, 'users', userId);
       await updateDoc(userRef, {
@@ -126,7 +131,7 @@ export const ProfileManagement = () => {
         updatedAt: new Date(),
         uid: userId,
       });
-      
+
       await refreshUserProfile();
       toast({
         title: "Certificate Uploaded",
@@ -411,18 +416,18 @@ export const ProfileManagement = () => {
       // Remove from storage
       const certRef = ref(storage, certUrl);
       await deleteObject(certRef);
-      
+
       // Remove from state and database
       const newCertificates = certificates.filter((_, i) => i !== index);
       setCertificates(newCertificates);
-      
+
       const userRef = doc(db, 'users', userId);
       await updateDoc(userRef, {
         certifications: newCertificates,
         updatedAt: new Date(),
         uid: userId,
       });
-      
+
       await refreshUserProfile();
       toast({
         title: "Certificate Removed",
@@ -452,20 +457,20 @@ export const ProfileManagement = () => {
 
     const userTypeChanged = formData.userType !== userProfile.userType;
 
-    // Validate required fields before saving
-    if (!formData.fullName || !formData.mobile || !formData.city) {
+    // Validate required fields
+    if (!formData.fullName || !formData.mobile || !formData.city || !formData.state) {
       toast({
         title: "Missing Information",
-        description: "Please fill all required fields (Name, Mobile, and City).",
+        description: "Please fill in all required fields (Name, Mobile, State, and City)",
         variant: "destructive",
       });
       return;
     }
 
-    if (formData.userType === 'contractor' && (!formData.companyName || !formData.serviceCategory)) {
+    if (formData.userType === 'contractor' && (!formData.companyName || formData.serviceCategory.length === 0)) {
       toast({
         title: "Missing Information",
-        description: "Contractors must provide Company Name and Service Category.",
+        description: "Contractors must provide Company Name and at least one Service Category.",
         variant: "destructive",
       });
       return;
@@ -477,15 +482,16 @@ export const ProfileManagement = () => {
       const updateData = {
         ...formData,
         experience: formData.experience ? parseInt(formData.experience) : 0,
+        serviceCategory: formData.serviceCategory.join(', '),
         updatedAt: new Date(),
         uid: userId,
       };
 
       await updateDoc(userRef, updateData);
-      
+
       // Mark profile as complete if all required fields are filled
       await markProfileComplete();
-      
+
       await refreshUserProfile();
       toast({
         title: "Profile Updated",
@@ -514,8 +520,8 @@ export const ProfileManagement = () => {
       <CardHeader>
         <CardTitle>Profile Management</CardTitle>
         <CardDescription>
-          {userProfile.profileComplete ? 
-            "Update your profile information" : 
+          {userProfile.profileComplete ?
+            "Update your profile information" :
             "Complete your profile to unlock all features"
           }
         </CardDescription>
@@ -588,14 +594,38 @@ export const ProfileManagement = () => {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="state">State *</Label>
+              <Select
+                value={formData.state}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, state: value, city: '' }))}
+              >
+                <SelectTrigger id="state">
+                  <SelectValue placeholder="Select State" />
+                </SelectTrigger>
+                <SelectContent>
+                  {INDIA_STATES.map(state => (
+                    <SelectItem key={state} value={state}>{state}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="city">City *</Label>
-              <Input
-                id="city"
-                name="city"
+              <Select
                 value={formData.city}
-                onChange={handleInputChange}
-                required
-              />
+                onValueChange={(value) => setFormData(prev => ({ ...prev, city: value }))}
+                disabled={!formData.state}
+              >
+                <SelectTrigger id="city">
+                  <SelectValue placeholder={formData.state ? "Select City" : "Select State first"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {formData.state && STATE_CITIES[formData.state]?.map(city => (
+                    <SelectItem key={city} value={city}>{city}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
@@ -621,14 +651,12 @@ export const ProfileManagement = () => {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="serviceCategory">Service Category *</Label>
-                  <Input
-                    id="serviceCategory"
-                    name="serviceCategory"
-                    value={formData.serviceCategory}
-                    onChange={handleInputChange}
-                    required
+                <div className="md:col-span-2 space-y-2">
+                  <Label>Service Category *</Label>
+                  <ServiceCategorySelector
+                    selectedCategories={formData.serviceCategory}
+                    onChange={(categories) => setFormData(prev => ({ ...prev, serviceCategory: categories }))}
+                    multiSelect={true}
                   />
                 </div>
 

@@ -6,7 +6,7 @@ import { db } from '@/lib/firebase';
 export interface Notification {
   id: string;
   message: string;
-  type: 'bid_update' | 'project_update' | 'payment' | 'review' | 'message';
+  type: 'bid_update' | 'project_update' | 'payment' | 'review' | 'message' | 'new_project';
   createdAt: any;
   read: boolean;
   projectId?: string;
@@ -29,7 +29,7 @@ export const useNotifications = (userId: string) => {
       orderBy('createdAt', 'desc')
     );
 
-    const unsubscribe = onSnapshot(notificationsQuery, 
+    const unsubscribe = onSnapshot(notificationsQuery,
       (snapshot) => {
         const notificationsData = snapshot.docs.map(doc => ({
           id: doc.id,
@@ -62,7 +62,7 @@ export const useNotifications = (userId: string) => {
     try {
       const unreadNotifications = notifications.filter(n => !n.read);
       const batch = writeBatch(db);
-      
+
       unreadNotifications.forEach(notification => {
         const notificationRef = doc(db, 'notifications', notification.id);
         batch.update(notificationRef, { read: true });

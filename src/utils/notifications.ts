@@ -1,7 +1,8 @@
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
-export type NotificationType = 'bid_update' | 'project_update' | 'payment' | 'review' | 'message';
+export type NotificationType = 'bid_update' | 'project_update' | 'payment' | 'review' | 'message' | 'new_project';
+
 
 interface CreateNotificationParams {
   recipientId: string;
@@ -134,4 +135,22 @@ export const createMessageNotification = async (
     senderId,
     senderName
   });
-}; 
+};
+
+export const createNewProjectNotification = async (
+  contractorId: string,
+  projectId: string,
+  projectTitle: string,
+  senderId: string,
+  senderName: string
+) => {
+  await createNotification({
+    recipientId: contractorId,
+    message: `New project matching your skills: "${projectTitle}"`,
+    type: 'new_project',
+    projectId,
+    projectTitle,
+    senderId,
+    senderName
+  });
+};

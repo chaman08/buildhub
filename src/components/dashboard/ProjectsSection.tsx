@@ -10,7 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import PostProjectDialog from './PostProjectDialog';
+import { INDIA_STATES, STATE_CITIES } from '@/lib/india-locations';
 import { toast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -21,6 +23,8 @@ interface Project {
   category: string[];
   budget: number | null;
   budgetMax?: number | null;
+  city?: string;
+  state?: string;
   location: string;
   startDate: string | null;
   postedBy: string;
@@ -36,6 +40,10 @@ const ProjectsSection: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    city: '',
+    state: ''
+  });
 
   useEffect(() => {
     if (currentUser) {
@@ -49,16 +57,16 @@ const ProjectsSection: React.FC = () => {
     try {
       setLoading(true);
       console.log('Fetching projects for user:', currentUser.uid);
-      
+
       const projectsQuery = query(
         collection(db, 'projects'),
         where('postedBy', '==', currentUser.uid),
         orderBy('createdAt', 'desc')
       );
-      
+
       const snapshot = await getDocs(projectsQuery);
       console.log('Projects found:', snapshot.size);
-      
+
       const projectData = snapshot.docs.map(doc => {
         const data = doc.data();
         const projectData = {
@@ -73,7 +81,7 @@ const ProjectsSection: React.FC = () => {
         console.log('Project data:', projectData);
         return projectData;
       }) as Project[];
-      
+
       setProjects(projectData);
     } catch (error) {
       console.error('Error fetching user projects:', error);
@@ -89,35 +97,43 @@ const ProjectsSection: React.FC = () => {
 
   const handleEditProject = (project: Project) => {
     setEditingProject(project);
+    setEditFormData({
+      city: project.city || '',
+      state: project.state || ''
+    });
     setShowEditDialog(true);
   };
+
 
   const handleUpdateProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProject) return;
 
     try {
-      const formData = new FormData(e.target as HTMLFormElement);
+      const form = e.target as HTMLFormElement;
+      const formData = new FormData(form);
       const updatedData = {
         title: formData.get('title') as string,
         description: formData.get('description') as string,
         budget: Number(formData.get('budget')),
-        location: formData.get('location') as string,
+        city: editFormData.city,
+        state: editFormData.state,
+        location: `${editFormData.city}, ${editFormData.state}`,
         startDate: formData.get('startDate') as string,
         expectedDuration: formData.get('expectedDuration') as string,
         updatedAt: new Date()
       };
 
       await updateDoc(doc(db, 'projects', editingProject.id), updatedData);
-      
+
       // Update local state
-      setProjects(projects.map(p => 
+      setProjects(projects.map(p =>
         p.id === editingProject.id ? { ...p, ...updatedData } : p
       ));
-      
+
       setShowEditDialog(false);
       setEditingProject(null);
-      
+
       toast({
         title: "Project Updated",
         description: "Your project has been updated successfully."
@@ -140,7 +156,7 @@ const ProjectsSection: React.FC = () => {
     try {
       await deleteDoc(doc(db, 'projects', projectId));
       setProjects(projects.filter(p => p.id !== projectId));
-      
+
       toast({
         title: "Project Deleted",
         description: "Your project has been deleted successfully."
@@ -254,8 +270,8 @@ const ProjectsSection: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
           {projects.map((project, index) => (
-            <Card 
-              key={project.id} 
+            <Card
+              key={project.id}
               className="hover:shadow-lg transition-shadow animate-card"
               style={{ animationDelay: `${index * 70}ms` }}
             >
@@ -285,7 +301,7 @@ const ProjectsSection: React.FC = () => {
               </CardHeader>
               <CardContent className="space-y-3 md:space-y-4 pt-0">
                 <p className="text-gray-600 text-sm line-clamp-2">{project.description}</p>
-                
+
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-xs md:text-sm text-gray-500">
                     <MapPin className="h-3 w-3 md:h-4 md:w-4 flex-shrink-0" />
@@ -304,8 +320,8 @@ const ProjectsSection: React.FC = () => {
                 </div>
 
                 <div className="flex flex-col gap-3 pt-3 border-t">
-                  <Button 
-                    variant="link" 
+                  <Button
+                    variant="link"
                     className="text-xs md:text-sm font-medium text-blue-600 hover:text-blue-700 p-0 h-auto justify-start"
                     onClick={() => {
                       // Navigate to bids section with project filter
@@ -321,8 +337,8 @@ const ProjectsSection: React.FC = () => {
                         <span className="hidden sm:inline">View</span>
                       </a>
                     </Button>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       className="flex-1 text-xs"
                       onClick={() => handleEditProject(project)}
@@ -330,9 +346,9 @@ const ProjectsSection: React.FC = () => {
                       <Edit className="h-3 w-3 md:h-4 md:w-4 mr-1" />
                       <span className="hidden sm:inline">Edit</span>
                     </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
+                    <Button
+                      variant="outline"
+                      size="sm"
                       className="text-red-600 hover:text-red-700 px-2"
                       onClick={() => handleDeleteProject(project.id, project.title)}
                     >
@@ -346,7 +362,7 @@ const ProjectsSection: React.FC = () => {
         </div>
       )}
 
-      <PostProjectDialog 
+      <PostProjectDialog
         open={showPostDialog}
         onOpenChange={setShowPostDialog}
         onProjectPosted={fetchUserProjects}
@@ -369,7 +385,7 @@ const ProjectsSection: React.FC = () => {
                   required
                 />
               </div>
-              
+
               <div>
                 <Label htmlFor="description">Description</Label>
                 <Textarea
@@ -380,7 +396,7 @@ const ProjectsSection: React.FC = () => {
                   required
                 />
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="budget">Budget (NGN)</Label>
@@ -392,17 +408,43 @@ const ProjectsSection: React.FC = () => {
                     required
                   />
                 </div>
-                <div>
-                  <Label htmlFor="location">Location</Label>
-                  <Input
-                    id="location"
-                    name="location"
-                    defaultValue={editingProject.location}
-                    required
-                  />
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="edit-state">State *</Label>
+                    <Select
+                      value={editFormData.state}
+                      onValueChange={(value) => setEditFormData(prev => ({ ...prev, state: value, city: '' }))}
+                    >
+                      <SelectTrigger id="edit-state">
+                        <SelectValue placeholder="Select State" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {INDIA_STATES.map(state => (
+                          <SelectItem key={state} value={state}>{state}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-city">City *</Label>
+                    <Select
+                      value={editFormData.city}
+                      onValueChange={(value) => setEditFormData(prev => ({ ...prev, city: value }))}
+                      disabled={!editFormData.state}
+                    >
+                      <SelectTrigger id="edit-city">
+                        <SelectValue placeholder={editFormData.state ? "Select City" : "Select State first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {editFormData.state && STATE_CITIES[editFormData.state]?.map(city => (
+                          <SelectItem key={city} value={city}>{city}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="startDate">Start Date</Label>
@@ -424,11 +466,11 @@ const ProjectsSection: React.FC = () => {
                   />
                 </div>
               </div>
-              
+
               <div className="flex flex-col-reverse sm:flex-row gap-2 pt-4">
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={() => setShowEditDialog(false)}
                   className="w-full sm:w-auto"
                 >

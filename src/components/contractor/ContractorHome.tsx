@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,7 +8,7 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { FileText, CheckCircle, Clock, Star, Bell, MessageCircle } from 'lucide-react';
+import { FileText, CheckCircle, Clock, Star, Bell, MessageCircle, Briefcase, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -20,6 +21,7 @@ interface DashboardStats {
 
 const ContractorHome: React.FC = () => {
   const { currentUser, userProfile } = useAuth();
+  const navigate = useNavigate();
   const { rating, totalRatings, loading: ratingLoading } = useContractorRating(currentUser?.uid || '');
   const { notifications, loading: notificationsLoading, markAsRead, markAllAsRead } = useNotifications(currentUser?.uid || '');
   const [stats, setStats] = useState<DashboardStats>({
@@ -71,9 +73,10 @@ const ContractorHome: React.FC = () => {
     switch (type) {
       case 'bid_update': return <FileText className="h-4 w-4 text-blue-600" />;
       case 'project_update': return <CheckCircle className="h-4 w-4 text-green-600" />;
-      case 'payment': return <Star className="h-4 w-4 text-yellow-600" />;
+      case 'payment': return <DollarSign className="h-4 w-4 text-yellow-600" />;
       case 'message': return <MessageCircle className="h-4 w-4 text-purple-600" />;
       case 'review': return <Star className="h-4 w-4 text-orange-600" />;
+      case 'new_project': return <Briefcase className="h-4 w-4 text-blue-500" />;
       default: return <Bell className="h-4 w-4 text-gray-600" />;
     }
   };
@@ -82,16 +85,16 @@ const ContractorHome: React.FC = () => {
     if (!notification.read) {
       await markAsRead(notification.id);
     }
-    
+
     // Navigate based on notification type and data
     if (notification.projectId) {
-      window.open(`/project/${notification.projectId}`, '_blank');
+      navigate(`/project/${notification.projectId}`);
     }
   };
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6" >
         <div className="flex items-center gap-4 p-6 bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-lg">
           <Skeleton className="h-16 w-16 rounded-full bg-white/40" />
           <div className="flex-1 space-y-3">
@@ -129,7 +132,7 @@ const ContractorHome: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </div >
     );
   }
 
@@ -161,6 +164,56 @@ const ContractorHome: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Recent Notifications */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="h-5 w-5" />
+            Recent Notifications
+          </CardTitle>
+          {notifications.some(n => !n.read) && (
+            <Button variant="ghost" size="sm" onClick={markAllAsRead}>
+              Mark all as read
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent>
+          {notificationsLoading ? (
+            <div className="animate-pulse space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-16 bg-gray-100 rounded-lg"></div>
+              ))}
+            </div>
+          ) : notifications.length === 0 ? (
+            <p className="text-gray-500 text-center py-4">No new notifications</p>
+          ) : (
+            <div className="space-y-3">
+              {notifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-gray-50 transition-colors ${!notification.read ? 'bg-blue-50 border-blue-200' : 'bg-gray-50'
+                    }`}
+                  onClick={() => handleNotificationClick(notification)}
+                >
+                  {getNotificationIcon(notification.type)}
+                  <div className="flex-1">
+                    <p className="text-sm">{notification.message}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {new Date(notification.createdAt?.toDate()).toLocaleDateString()}
+                    </p>
+                  </div>
+                  {!notification.read && (
+                    <Badge variant="secondary" className="text-xs">
+                      New
+                    </Badge>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -231,56 +284,6 @@ const ContractorHome: React.FC = () => {
         </Card>
       </div>
 
-      {/* Recent Notifications */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Bell className="h-5 w-5" />
-            Recent Notifications
-          </CardTitle>
-          {notifications.some(n => !n.read) && (
-            <Button variant="ghost" size="sm" onClick={markAllAsRead}>
-              Mark all as read
-            </Button>
-          )}
-        </CardHeader>
-        <CardContent>
-          {notificationsLoading ? (
-            <div className="animate-pulse space-y-3">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-16 bg-gray-100 rounded-lg"></div>
-              ))}
-            </div>
-          ) : notifications.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">No new notifications</p>
-          ) : (
-            <div className="space-y-3">
-              {notifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-gray-50 transition-colors ${
-                    !notification.read ? 'bg-blue-50 border-blue-200' : 'bg-gray-50'
-                  }`}
-                  onClick={() => handleNotificationClick(notification)}
-                >
-                  {getNotificationIcon(notification.type)}
-                  <div className="flex-1">
-                    <p className="text-sm">{notification.message}</p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {new Date(notification.createdAt?.toDate()).toLocaleDateString()}
-                    </p>
-                  </div>
-                  {!notification.read && (
-                    <Badge variant="secondary" className="text-xs">
-                      New
-                    </Badge>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 };

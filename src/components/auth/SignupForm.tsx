@@ -12,6 +12,8 @@ import { useToast } from '@/hooks/use-toast';
 import PhoneAuthForm from './PhoneAuthForm';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import ServiceCategorySelector from '../ServiceCategorySelector';
+import { INDIA_STATES, STATE_CITIES } from '@/lib/india-locations';
 
 interface SignupFormProps {
   onSuccess: () => void;
@@ -30,12 +32,13 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
     password: '',
     confirmPassword: '',
     city: '',
+    state: '',
     companyName: '',
-    serviceCategory: '',
+    serviceCategory: [] as string[],
     experience: ''
   });
   const [loading, setLoading] = useState(false);
-  
+
   const { signup, signInWithGoogle, currentUser } = useAuth();
   const { toast } = useToast();
 
@@ -49,12 +52,6 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
     { code: '+49', country: 'Germany' },
     { code: '+61', country: 'Australia' },
     { code: '+971', country: 'UAE' },
-    { code: '+65', country: 'Singapore' }
-  ];
-
-  const serviceCategories = [
-    'Civil Construction', 'Electrical', 'Plumbing', 'Painting', 'Carpentry',
-    'Interior Design', 'Architecture', 'Landscaping', 'Roofing', 'Flooring'
   ];
 
   const validatePhone = (value: string) => {
@@ -65,10 +62,10 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
 
   const ensureContractorFields = () => {
     if (userType !== 'contractor') return true;
-    if (!formData.companyName.trim() || !formData.serviceCategory.trim()) {
+    if (!formData.companyName.trim() || formData.serviceCategory.length === 0) {
       toast({
         title: "Missing contractor details",
-        description: "Company name and service category are required for contractors.",
+        description: "Company name and at least one service category are required for contractors.",
         variant: "destructive"
       });
       return false;
@@ -110,7 +107,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
 
   const handleGoogleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!userType) {
       toast({
         title: "Account Type Required",
@@ -153,12 +150,13 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
     }
 
     setLoading(true);
-    
+
     try {
       const userData = {
         userType,
         mobile: phone,
         city: formData.city,
+        state: formData.state,
         ...(userType === 'contractor' && {
           companyName: formData.companyName,
           serviceCategory: formData.serviceCategory,
@@ -171,12 +169,12 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
       // Update the user profile in Firestore
       const userRef = doc(db, 'users', currentUser.uid);
       await setDoc(userRef, userData, { merge: true });
-      
+
       toast({
         title: "Profile Updated!",
         description: "Your profile has been updated successfully"
       });
-      
+
       onSuccess();
     } catch (error: any) {
       toast({
@@ -191,7 +189,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!userType) {
       toast({
         title: "Account Type Required",
@@ -243,13 +241,14 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
     }
 
     setLoading(true);
-    
+
     try {
       const userData = {
         fullName: formData.fullName,
         userType,
         mobile: phone,
         city: formData.city,
+        state: formData.state,
         ...(userType === 'contractor' && {
           companyName: formData.companyName,
           serviceCategory: formData.serviceCategory,
@@ -259,12 +258,12 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
       };
 
       await signup(formData.email, formData.password, userData);
-      
+
       toast({
         title: "Account Created!",
         description: "Please check your email to verify your account"
       });
-      
+
       onSuccess();
     } catch (error: any) {
       toast({
@@ -314,16 +313,40 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
               </div>
             </div>
 
-            <div>
-              <Label htmlFor="city">City</Label>
-              <Input
-                id="city"
-                name="city"
-                placeholder="Enter your city"
-                value={formData.city}
-                onChange={handleInputChange}
-                required
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="state">State</Label>
+                <Select
+                  value={formData.state}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, state: value, city: '' }))}
+                >
+                  <SelectTrigger id="state">
+                    <SelectValue placeholder="Select State" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {INDIA_STATES.map(state => (
+                      <SelectItem key={state} value={state}>{state}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="city">City</Label>
+                <Select
+                  value={formData.city}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, city: value }))}
+                  disabled={!formData.state}
+                >
+                  <SelectTrigger id="city">
+                    <SelectValue placeholder={formData.state ? "Select City" : "Select State first"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {formData.state && STATE_CITIES[formData.state]?.map(city => (
+                      <SelectItem key={city} value={city}>{city}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {userType === 'contractor' && (
@@ -341,22 +364,12 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
                 </div>
 
                 <div>
-                  <Label htmlFor="serviceCategory">Service Category</Label>
-                  <Select
-                    value={formData.serviceCategory}
-                    onValueChange={(value) => setFormData({ ...formData, serviceCategory: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {serviceCategories.map((category) => (
-                        <SelectItem key={category} value={category}>
-                          {category}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label>Service Category *</Label>
+                  <ServiceCategorySelector
+                    selectedCategories={formData.serviceCategory}
+                    onChange={(categories) => setFormData({ ...formData, serviceCategory: categories })}
+                    multiSelect={true}
+                  />
                 </div>
 
                 <div>
@@ -399,11 +412,11 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
   // Regular Sign-up Form
   return (
     <Card className="w-full max-w-md mx-auto">
-        <CardHeader>
-          <CardTitle className="text-center">Create an Account</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+      <CardHeader>
+        <CardTitle className="text-center">Create an Account</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
           <Button
             type="button"
             variant="outline"
@@ -531,16 +544,40 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
             />
           </div>
 
-          <div>
-            <Label htmlFor="city">City</Label>
-            <Input
-              id="city"
-              name="city"
-              placeholder="Enter your city"
-              value={formData.city}
-              onChange={handleInputChange}
-              required
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="state">State</Label>
+              <Select
+                value={formData.state}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, state: value, city: '' }))}
+              >
+                <SelectTrigger id="state">
+                  <SelectValue placeholder="Select State" />
+                </SelectTrigger>
+                <SelectContent>
+                  {INDIA_STATES.map(state => (
+                    <SelectItem key={state} value={state}>{state}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="city">City</Label>
+              <Select
+                value={formData.city}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, city: value }))}
+                disabled={!formData.state}
+              >
+                <SelectTrigger id="city">
+                  <SelectValue placeholder={formData.state ? "Select City" : "Select State first"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {formData.state && STATE_CITIES[formData.state]?.map(city => (
+                    <SelectItem key={city} value={city}>{city}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div>
@@ -584,22 +621,12 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSuccess }) => {
               </div>
 
               <div>
-                <Label htmlFor="serviceCategory">Service Category</Label>
-                <Select
-                  value={formData.serviceCategory}
-                  onValueChange={(value) => setFormData({ ...formData, serviceCategory: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {serviceCategories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Service Category *</Label>
+                <ServiceCategorySelector
+                  selectedCategories={formData.serviceCategory}
+                  onChange={(categories) => setFormData({ ...formData, serviceCategory: categories })}
+                  multiSelect={true}
+                />
               </div>
 
               <div>

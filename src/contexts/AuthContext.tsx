@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { 
-  User, 
-  createUserWithEmailAndPassword, 
+import {
+  User,
+  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signInWithPopup,
   GoogleAuthProvider,
@@ -25,6 +25,7 @@ export interface UserProfile {
   userType: 'customer' | 'contractor';
   mobile: string;
   city?: string;
+  state?: string;
   occupation?: string;
   profilePicture?: string;
   isEmailVerified: boolean;
@@ -40,7 +41,7 @@ export interface UserProfile {
   kycNotes?: string;
   // Contractor specific fields
   companyName?: string;
-  serviceCategory?: string;
+  serviceCategory?: string | string[];
   experience?: number;
   bio?: string;
   certifications?: string[];
@@ -110,11 +111,18 @@ const validateCompanyName = (name: string): boolean => {
   return name.length >= 2 && name.length <= 100;
 };
 
-const validateServiceCategory = (category: string): boolean => {
+const validateServiceCategory = (category: string | string[]): boolean => {
   const validCategories = [
     'Civil Construction', 'Electrical', 'Plumbing', 'Painting', 'Carpentry',
-    'Interior Design', 'Architecture', 'Landscaping', 'Roofing', 'Flooring'
+    'Interior Design', 'Architecture', 'Landscaping', 'Roofing', 'Flooring',
+    'Air Conditioning (AC)', 'Stone Work, Tiles, etc.', 'Masonry',
+    'Metal Fabrication', 'Steel Work', 'Aluminium Work',
+    'Demolition', 'Renovation', 'New Construction'
   ];
+
+  if (Array.isArray(category)) {
+    return category.length > 0 && category.every(c => validCategories.includes(c));
+  }
   return validCategories.includes(category);
 };
 
@@ -122,8 +130,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loginAttempts, setLoginAttempts] = useState<{[key: string]: number}>({});
-  const [lastLoginAttempt, setLastLoginAttempt] = useState<{[key: string]: Date}>({});
+  const [loginAttempts, setLoginAttempts] = useState<{ [key: string]: number }>({});
+  const [lastLoginAttempt, setLastLoginAttempt] = useState<{ [key: string]: Date }>({});
 
   // Rate limiting check
   const checkRateLimit = (email: string): boolean => {
@@ -133,8 +141,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Reset attempts after 1 hour
     if (lastAttempt && (now.getTime() - lastAttempt.getTime() > 3600000)) {
-      setLoginAttempts({...loginAttempts, [email]: 0});
-      setLastLoginAttempt({...lastLoginAttempt, [email]: now});
+      setLoginAttempts({ ...loginAttempts, [email]: 0 });
+      setLastLoginAttempt({ ...lastLoginAttempt, [email]: now });
       return true;
     }
 
@@ -143,20 +151,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
 
-    setLoginAttempts({...loginAttempts, [email]: attempts + 1});
-    setLastLoginAttempt({...lastLoginAttempt, [email]: now});
+    setLoginAttempts({ ...loginAttempts, [email]: attempts + 1 });
+    setLastLoginAttempt({ ...lastLoginAttempt, [email]: now });
     return true;
   };
 
   const createUserProfile = async (user: User, additionalData: Partial<UserProfile> = {}) => {
     const userRef = doc(db, 'users', user.uid);
     const userDoc = await getDoc(userRef);
-    
+
     if (!userDoc.exists()) {
       // For Google sign-in, we'll create a basic profile first
       const isGoogleUser = user.providerData.some(provider => provider.providerId === 'google.com');
       const isPhoneUser = user.providerData.some(provider => provider.providerId === 'phone');
-      
+
       if (isGoogleUser) {
         const now = new Date();
         const profileData: UserProfile = {
@@ -180,7 +188,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           lastLoginAt: now,
           loginCount: 1
         };
-        
+
         await setDoc(userRef, profileData);
         return profileData;
       } else if (isPhoneUser) {
@@ -209,7 +217,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           loginCount: 1,
           ...additionalData
         };
-        
+
         await setDoc(userRef, profileData);
         return profileData;
       } else {
@@ -264,12 +272,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           loginCount: 1,
           ...additionalData
         };
-        
+
         await setDoc(userRef, profileData);
         return profileData;
       }
     }
-    
+
     // Update last login for existing user
     const now = new Date();
     await updateDoc(userRef, {
@@ -277,16 +285,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       loginCount: increment(1),
       updatedAt: now
     });
-    
+
     return userDoc.data() as UserProfile;
   };
 
   const signup = async (email: string, password: string, userData: Partial<UserProfile>) => {
     const { user } = await createUserWithEmailAndPassword(auth, email, password);
-    
+
     // Send email verification
     await sendEmailVerification(user);
-    
+
     // Create user profile in Firestore
     const profileData = await createUserProfile(user, {
       ...userData,
@@ -294,7 +302,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isPhoneVerified: false,
       profileComplete: false
     });
-    
+
     setUserProfile(profileData);
   };
 
@@ -303,7 +311,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!currentUser) {
       throw new Error('No user logged in');
     }
-    
+
     const recaptchaVerifier = setupRecaptcha('recaptcha-container');
     return await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
   };
@@ -313,17 +321,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!currentUser) {
       throw new Error('No user logged in');
     }
-    
+
     try {
       await confirmationResult.confirm(otp);
-      
+
       // Update user profile to mark phone as verified
       const userRef = doc(db, 'users', currentUser.uid);
       await updateDoc(userRef, {
         isPhoneVerified: true,
         updatedAt: new Date()
       });
-      
+
       await refreshUserProfile();
     } catch (error: any) {
       console.error('Error verifying and linking phone:', error);
@@ -364,9 +372,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Set local persistence to keep user logged in
       await setPersistence(auth, browserLocalPersistence);
       const result = await signInWithPopup(auth, provider);
-      
+
       console.log('Google sign-in successful, email verified status:', result.user.emailVerified);
-      
+
       // Create initial user profile with Google data
       await createUserProfile(result.user, {
         fullName: result.user.displayName || '',
@@ -426,11 +434,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const profile = userDoc.data() as UserProfile;
           // Ensure we always carry the document id into state for downstream updates
           profile.uid = profile.uid || currentUser.uid;
-          
+
           // For Google users, always ensure email is marked as verified
           const isGoogleUser = currentUser.providerData.some(provider => provider.providerId === 'google.com');
           let needsUpdate = false;
-          
+
           if (isGoogleUser && !profile.isEmailVerified) {
             console.log('Updating Google user email verification status');
             profile.isEmailVerified = true;
@@ -442,13 +450,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             profile.profilePicture = currentUser.photoURL;
             needsUpdate = true;
           }
-          
+
           // Update email verification status if changed for any user
           if (profile.isEmailVerified !== currentUser.emailVerified && !isGoogleUser) {
             profile.isEmailVerified = currentUser.emailVerified;
             needsUpdate = true;
           }
-          
+
           if (needsUpdate) {
             profile.updatedAt = new Date();
             await setDoc(doc(db, 'users', currentUser.uid), {
@@ -457,14 +465,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               updatedAt: profile.updatedAt
             }, { merge: true });
           }
-          
+
           setUserProfile(profile);
         } else {
           // Only create profile for users without existing profiles
           // For phone users, this should not happen as profile is created during verification
           const isGoogleUser = currentUser.providerData.some(provider => provider.providerId === 'google.com');
           const isPhoneUser = currentUser.providerData.some(provider => provider.providerId === 'phone');
-          
+
           if (isGoogleUser) {
             const profileData = await createUserProfile(currentUser, {
               isEmailVerified: true
@@ -488,7 +496,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (existingContainer) {
       existingContainer.innerHTML = '';
     }
-    
+
     return new RecaptchaVerifier(auth, elementId, {
       size: 'invisible',
       callback: () => {
@@ -506,7 +514,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const sendPhoneOTP = async (phoneNumber: string): Promise<ConfirmationResult> => {
     if (!currentUser) throw new Error('No user logged in');
-    
+
     try {
       // Clear any existing recaptcha first
       const recaptchaContainer = document.getElementById('recaptcha-container');
@@ -529,7 +537,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       console.log('Sending OTP to:', phoneNumber);
       const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
-      
+
       return confirmationResult;
     } catch (error: any) {
       console.error('Error sending OTP:', error);
@@ -552,7 +560,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const verifyPhoneOTP = async (confirmationResult: ConfirmationResult, otp: string, userData?: Partial<UserProfile>): Promise<void> => {
     try {
       await confirmationResult.confirm(otp);
-      
+
       if (userData && !currentUser) {
         // This is a new user signup via phone
         const user = auth.currentUser;
@@ -566,7 +574,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         return;
       }
-      
+
       // This is verification for existing user - update their profile
       if (currentUser) {
         const userRef = doc(db, 'users', currentUser.uid);
@@ -574,7 +582,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           isPhoneVerified: true,
           updatedAt: new Date()
         });
-        
+
         await refreshUserProfile();
       }
     } catch (error: any) {
@@ -592,41 +600,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isAdmin = (): boolean => {
     return userProfile?.isAdmin === true;
   };
-  
+
   const isProfileComplete = (): boolean => {
     if (!userProfile) return false;
-    
+
     // Check if the profile is explicitly marked as complete
     if (userProfile.profileComplete === true) {
       return true;
     }
-    
+
     // If not explicitly marked, check for required fields
     if (userProfile.userType === 'customer') {
       return !!(userProfile.fullName && userProfile.mobile && userProfile.city);
     } else if (userProfile.userType === 'contractor') {
       return !!(
-        userProfile.fullName && 
-        userProfile.mobile && 
+        userProfile.fullName &&
+        userProfile.mobile &&
         userProfile.city &&
         userProfile.companyName &&
         userProfile.serviceCategory
       );
     }
-    
+
     return false;
   };
-  
+
   const markProfileComplete = async (): Promise<void> => {
     if (!currentUser || !userProfile) return;
-    
+
     const userRef = doc(db, 'users', currentUser.uid);
     await setDoc(userRef, {
       profileComplete: true,
       updatedAt: new Date(),
       uid: currentUser.uid
     }, { merge: true });
-    
+
     await refreshUserProfile();
   };
 
@@ -634,38 +642,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log('Auth state changed:', user ? 'User logged in' : 'User logged out');
       setCurrentUser(user);
-      
+
       if (user) {
         try {
           // Fetch user profile from Firestore
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           if (userDoc.exists()) {
             const profile = userDoc.data() as UserProfile;
-            
+
             // Always keep uid from auth in profile state for reliable updates
             profile.uid = profile.uid || user.uid;
-            
+
             // For Google users, always ensure email is marked as verified
             const isGoogleUser = user.providerData.some(provider => provider.providerId === 'google.com');
-              let needsUpdate = false;
-            
-              if (isGoogleUser && !profile.isEmailVerified) {
-                console.log('Updating Google user email verification status');
-                profile.isEmailVerified = true;
-                needsUpdate = true;
-              }
+            let needsUpdate = false;
 
-              if (isGoogleUser && !profile.profilePicture && user.photoURL) {
-                profile.profilePicture = user.photoURL;
-                needsUpdate = true;
-              }
-            
-              // Update email verification status if changed for any user
-              if (profile.isEmailVerified !== user.emailVerified && !isGoogleUser) {
-                profile.isEmailVerified = user.emailVerified;
-                needsUpdate = true;
+            if (isGoogleUser && !profile.isEmailVerified) {
+              console.log('Updating Google user email verification status');
+              profile.isEmailVerified = true;
+              needsUpdate = true;
             }
-            
+
+            if (isGoogleUser && !profile.profilePicture && user.photoURL) {
+              profile.profilePicture = user.photoURL;
+              needsUpdate = true;
+            }
+
+            // Update email verification status if changed for any user
+            if (profile.isEmailVerified !== user.emailVerified && !isGoogleUser) {
+              profile.isEmailVerified = user.emailVerified;
+              needsUpdate = true;
+            }
+
             if (needsUpdate) {
               profile.updatedAt = new Date();
               await setDoc(doc(db, 'users', user.uid), {
@@ -674,14 +682,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 updatedAt: profile.updatedAt
               }, { merge: true });
             }
-            
+
             setUserProfile(profile);
           } else {
             // Only create profile for users without existing profiles
             // For phone users, this should not happen as profile is created during verification
             const isGoogleUser = user.providerData.some(provider => provider.providerId === 'google.com');
             const isPhoneUser = user.providerData.some(provider => provider.providerId === 'phone');
-            
+
             if (isGoogleUser) {
               const profileData = await createUserProfile(user, {
                 isEmailVerified: true
@@ -699,7 +707,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         setUserProfile(null);
       }
-      
+
       setLoading(false);
     });
 

@@ -1,0 +1,21 @@
+export const SERVICE_CATEGORIES = [
+    'Civil Construction',
+    'Electrical',
+    'Plumbing',
+    'Painting',
+    'Carpentry',
+    'Interior Design',
+    'Architecture',
+    'Landscaping',
+    'Roofing',
+    'Flooring',
+    'Air Conditioning (AC)',
+    'Stone Work, Tiles, etc.',
+    'Masonry',
+    'Metal Fabrication',
+    'Steel Work',
+    'Aluminium Work',
+    'Demolition',
+    'Renovation',
+    'New Construction'
+];

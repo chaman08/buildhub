@@ -78,7 +78,7 @@ const AcceptedProjects: React.FC = () => {
   const { currentUser } = useAuth();
   const [acceptedProjects, setAcceptedProjects] = useState<AcceptedProject[]>([]);
   const [contractorProjects, setContractorProjects] = useState<ContractorProject[]>([]);
-  const [projectBids, setProjectBids] = useState<{[projectId: string]: ProjectBid[]}>({});
+  const [projectBids, setProjectBids] = useState<{ [projectId: string]: ProjectBid[] }>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingProject, setEditingProject] = useState<ContractorProject | null>(null);
@@ -108,7 +108,7 @@ const AcceptedProjects: React.FC = () => {
         where('status', '==', 'accepted'),
         orderBy('createdAt', 'desc')
       );
-      
+
       const acceptedSnapshot = await getDocs(acceptedBidsQuery);
       const acceptedData = acceptedSnapshot.docs.map(doc => ({
         id: doc.id,
@@ -121,7 +121,7 @@ const AcceptedProjects: React.FC = () => {
         where('postedBy', '==', currentUser.uid),
         orderBy('createdAt', 'desc')
       );
-      
+
       const contractorSnapshot = await getDocs(contractorProjectsQuery);
       const contractorData = contractorSnapshot.docs.map(doc => ({
         id: doc.id,
@@ -129,14 +129,14 @@ const AcceptedProjects: React.FC = () => {
       })) as ContractorProject[];
 
       // Fetch bids for each contractor project
-      const bidsData: {[projectId: string]: ProjectBid[]} = {};
+      const bidsData: { [projectId: string]: ProjectBid[] } = {};
       for (const project of contractorData) {
         const bidsQuery = query(
           collection(db, 'bids'),
           where('projectId', '==', project.id),
           orderBy('createdAt', 'desc')
         );
-        
+
         const bidsSnapshot = await getDocs(bidsQuery);
         bidsData[project.id] = bidsSnapshot.docs.map(doc => ({
           id: doc.id,
@@ -183,14 +183,14 @@ const AcceptedProjects: React.FC = () => {
       };
 
       await updateDoc(doc(db, 'contractor_projects', editingProject.id), updatedData);
-      
-      setContractorProjects(contractorProjects.map(p => 
+
+      setContractorProjects(contractorProjects.map(p =>
         p.id === editingProject.id ? { ...p, ...updatedData } : p
       ));
-      
+
       setShowEditDialog(false);
       setEditingProject(null);
-      
+
       toast({
         title: "Project Updated",
         description: "Your service project has been updated successfully."
@@ -213,7 +213,7 @@ const AcceptedProjects: React.FC = () => {
     try {
       await deleteDoc(doc(db, 'contractor_projects', projectId));
       setContractorProjects(contractorProjects.filter(p => p.id !== projectId));
-      
+
       toast({
         title: "Project Deleted",
         description: "Your service project has been deleted successfully."
@@ -236,7 +236,7 @@ const AcceptedProjects: React.FC = () => {
   const handleBidAction = async (bidId: string, action: 'accept' | 'reject') => {
     try {
       const newStatus: 'accepted' | 'rejected' = action === 'accept' ? 'accepted' : 'rejected';
-      
+
       if (action === 'accept') {
         const acceptBidFn = httpsCallable(functions, 'acceptBid');
         await acceptBidFn({ bidId });
@@ -422,8 +422,8 @@ const AcceptedProjects: React.FC = () => {
                     ) : null}
 
                     <div className="flex flex-wrap gap-2">
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
                         className="flex-1"
                         onClick={() => window.open(`/project/${project.projectId}`, '_blank')}
@@ -431,8 +431,8 @@ const AcceptedProjects: React.FC = () => {
                         <Eye className="h-4 w-4 mr-1" />
                         View
                       </Button>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
                         className="flex-1"
                         onClick={() => setProgressProject(project)}
@@ -442,8 +442,8 @@ const AcceptedProjects: React.FC = () => {
                         Progress
                       </Button>
                       {project.customerPhone && (
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           size="sm"
                           className="flex-1"
                           onClick={() => window.open(`tel:${project.customerPhone}`)}
@@ -457,86 +457,86 @@ const AcceptedProjects: React.FC = () => {
               </div>
 
               <Card className="hidden md:block">
-              <CardHeader>
-                <CardTitle>Accepted Contracts</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Project</TableHead>
-                      <TableHead>Customer</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Timeline</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {acceptedProjects.map((project) => (
-                      <TableRow key={project.id}>
-                        <TableCell>
-                          <div className="font-medium">{project.projectTitle}</div>
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{project.customerName}</div>
-                            <div className="text-sm text-gray-500">{project.customerEmail}</div>
-                            {project.customerPhone && (
-                              <div className="text-sm text-gray-500">{project.customerPhone}</div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span className="font-semibold text-green-600">
-                            {formatBudget(project.priceQuoted)}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Calendar className="h-4 w-4 text-gray-400" />
-                            {project.timeline}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={getStatusColor(project.status)} variant="outline">
-                            {getStatusIcon(project.status)}
-                            <span className="ml-1">{project.status.replace('_', ' ')}</span>
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap gap-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => window.open(`/project/${project.projectId}`, '_blank')}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => setProgressProject(project)}
-                              title="Track progress"
-                            >
-                              <Activity className="h-4 w-4" />
-                            </Button>
-                            {project.customerPhone && (
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => window.open(`tel:${project.customerPhone}`)}
-                              >
-                                📞
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
+                <CardHeader>
+                  <CardTitle>Accepted Contracts</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Project</TableHead>
+                        <TableHead>Customer</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Timeline</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
+                    </TableHeader>
+                    <TableBody>
+                      {acceptedProjects.map((project) => (
+                        <TableRow key={project.id}>
+                          <TableCell>
+                            <div className="font-medium">{project.projectTitle}</div>
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{project.customerName}</div>
+                              <div className="text-sm text-gray-500">{project.customerEmail}</div>
+                              {project.customerPhone && (
+                                <div className="text-sm text-gray-500">{project.customerPhone}</div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-semibold text-green-600">
+                              {formatBudget(project.priceQuoted)}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-4 w-4 text-gray-400" />
+                              {project.timeline}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={getStatusColor(project.status)} variant="outline">
+                              {getStatusIcon(project.status)}
+                              <span className="ml-1">{project.status.replace('_', ' ')}</span>
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => window.open(`/project/${project.projectId}`, '_blank')}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setProgressProject(project)}
+                                title="Track progress"
+                              >
+                                <Activity className="h-4 w-4" />
+                              </Button>
+                              {project.customerPhone && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => window.open(`tel:${project.customerPhone}`)}
+                                >
+                                  📞
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
               </Card>
             </>
           )}
@@ -585,7 +585,7 @@ const AcceptedProjects: React.FC = () => {
                     {contractorProjects.map((project) => {
                       const bids = projectBids[project.id] || [];
                       const pendingBids = bids.filter(bid => bid.status === 'pending').length;
-                      
+
                       return (
                         <TableRow key={project.id}>
                           <TableCell>
@@ -623,15 +623,15 @@ const AcceptedProjects: React.FC = () => {
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-2">
-                              <Button 
-                                variant="outline" 
+                              <Button
+                                variant="outline"
                                 size="sm"
                                 onClick={() => window.open(`/contractor-services`, '_blank')}
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
-                              <Button 
-                                variant="outline" 
+                              <Button
+                                variant="outline"
                                 size="sm"
                                 onClick={() => handleViewBids(project)}
                                 className={pendingBids > 0 ? 'border-orange-500 text-orange-600' : ''}
@@ -639,16 +639,16 @@ const AcceptedProjects: React.FC = () => {
                                 <Users className="h-4 w-4" />
                                 {bids.length > 0 && <span className="ml-1">{bids.length}</span>}
                               </Button>
-                              <Button 
-                                variant="outline" 
+                              <Button
+                                variant="outline"
                                 size="sm"
                                 onClick={() => handleEditContractorProject(project)}
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
+                              <Button
+                                variant="outline"
+                                size="sm"
                                 className="text-red-600 hover:text-red-700"
                                 onClick={() => handleDeleteContractorProject(project.id, project.title)}
                               >
@@ -684,7 +684,7 @@ const AcceptedProjects: React.FC = () => {
                   required
                 />
               </div>
-              
+
               <div>
                 <Label htmlFor="description">Description</Label>
                 <Textarea
@@ -695,7 +695,7 @@ const AcceptedProjects: React.FC = () => {
                   required
                 />
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="category">Category</Label>
@@ -725,7 +725,7 @@ const AcceptedProjects: React.FC = () => {
                   />
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="priceMin">Min Price (₹)</Label>
@@ -797,11 +797,11 @@ const AcceptedProjects: React.FC = () => {
                   />
                 </div>
               </div>
-              
+
               <div className="flex flex-col-reverse sm:flex-row gap-2 pt-4">
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={() => setShowEditDialog(false)}
                   className="w-full sm:w-auto"
                 >
@@ -823,7 +823,7 @@ const AcceptedProjects: React.FC = () => {
               Bids for "{selectedProjectForBids?.title}"
             </DialogTitle>
           </DialogHeader>
-          
+
           {selectedProjectForBids && (
             <div className="space-y-4">
               {projectBids[selectedProjectForBids.id]?.length === 0 ? (
@@ -848,7 +848,7 @@ const AcceptedProjects: React.FC = () => {
                             <span className="ml-1">{bid.status}</span>
                           </Badge>
                         </div>
-                        
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
                           <div className="flex items-center gap-2">
                             <DollarSign className="h-4 w-4 text-green-600" />
@@ -861,19 +861,19 @@ const AcceptedProjects: React.FC = () => {
                             <span>Timeline: {bid.timeline}</span>
                           </div>
                         </div>
-                        
+
                         <div className="mb-4">
                           <h5 className="font-medium mb-2">Proposal:</h5>
                           <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded">
                             {bid.proposal}
                           </p>
                         </div>
-                        
+
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-gray-500">
                             Submitted: {formatDate(bid.createdAt)}
                           </span>
-                          
+
                           {bid.status === 'pending' && (
                             <div className="flex gap-2">
                               <Button

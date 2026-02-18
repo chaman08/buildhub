@@ -12,6 +12,8 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import PhoneVerificationModal from './PhoneVerificationModal';
 import { useNavigate } from 'react-router-dom';
+import ServiceCategorySelector from '../ServiceCategorySelector';
+import { INDIA_STATES, STATE_CITIES } from '@/lib/india-locations';
 
 const ProfileCompletion: React.FC = () => {
   const { userProfile, currentUser, refreshUserProfile, markProfileComplete } = useAuth();
@@ -21,17 +23,14 @@ const ProfileCompletion: React.FC = () => {
   const [formData, setFormData] = useState({
     mobile: '',
     city: '',
+    state: '',
     userType: 'customer' as 'customer' | 'contractor',
     companyName: '',
-    serviceCategory: '',
+    serviceCategory: [] as string[],
     experience: ''
   });
   const navigate = useNavigate();
 
-  const serviceCategories = [
-    'Civil Construction', 'Electrical', 'Plumbing', 'Painting', 'Carpentry',
-    'Interior Design', 'Architecture', 'Landscaping', 'Roofing', 'Flooring'
-  ];
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -46,18 +45,18 @@ const ProfileCompletion: React.FC = () => {
     if (!currentUser || !userProfile) return;
 
     // Validate required fields
-    if (!formData.city || !formData.userType) {
+    if (!formData.city || !formData.state || !formData.userType) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all required fields",
+        description: "Please select both state and city",
         variant: "destructive"
       });
       return;
     }
 
-    if (formData.userType === 'contractor' && (!formData.companyName || !formData.serviceCategory)) {
+    if (formData.userType === 'contractor' && (!formData.companyName || formData.serviceCategory.length === 0)) {
       toast({
-        title: "Missing Information", 
+        title: "Missing Information",
         description: "Contractors must provide company name and service category",
         variant: "destructive"
       });
@@ -69,13 +68,14 @@ const ProfileCompletion: React.FC = () => {
       const userRef = doc(db, 'users', currentUser.uid);
       const updateData = {
         ...formData,
+        serviceCategory: formData.serviceCategory.join(', '),
         experience: formData.experience ? parseInt(formData.experience) : 0,
         updatedAt: new Date()
       };
 
       await updateDoc(userRef, updateData);
       await refreshUserProfile();
-      
+
       toast({
         title: "Profile Updated",
         description: "Your profile has been updated successfully"
@@ -107,18 +107,18 @@ const ProfileCompletion: React.FC = () => {
     }
 
     // Validate required fields
-    if (!formData.city || !formData.userType) {
+    if (!formData.city || !formData.state || !formData.userType) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all required fields",
+        description: "Please select both state and city",
         variant: "destructive"
       });
       return;
     }
 
-    if (formData.userType === 'contractor' && (!formData.companyName || !formData.serviceCategory)) {
+    if (formData.userType === 'contractor' && (!formData.companyName || formData.serviceCategory.length === 0)) {
       toast({
-        title: "Missing Information", 
+        title: "Missing Information",
         description: "Contractors must provide company name and service category",
         variant: "destructive"
       });
@@ -130,20 +130,21 @@ const ProfileCompletion: React.FC = () => {
       const userRef = doc(db, 'users', currentUser.uid);
       const updateData = {
         ...formData,
+        serviceCategory: formData.serviceCategory.join(', '),
         experience: formData.experience ? parseInt(formData.experience) : 0,
         updatedAt: new Date()
       };
 
       await updateDoc(userRef, updateData);
-      
+
       // Then mark the profile as complete
       await markProfileComplete();
-      
+
       toast({
         title: "Profile Complete!",
         description: "Your profile is now complete. Redirecting to dashboard..."
       });
-      
+
       // Navigate to the correct dashboard based on userType
       if (formData.userType === 'contractor') {
         navigate('/contractor-dashboard');
@@ -192,8 +193,8 @@ const ProfileCompletion: React.FC = () => {
                   <div>
                     <h3 className="font-semibold text-blue-900">Phone Verification</h3>
                     <p className="text-sm text-blue-700">
-                      {userProfile.isPhoneVerified 
-                        ? "Your phone number is verified" 
+                      {userProfile.isPhoneVerified
+                        ? "Your phone number is verified"
                         : "Phone verification is required"
                       }
                     </p>
@@ -202,7 +203,7 @@ const ProfileCompletion: React.FC = () => {
                 {userProfile.isPhoneVerified ? (
                   <CheckCircle className="h-6 w-6 text-green-600" />
                 ) : (
-                  <Button 
+                  <Button
                     onClick={() => setShowPhoneVerification(true)}
                     variant="outline"
                     size="sm"
@@ -217,22 +218,46 @@ const ProfileCompletion: React.FC = () => {
           {/* Profile Form */}
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="city">City *</Label>
-                <Input
-                  id="city"
-                  name="city"
-                  value={formData.city}
-                  onChange={handleInputChange}
-                  placeholder="Enter your city"
-                  required
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="state">State *</Label>
+                  <Select
+                    value={formData.state}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, state: value, city: '' }))}
+                  >
+                    <SelectTrigger id="state">
+                      <SelectValue placeholder="Select State" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {INDIA_STATES.map(state => (
+                        <SelectItem key={state} value={state}>{state}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="city">City *</Label>
+                  <Select
+                    value={formData.city}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, city: value }))}
+                    disabled={!formData.state}
+                  >
+                    <SelectTrigger id="city">
+                      <SelectValue placeholder={formData.state ? "Select City" : "Select State first"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {formData.state && STATE_CITIES[formData.state]?.map(city => (
+                        <SelectItem key={city} value={city}>{city}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div>
                 <Label htmlFor="userType">Account Type *</Label>
-                <Select 
-                  value={formData.userType} 
+                <Select
+                  value={formData.userType}
                   onValueChange={(value) => handleSelectChange('userType', value)}
                 >
                   <SelectTrigger>
@@ -263,22 +288,12 @@ const ProfileCompletion: React.FC = () => {
                   </div>
 
                   <div>
-                    <Label htmlFor="serviceCategory">Service Category *</Label>
-                    <Select 
-                      value={formData.serviceCategory}
-                      onValueChange={(value) => handleSelectChange('serviceCategory', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {serviceCategories.map((category) => (
-                          <SelectItem key={category} value={category}>
-                            {category}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label>Service Category *</Label>
+                    <ServiceCategorySelector
+                      selectedCategories={formData.serviceCategory}
+                      onChange={(categories) => setFormData({ ...formData, serviceCategory: categories })}
+                      multiSelect={true}
+                    />
                   </div>
                 </div>
 
@@ -302,7 +317,7 @@ const ProfileCompletion: React.FC = () => {
           <div className="flex flex-col space-y-3">
             {/* Only show Save Profile button if not Google user */}
             {!isGoogleUser && (
-              <Button 
+              <Button
                 onClick={handleSaveProfile}
                 disabled={loading}
                 variant="outline"
@@ -311,10 +326,10 @@ const ProfileCompletion: React.FC = () => {
                 {loading ? 'Saving...' : 'Save Profile'}
               </Button>
             )}
-            <Button 
+            <Button
               onClick={handleCompleteProfile}
-              disabled={(!isGoogleUser && !userProfile.isPhoneVerified) || !formData.city || !formData.userType || 
-                (formData.userType === 'contractor' && (!formData.companyName || !formData.serviceCategory))}
+              disabled={(!isGoogleUser && !userProfile.isPhoneVerified) || !formData.city || !formData.userType ||
+                (formData.userType === 'contractor' && (!formData.companyName || formData.serviceCategory.length === 0))}
               className="w-full"
             >
               Complete Profile & Continue

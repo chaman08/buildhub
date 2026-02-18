@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { INDIA_STATES, STATE_CITIES } from '@/lib/india-locations';
 import { Phone, Mail, Edit3, Save, X, User, Building2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -13,6 +15,7 @@ import { db } from '@/lib/firebase';
 import ProfilePictureUpload from '@/components/ProfilePictureUpload';
 import PhoneVerificationModal from '@/components/auth/PhoneVerificationModal';
 import KycStatusCard from '@/components/kyc/KycStatusCard';
+import ServiceCategorySelector from '@/components/ServiceCategorySelector';
 
 const ProfileSection: React.FC = () => {
   const { userProfile, currentUser, refreshUserProfile, sendEmailVerification } = useAuth();
@@ -22,11 +25,12 @@ const ProfileSection: React.FC = () => {
   const [formData, setFormData] = useState({
     fullName: userProfile?.fullName || '',
     city: userProfile?.city || '',
+    state: userProfile?.state || '',
     mobile: userProfile?.mobile || '',
     occupation: userProfile?.occupation || '',
     userType: userProfile?.userType || 'customer',
     companyName: userProfile?.companyName || '',
-    serviceCategory: userProfile?.serviceCategory || '',
+    serviceCategory: userProfile?.serviceCategory ? (Array.isArray(userProfile.serviceCategory) ? userProfile.serviceCategory : userProfile.serviceCategory.split(', ').filter(Boolean)) : [] as string[],
     experience: userProfile?.experience ? String(userProfile.experience) : ''
   });
 
@@ -34,11 +38,12 @@ const ProfileSection: React.FC = () => {
     setFormData({
       fullName: userProfile?.fullName || '',
       city: userProfile?.city || '',
+      state: userProfile?.state || '',
       mobile: userProfile?.mobile || '',
       occupation: userProfile?.occupation || '',
       userType: userProfile?.userType || 'customer',
       companyName: userProfile?.companyName || '',
-      serviceCategory: userProfile?.serviceCategory || '',
+      serviceCategory: userProfile?.serviceCategory ? (Array.isArray(userProfile.serviceCategory) ? userProfile.serviceCategory : userProfile.serviceCategory.split(', ').filter(Boolean)) : [] as string[],
       experience: userProfile?.experience ? String(userProfile.experience) : ''
     });
   }, [userProfile]);
@@ -55,19 +60,19 @@ const ProfileSection: React.FC = () => {
 
     const userTypeChanged = formData.userType !== userProfile?.userType;
 
-    if (!formData.fullName || !formData.mobile || !formData.city) {
+    if (!formData.fullName || !formData.mobile || !formData.city || !formData.state) {
       toast({
         title: "Missing information",
-        description: "Full name, mobile, and city are required.",
+        description: "Full name, mobile, state, and city are required.",
         variant: "destructive"
       });
       return;
     }
 
-    if (formData.userType === 'contractor' && (!formData.companyName || !formData.serviceCategory)) {
+    if (formData.userType === 'contractor' && (!formData.companyName || formData.serviceCategory.length === 0)) {
       toast({
         title: "Contractor details required",
-        description: "Please add Company Name and Service Category to switch to contractor.",
+        description: "Please add Company Name and at least one Service Category to switch to contractor.",
         variant: "destructive"
       });
       return;
@@ -77,21 +82,21 @@ const ProfileSection: React.FC = () => {
       const userRef = doc(db, 'users', currentUser.uid);
       const updateData = {
         ...formData,
+        ...formData,
         experience: formData.experience ? parseInt(formData.experience, 10) || 0 : 0,
         companyName: formData.userType === 'contractor' ? formData.companyName : '',
-        serviceCategory: formData.userType === 'contractor' ? formData.serviceCategory : '',
+        serviceCategory: formData.userType === 'contractor' ? formData.serviceCategory.join(', ') : '',
         updatedAt: new Date()
       };
 
       await updateDoc(userRef, updateData);
       await refreshUserProfile();
-      
+
       toast({
         title: "Profile Updated",
         description: userTypeChanged
-          ? `Role switched to ${formData.userType}. Contractor fields ${
-              formData.userType === 'contractor' ? 'saved' : 'hidden for customers'
-            }.`
+          ? `Role switched to ${formData.userType}. Contractor fields ${formData.userType === 'contractor' ? 'saved' : 'hidden for customers'
+          }.`
           : "Your profile has been updated successfully."
       });
       setIsEditing(false);
@@ -183,11 +188,11 @@ const ProfileSection: React.FC = () => {
                 <Input
                   id="fullName"
                   value={formData.fullName}
-                  onChange={(e) => setFormData({...formData, fullName: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                   disabled={!isEditing}
                 />
               </div>
-              
+
               <div>
                 <Label htmlFor="email">Email Address</Label>
                 <div className="flex items-center gap-2">
@@ -202,14 +207,14 @@ const ProfileSection: React.FC = () => {
                   </Badge>
                 </div>
               </div>
-              
+
               <div>
                 <Label htmlFor="mobile">Mobile Number</Label>
                 <div className="flex items-center gap-2">
                   <Input
                     id="mobile"
                     value={formData.mobile}
-                    onChange={(e) => setFormData({...formData, mobile: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
                     disabled={!isEditing}
                   />
                   <Badge variant={userProfile?.isPhoneVerified ? "default" : "secondary"}>
@@ -217,23 +222,49 @@ const ProfileSection: React.FC = () => {
                   </Badge>
                 </div>
               </div>
-              
+
+              <div>
+                <Label htmlFor="state">State</Label>
+                <Select
+                  value={formData.state}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, state: value, city: '' }))}
+                  disabled={!isEditing}
+                >
+                  <SelectTrigger id="state">
+                    <SelectValue placeholder="Select State" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {INDIA_STATES.map(state => (
+                      <SelectItem key={state} value={state}>{state}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div>
                 <Label htmlFor="city">City</Label>
-                <Input
-                  id="city"
+                <Select
                   value={formData.city}
-                  onChange={(e) => setFormData({...formData, city: e.target.value})}
-                  disabled={!isEditing}
-                />
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, city: value }))}
+                  disabled={!isEditing || !formData.state}
+                >
+                  <SelectTrigger id="city">
+                    <SelectValue placeholder={formData.state ? "Select City" : "Select State first"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {formData.state && STATE_CITIES[formData.state]?.map(city => (
+                      <SelectItem key={city} value={city}>{city}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              
+
               <div className="md:col-span-2">
                 <Label htmlFor="occupation">Occupation (Optional)</Label>
                 <Input
                   id="occupation"
                   value={formData.occupation}
-                  onChange={(e) => setFormData({...formData, occupation: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, occupation: e.target.value })}
                   disabled={!isEditing}
                   placeholder="e.g., Business Owner, Engineer, etc."
                 />
@@ -247,7 +278,7 @@ const ProfileSection: React.FC = () => {
                     variant={formData.userType === 'customer' ? 'default' : 'outline'}
                     className="w-full h-auto justify-start gap-3"
                     disabled={!isEditing}
-                    onClick={() => setFormData({...formData, userType: 'customer'})}
+                    onClick={() => setFormData({ ...formData, userType: 'customer' })}
                   >
                     <User className="h-5 w-5" />
                     <div className="text-left">
@@ -261,7 +292,7 @@ const ProfileSection: React.FC = () => {
                     variant={formData.userType === 'contractor' ? 'default' : 'outline'}
                     className="w-full h-auto justify-start gap-3"
                     disabled={!isEditing}
-                    onClick={() => setFormData({...formData, userType: 'contractor'})}
+                    onClick={() => setFormData({ ...formData, userType: 'contractor' })}
                   >
                     <Building2 className="h-5 w-5" />
                     <div className="text-left">
@@ -282,19 +313,17 @@ const ProfileSection: React.FC = () => {
                     <Input
                       id="companyName"
                       value={formData.companyName}
-                      onChange={(e) => setFormData({...formData, companyName: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
                       disabled={!isEditing}
                       required={isEditing}
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="serviceCategory">Service Category *</Label>
-                    <Input
-                      id="serviceCategory"
-                      value={formData.serviceCategory}
-                      onChange={(e) => setFormData({...formData, serviceCategory: e.target.value})}
-                      disabled={!isEditing}
-                      required={isEditing}
+                  <div className="md:col-span-2">
+                    <Label>Service Category *</Label>
+                    <ServiceCategorySelector
+                      selectedCategories={formData.serviceCategory}
+                      onChange={(categories) => setFormData({ ...formData, serviceCategory: categories })}
+                      multiSelect={true}
                     />
                   </div>
                   <div>
@@ -304,22 +333,22 @@ const ProfileSection: React.FC = () => {
                       type="number"
                       min="0"
                       value={formData.experience}
-                      onChange={(e) => setFormData({...formData, experience: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
                       disabled={!isEditing}
                     />
                   </div>
                 </>
               )}
             </div>
-            
+
             {isEditing && (
               <div className="flex gap-2 pt-4">
                 <Button onClick={handleSave} className="flex-1">
                   <Save className="h-4 w-4 mr-2" />
                   Save Changes
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => setIsEditing(false)}
                   className="flex-1"
                 >
@@ -346,7 +375,7 @@ const ProfileSection: React.FC = () => {
                 {userProfile?.isEmailVerified ? "✓ Verified" : "Pending"}
               </Badge>
             </div>
-            
+
             <div className="flex items-center gap-2">
               <Phone className="h-4 w-4 text-green-600" />
               <span>Phone Verification</span>
@@ -355,12 +384,12 @@ const ProfileSection: React.FC = () => {
               </Badge>
             </div>
           </div>
-          
+
           {(!userProfile?.isEmailVerified || !userProfile?.isPhoneVerified) && (
             <div className="mt-4 space-x-2">
               {!userProfile?.isEmailVerified && (
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   onClick={handleEmailVerification}
                 >
@@ -368,8 +397,8 @@ const ProfileSection: React.FC = () => {
                 </Button>
               )}
               {!userProfile?.isPhoneVerified && (
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   onClick={() => setShowPhoneVerificationModal(true)}
                 >
