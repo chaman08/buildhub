@@ -115,7 +115,7 @@ const PostProjectForm: React.FC<PostProjectFormProps> = ({ onSuccess, onCancel }
     if (!value) return 'Not set';
     const numeric = Number(value);
     if (Number.isNaN(numeric)) return 'Not set';
-    return `NGN ${numeric.toLocaleString()}`;
+    return `₹${numeric.toLocaleString('en-IN')}`;
   };
 
   const formatDate = (value?: string) => {

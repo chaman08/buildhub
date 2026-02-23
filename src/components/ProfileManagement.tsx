@@ -467,6 +467,17 @@ export const ProfileManagement = () => {
       return;
     }
 
+    // Add mobile validation for India (10 digits)
+    const mobileRegex = /^[6-9]\d{9}$/;
+    if (!mobileRegex.test(formData.mobile)) {
+      toast({
+        title: "Invalid Mobile Number",
+        description: "Please enter a valid 10-digit mobile number.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (formData.userType === 'contractor' && (!formData.companyName || formData.serviceCategory.length === 0)) {
       toast({
         title: "Missing Information",

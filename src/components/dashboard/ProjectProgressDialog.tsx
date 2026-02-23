@@ -23,6 +23,8 @@ interface ProjectProgressUpdate {
   note: string;
   status: ProgressStatus;
   percentComplete: number;
+  labourCount?: number;
+  materialsReceived?: string;
   createdBy: string;
   createdByName?: string;
   createdByType?: 'customer' | 'contractor';
@@ -84,6 +86,8 @@ const ProjectProgressDialog: React.FC<ProjectProgressDialogProps> = ({
   const [note, setNote] = useState('');
   const [status, setStatus] = useState<ProgressStatus>('in_progress');
   const [percentComplete, setPercentComplete] = useState(0);
+  const [labourCount, setLabourCount] = useState('');
+  const [materialsReceived, setMaterialsReceived] = useState('');
   const [files, setFiles] = useState<File[]>([]);
 
   useEffect(() => {
@@ -194,6 +198,8 @@ const ProjectProgressDialog: React.FC<ProjectProgressDialogProps> = ({
         note: note.trim(),
         status,
         percentComplete: percentValue,
+        labourCount: labourCount ? Number(labourCount) : null,
+        materialsReceived: materialsReceived.trim() || null,
         createdBy: currentUser.uid,
         createdByName: userProfile.fullName,
         createdByType: userProfile.userType,
@@ -207,6 +213,8 @@ const ProjectProgressDialog: React.FC<ProjectProgressDialogProps> = ({
         ...prev
       ]);
       setNote('');
+      setLabourCount('');
+      setMaterialsReceived('');
       setFiles([]);
       toast({
         title: 'Progress shared',
@@ -296,6 +304,30 @@ const ProjectProgressDialog: React.FC<ProjectProgressDialogProps> = ({
                 />
               </div>
 
+              {userProfile.userType === 'contractor' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="labourCount">Labour count (Daily)</Label>
+                    <Input
+                      id="labourCount"
+                      type="number"
+                      value={labourCount}
+                      onChange={(e) => setLabourCount(e.target.value)}
+                      placeholder="e.g., 5"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="materials">Materials received</Label>
+                    <Input
+                      id="materials"
+                      value={materialsReceived}
+                      onChange={(e) => setMaterialsReceived(e.target.value)}
+                      placeholder="e.g., Cement, Steel"
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-1.5">
                 <Label htmlFor="photos">Add photos (optional)</Label>
                 <Input
@@ -319,6 +351,8 @@ const ProjectProgressDialog: React.FC<ProjectProgressDialogProps> = ({
                   className="w-full sm:w-auto"
                   onClick={() => {
                     setNote('');
+                    setLabourCount('');
+                    setMaterialsReceived('');
                     setStatus('in_progress');
                     setPercentComplete(latestPercent);
                     setFiles([]);
@@ -366,6 +400,21 @@ const ProjectProgressDialog: React.FC<ProjectProgressDialogProps> = ({
                       <div className="text-sm text-gray-800 whitespace-pre-line">
                         {update.note}
                       </div>
+
+                      {(update.labourCount || update.materialsReceived) && (
+                        <div className="grid grid-cols-2 gap-2 bg-gray-50 p-2 rounded border border-gray-100 text-xs">
+                          {update.labourCount && (
+                            <div>
+                              <span className="font-semibold text-gray-500 uppercase">Labour:</span> {update.labourCount}
+                            </div>
+                          )}
+                          {update.materialsReceived && (
+                            <div className="truncate" title={update.materialsReceived}>
+                              <span className="font-semibold text-gray-500 uppercase">Materials:</span> {update.materialsReceived}
+                            </div>
+                          )}
+                        </div>
+                      )}
                       {update.photos && update.photos.length > 0 && (
                         <div className="grid grid-cols-2 gap-2">
                           {update.photos.map((photo, idx) => (
