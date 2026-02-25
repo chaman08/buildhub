@@ -1,0 +1,20 @@
+{
+    "short_name": "BuildHub",
+    "name": "BuildHub Construction Management",
+    "icons": [
+        {
+            "src": "buildhub-logo.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "buildhub-logo.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ],
+    "start_url": ".",
+    "display": "standalone",
+    "theme_color": "#2563eb",
+    "background_color": "#ffffff"
+}
