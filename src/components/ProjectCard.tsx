@@ -38,15 +38,12 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onSaveProject, isSav
     const formatAmount = (amt: number) => {
       // Handle undefined, null, or invalid numbers
       if (!amt || isNaN(amt)) {
-        console.log('Invalid amount detected:', amt);
         return '₹0';
       }
-      
-      // Convert to number if it's a string
+
       const numAmt = typeof amt === 'string' ? parseFloat(amt) : amt;
-      
+
       if (isNaN(numAmt)) {
-        console.log('Failed to parse amount:', amt);
         return '₹0';
       }
       

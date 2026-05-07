@@ -117,8 +117,6 @@ const AdminContactMessages = () => {
         repliedAt: new Date()
       });
       
-      // Here you would typically send an email reply
-      console.log('Reply sent:', replyText);
       
       toast({
         title: "Reply sent successfully",

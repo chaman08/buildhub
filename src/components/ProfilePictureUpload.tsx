@@ -58,13 +58,8 @@ const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
       const storageRef = ref(storage, fileName);
 
       // Upload the file
-      console.log('Uploading file:', file.name);
       const uploadResult = await uploadBytes(storageRef, file);
-      console.log('Upload completed:', uploadResult);
-
-      // Get the download URL
       const downloadURL = await getDownloadURL(uploadResult.ref);
-      console.log('Download URL:', downloadURL);
 
       // Update user profile in Firestore
       const userRef = doc(db, 'users', currentUser.uid);

@@ -61,7 +61,6 @@ const AvailableTenders: React.FC = () => {
 
   const fetchAvailableProjects = async () => {
     try {
-      console.log('Fetching available tenders...');
       
       const baseQuery = query(
         collection(db, 'projects'),
@@ -77,7 +76,6 @@ const AvailableTenders: React.FC = () => {
       
       const availableProjects = projectData.filter(project => project.postedBy !== currentUser?.uid);
       
-      console.log('Available tenders first page:', availableProjects.length);
       setProjects(availableProjects);
       setLoading(false);
 

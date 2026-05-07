@@ -264,7 +264,6 @@ const ProjectDetail = () => {
         updatedBy: currentUser.uid
       };
 
-      console.log('Saving handoff data:', handoffData);
 
       await setDoc(
         doc(db, 'projectHandoffs', project.id),

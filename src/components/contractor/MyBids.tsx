@@ -44,7 +44,6 @@ const MyBids: React.FC = () => {
     if (!currentUser) return;
 
     try {
-      console.log('Fetching contractor bids for user:', currentUser.uid);
       setError(null);
       setLoading(true);
       
@@ -55,10 +54,8 @@ const MyBids: React.FC = () => {
       );
       
       const snapshot = await getDocs(bidsQuery);
-      console.log('Contractor bids found:', snapshot.size);
       
       if (snapshot.empty) {
-        console.log('No bids found for contractor:', currentUser.uid);
         setBids([]);
         setLoading(false);
         return;
@@ -67,7 +64,6 @@ const MyBids: React.FC = () => {
       const bidsData = await Promise.all(
         snapshot.docs.map(async (bidDoc) => {
           const bidData = bidDoc.data();
-          console.log('Processing bid:', bidDoc.id, bidData);
           
           // Validate required fields
           if (!bidData.projectId) {
@@ -135,7 +131,6 @@ const MyBids: React.FC = () => {
       
       // Filter out any null bids (from validation failures)
       const validBids = bidsData.filter(bid => bid !== null) as Bid[];
-      console.log('Final processed bids:', validBids.length);
       
       if (validBids.length === 0) {
         setError('No valid bids found. Please try again later.');

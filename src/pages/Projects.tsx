@@ -61,7 +61,6 @@ const Projects = () => {
 
   const fetchProjects = async () => {
     try {
-      console.log('Fetching projects from Firestore...');
       const baseQuery = query(
         collection(db, 'projects'),
         where('status', '==', 'open'), // Only fetch open projects to satisfy Firestore rules (drafts are private)
@@ -69,7 +68,6 @@ const Projects = () => {
       );
 
       const firstPageSnapshot = await getDocs(query(baseQuery, limit(PAGE_SIZE)));
-      console.log('First page projects fetched:', firstPageSnapshot.size);
 
       const firstBatch = firstPageSnapshot.docs.map(doc => ({
         id: doc.id,

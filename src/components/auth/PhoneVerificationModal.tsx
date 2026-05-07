@@ -104,11 +104,8 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
           try {
             const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
               size: 'invisible',
-              callback: () => {
-                console.log('reCAPTCHA solved');
-              },
+              callback: () => {},
               'expired-callback': () => {
-                console.log('reCAPTCHA expired');
                 cleanupRecaptcha();
               }
             });
@@ -133,8 +130,8 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
     if (recaptchaVerifierRef.current) {
       try {
         recaptchaVerifierRef.current.clear();
-      } catch (error) {
-        console.log('Error cleaning up reCAPTCHA:', error);
+      } catch {
+        // ignore cleanup errors
       }
       recaptchaVerifierRef.current = null;
     }
@@ -205,7 +202,6 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
     setLoading(true);
     try {
       const fullPhoneNumber = `${countryCode}${cleanPhoneNumber}`;
-      console.log('Sending OTP to phone number:', fullPhoneNumber, 'for user:', currentUser.uid);
       // Use the existing recaptchaVerifierRef
       const recaptchaVerifier = recaptchaVerifierRef.current;
       if (!recaptchaVerifier) {
@@ -291,8 +287,6 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
       // Link the phone credential to the current user account
       await linkWithCredential(currentUser, phoneCredential);
       
-      console.log('Phone verification successful for user:', currentUser.uid);
-      
       // Update user profile in Firestore to mark phone as verified
       const cleanPhoneNumber = phoneNumber.replace(/\D/g, '');
       const fullPhoneNumber = `${countryCode}${cleanPhoneNumber}`;
@@ -309,12 +303,12 @@ const PhoneVerificationModal: React.FC<PhoneVerificationModalProps> = ({
         description: "Phone number verified successfully"
       });
       
-      // Refresh user profile and call success callback
+      setOtp('');
       await refreshUserProfile();
       onSuccess();
       onClose();
     } catch (error: any) {
-      console.error('OTP verification error:', error);
+      setOtp('');
       let errorMessage = "Failed to verify OTP. Please try again.";
       if (error.code === 'auth/invalid-verification-code') {
         errorMessage = "Invalid OTP. Please check the code and try again.";

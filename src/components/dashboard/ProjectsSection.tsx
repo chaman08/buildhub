@@ -56,7 +56,6 @@ const ProjectsSection: React.FC = () => {
 
     try {
       setLoading(true);
-      console.log('Fetching projects for user:', currentUser.uid);
 
       const projectsQuery = query(
         collection(db, 'projects'),
@@ -65,7 +64,6 @@ const ProjectsSection: React.FC = () => {
       );
 
       const snapshot = await getDocs(projectsQuery);
-      console.log('Projects found:', snapshot.size);
 
       const projectData = snapshot.docs.map(doc => {
         const data = doc.data();
@@ -78,7 +76,6 @@ const ProjectsSection: React.FC = () => {
           startDate: data.startDate || null,
           postedBy: data.postedBy || currentUser.uid
         };
-        console.log('Project data:', projectData);
         return projectData;
       }) as Project[];
 

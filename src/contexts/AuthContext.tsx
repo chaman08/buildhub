@@ -373,8 +373,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await setPersistence(auth, browserLocalPersistence);
       const result = await signInWithPopup(auth, provider);
 
-      console.log('Google sign-in successful, email verified status:', result.user.emailVerified);
-
       // Create initial user profile with Google data
       await createUserProfile(result.user, {
         fullName: result.user.displayName || '',
@@ -440,7 +438,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           let needsUpdate = false;
 
           if (isGoogleUser && !profile.isEmailVerified) {
-            console.log('Updating Google user email verification status');
             profile.isEmailVerified = true;
             needsUpdate = true;
           }
@@ -499,12 +496,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return new RecaptchaVerifier(auth, elementId, {
       size: 'invisible',
-      callback: () => {
-        console.log('reCAPTCHA solved');
-      },
+      callback: () => {},
       'expired-callback': () => {
-        console.log('reCAPTCHA expired');
-        // Clear the container and reinitialize if needed
         if (existingContainer) {
           existingContainer.innerHTML = '';
         }
@@ -524,18 +517,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
         size: 'normal',
-        callback: () => {
-          console.log('reCAPTCHA solved');
-        },
-        'expired-callback': () => {
-          console.log('reCAPTCHA expired');
-        }
+        callback: () => {},
+        'expired-callback': () => {}
       });
 
       // Render the reCAPTCHA first
       await recaptchaVerifier.render();
 
-      console.log('Sending OTP to:', phoneNumber);
       const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
 
       return confirmationResult;
@@ -637,7 +625,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log('Auth state changed:', user ? 'User logged in' : 'User logged out');
       setCurrentUser(user);
 
       if (user) {
@@ -655,7 +642,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             let needsUpdate = false;
 
             if (isGoogleUser && !profile.isEmailVerified) {
-              console.log('Updating Google user email verification status');
               profile.isEmailVerified = true;
               needsUpdate = true;
             }

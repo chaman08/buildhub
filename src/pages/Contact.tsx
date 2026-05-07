@@ -43,7 +43,6 @@ const Contact = () => {
         status: "unread"
       });
 
-      console.log("Contact message saved to Firestore:", formData);
       setIsSubmitted(true);
       
       toast({

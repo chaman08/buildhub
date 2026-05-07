@@ -59,7 +59,6 @@ const Contractors = () => {
 
   const fetchContractors = async () => {
     try {
-      console.log('Fetching contractors from Firestore...');
       
       const orderedQuery = query(
         collection(db, 'users'),
@@ -92,7 +91,6 @@ const Contractors = () => {
 
   const loadContractorPages = async (baseQuery: any) => {
     const firstPageSnapshot = await getDocs(query(baseQuery, limit(PAGE_SIZE)));
-    console.log('Contractors fetched (first page):', firstPageSnapshot.size);
     
     const firstBatch = firstPageSnapshot.docs.map(doc => ({
       uid: doc.id,

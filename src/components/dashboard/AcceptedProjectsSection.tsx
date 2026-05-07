@@ -50,7 +50,6 @@ const AcceptedProjectsSection: React.FC = () => {
     if (!currentUser) return;
 
     try {
-      console.log('Fetching accepted projects...');
       
       // Get projects that are in progress or completed
       const projectsQuery = query(
@@ -125,7 +124,6 @@ const AcceptedProjectsSection: React.FC = () => {
       );
       
       const validProjects = projectsData.filter(project => project !== null) as AcceptedProject[];
-      console.log('Accepted projects fetched:', validProjects.length);
       setAcceptedProjects(validProjects);
     } catch (error) {
       console.error('Error fetching accepted projects:', error);

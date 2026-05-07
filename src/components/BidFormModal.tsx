@@ -83,21 +83,6 @@ const BidFormModal: React.FC<BidFormModalProps> = ({ open, onOpenChange, project
 
     setIsSubmitting(true);
     try {
-      console.log('Placing bid with data:', {
-        projectId: project.id,
-        contractorId: currentUser.uid,
-        contractorName: userProfile.fullName,
-        contractorEmail: userProfile.email,
-        contractorPhone: userProfile.mobile,
-        contractorCompany: userProfile.companyName,
-        contractorCategory: userProfile.serviceCategory,
-        customerId: project.postedBy,
-        projectTitle: project.title,
-        priceQuoted: data.priceQuoted,
-        timeline: data.timeline,
-        message: data.message,
-        status: 'pending'
-      });
 
       await addDoc(collection(db, 'bids'), {
         projectId: project.id,
@@ -138,7 +123,6 @@ const BidFormModal: React.FC<BidFormModalProps> = ({ open, onOpenChange, project
 
   const formatBudget = (amount: number) => {
     if (!amount || isNaN(amount)) {
-      console.log('Invalid amount detected:', amount);
       return '₹0';
     }
     

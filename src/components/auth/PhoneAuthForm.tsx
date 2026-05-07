@@ -97,8 +97,7 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
         }
         
         const selectedUserType = userType || preSelectedUserType;
-        console.log('Signup with user type:', selectedUserType);
-        
+
         result = await signupWithPhone(fullPhone, {
           fullName: formData.fullName || 'User',
           userType: selectedUserType as 'customer' | 'contractor',
@@ -115,7 +114,6 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
         description: `Verification code sent to ${fullPhone}`,
       });
     } catch (error: any) {
-      console.error('Phone OTP error:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to send OTP. Please try again.",
@@ -136,9 +134,8 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
       return;
     }
 
-    console.log('Verifying OTP:', otp, 'for', isLogin ? 'login' : 'signup');
     setLoading(true);
-    
+
     try {
       const selectedUserType = userType || preSelectedUserType;
       const userData = !isLogin ? {
@@ -148,9 +145,11 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
         profileComplete: false
       } : undefined;
 
-      console.log('Calling verifyPhoneOTP with userData:', userData);
       await verifyPhoneOTP(confirmationResult, otp, userData);
-      
+
+      setOtp('');
+      setConfirmationResult(null);
+
       toast({
         title: isLogin ? "Login Successful" : "Account Created",
         description: isLogin ? "Welcome back!" : "Please complete your profile to continue"
@@ -158,7 +157,7 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
 
       onSuccess();
     } catch (error: any) {
-      console.error('Phone verification error:', error);
+      setOtp('');
       toast({
         title: "Verification Failed",
         description: "Invalid OTP. Please try again.",
