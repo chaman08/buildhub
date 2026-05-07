@@ -10,7 +10,7 @@ const Auth: React.FC = () => {
   const location = useLocation();
   const [isLogin, setIsLogin] = useState(true);
   const navigate = useNavigate();
-  const { currentUser, userProfile, isVerificationComplete } = useAuth();
+  const { currentUser, userProfile, isVerificationComplete, isProfileComplete } = useAuth();
 
   // Check if we should show signup based on navigation state
   useEffect(() => {
@@ -24,9 +24,8 @@ const Auth: React.FC = () => {
     const handleNavigation = async () => {
       if (!currentUser || !userProfile) return;
 
-      // Check if Google user needs to complete profile
-      if (!userProfile.mobile) {
-        // Show profile completion, don't navigate
+      // Show profile completion if not yet complete (any auth method)
+      if (!isProfileComplete()) {
         return;
       }
       
@@ -44,10 +43,10 @@ const Auth: React.FC = () => {
     };
 
     handleNavigation();
-  }, [currentUser, userProfile, navigate, isVerificationComplete]);
+  }, [currentUser, userProfile, navigate, isVerificationComplete, isProfileComplete]);
 
-  // Show profile completion for Google users with incomplete profiles
-  if (currentUser && userProfile && !userProfile.mobile) {
+  // Show profile completion for any user who hasn't completed their profile yet
+  if (currentUser && userProfile && !isProfileComplete()) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
         <Header />
@@ -64,8 +63,8 @@ const Auth: React.FC = () => {
       <div className="pt-20 pb-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md mx-auto">
           {isLogin ? (
-            <LoginForm 
-              onSuccess={() => setIsLogin(false)} 
+            <LoginForm
+              onSuccess={() => {}}
               onSwitchToSignup={() => setIsLogin(false)}
             />
           ) : (

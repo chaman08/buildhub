@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -17,11 +17,13 @@ const PostProjectDialog = ({ open, onOpenChange, onProjectPosted }: PostProjectD
   const { currentUser, isVerificationComplete } = useAuth();
   const navigate = useNavigate();
 
-  // If user is not logged in, redirect to auth page
-  if (!currentUser) {
-    navigate('/auth');
-    return null;
-  }
+  useEffect(() => {
+    if (!currentUser) {
+      navigate('/auth');
+    }
+  }, [currentUser, navigate]);
+
+  if (!currentUser) return null;
 
   // Require both email and phone verified before posting
   if (!isVerificationComplete()) {

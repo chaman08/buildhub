@@ -21,10 +21,11 @@ const ProfileCompletion: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [showPhoneVerification, setShowPhoneVerification] = useState(false);
   const [formData, setFormData] = useState({
+    fullName: userProfile?.fullName === 'User' ? '' : (userProfile?.fullName || ''),
     mobile: '',
     city: '',
     state: '',
-    userType: 'customer' as 'customer' | 'contractor',
+    userType: (userProfile?.userType || 'customer') as 'customer' | 'contractor',
     companyName: '',
     serviceCategory: [] as string[],
     experience: ''
@@ -45,6 +46,15 @@ const ProfileCompletion: React.FC = () => {
     if (!currentUser || !userProfile) return;
 
     // Validate required fields
+    if (!isGoogleUser && !formData.fullName.trim()) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter your full name",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (!formData.city || !formData.state || !formData.userType) {
       toast({
         title: "Missing Information",
@@ -68,6 +78,7 @@ const ProfileCompletion: React.FC = () => {
       const userRef = doc(db, 'users', currentUser.uid);
       const updateData = {
         ...formData,
+        ...(formData.fullName.trim() && { fullName: formData.fullName.trim() }),
         serviceCategory: formData.serviceCategory.join(', '),
         experience: formData.experience ? parseInt(formData.experience) : 0,
         updatedAt: new Date()
@@ -107,6 +118,15 @@ const ProfileCompletion: React.FC = () => {
     }
 
     // Validate required fields
+    if (!isGoogleUser && !formData.fullName.trim()) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter your full name",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (!formData.city || !formData.state || !formData.userType) {
       toast({
         title: "Missing Information",
@@ -130,6 +150,7 @@ const ProfileCompletion: React.FC = () => {
       const userRef = doc(db, 'users', currentUser.uid);
       const updateData = {
         ...formData,
+        ...(formData.fullName.trim() && { fullName: formData.fullName.trim() }),
         serviceCategory: formData.serviceCategory.join(', '),
         experience: formData.experience ? parseInt(formData.experience) : 0,
         updatedAt: new Date()
@@ -217,6 +238,21 @@ const ProfileCompletion: React.FC = () => {
 
           {/* Profile Form */}
           <div className="space-y-4">
+            {/* Full name — only for phone users (Google already provides it) */}
+            {!isGoogleUser && (
+              <div>
+                <Label htmlFor="fullName">Full Name *</Label>
+                <Input
+                  id="fullName"
+                  name="fullName"
+                  value={formData.fullName}
+                  onChange={handleInputChange}
+                  placeholder="Enter your full name"
+                  required
+                />
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -328,8 +364,13 @@ const ProfileCompletion: React.FC = () => {
             )}
             <Button
               onClick={handleCompleteProfile}
-              disabled={(!isGoogleUser && !userProfile.isPhoneVerified) || !formData.city || !formData.userType ||
-                (formData.userType === 'contractor' && (!formData.companyName || formData.serviceCategory.length === 0))}
+              disabled={
+                (!isGoogleUser && !userProfile.isPhoneVerified) ||
+                (!isGoogleUser && !formData.fullName.trim()) ||
+                !formData.city ||
+                !formData.userType ||
+                (formData.userType === 'contractor' && (!formData.companyName || formData.serviceCategory.length === 0))
+              }
               className="w-full"
             >
               Complete Profile & Continue

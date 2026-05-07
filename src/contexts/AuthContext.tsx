@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import {
   User,
   createUserWithEmailAndPassword,
@@ -591,25 +591,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const isVerificationComplete = (): boolean => {
+  const isVerificationComplete = useCallback((): boolean => {
     if (!userProfile) return false;
-    // Allow access if either email or phone is verified
     return !!(userProfile.isEmailVerified || userProfile.isPhoneVerified);
-  };
+  }, [userProfile]);
 
-  const isAdmin = (): boolean => {
+  const isAdmin = useCallback((): boolean => {
     return userProfile?.isAdmin === true;
-  };
+  }, [userProfile]);
 
-  const isProfileComplete = (): boolean => {
+  const isProfileComplete = useCallback((): boolean => {
     if (!userProfile) return false;
 
-    // Check if the profile is explicitly marked as complete
     if (userProfile.profileComplete === true) {
       return true;
     }
 
-    // If not explicitly marked, check for required fields
     if (userProfile.userType === 'customer') {
       return !!(userProfile.fullName && userProfile.mobile && userProfile.city);
     } else if (userProfile.userType === 'contractor') {
@@ -623,7 +620,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     return false;
-  };
+  }, [userProfile]);
 
   const markProfileComplete = async (): Promise<void> => {
     if (!currentUser || !userProfile) return;

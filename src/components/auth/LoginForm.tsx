@@ -1,12 +1,7 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Mail, Phone } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import PhoneAuthForm from './PhoneAuthForm';
@@ -17,55 +12,18 @@ interface LoginFormProps {
 }
 
 const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToSignup }) => {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  });
-  const [showResetDialog, setShowResetDialog] = useState(false);
-  const [resetEmail, setResetEmail] = useState('');
-  const [resetLoading, setResetLoading] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  
-  const { login, signInWithGoogle, resetPassword } = useAuth();
+  const { signInWithGoogle } = useAuth();
   const { toast } = useToast();
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    
-    try {
-      await login(formData.email, formData.password);
-      toast({
-        title: "Login Successful",
-        description: "Welcome back!"
-      });
-      onSuccess();
-    } catch (error: any) {
-      toast({
-        title: "Login Failed",
-        description: error.message,
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
-    
     try {
       await signInWithGoogle();
       toast({
         title: "Welcome to BuildHub!",
-        description: "Account created successfully with Google"
+        description: "Signed in successfully with Google"
       });
-      onSuccess();
     } catch (error: any) {
       toast({
         title: "Google Sign-in Failed",
@@ -74,40 +32,6 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToSignup }) =>
       });
     } finally {
       setGoogleLoading(false);
-    }
-  };
-
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const emailToReset = (resetEmail || formData.email).trim();
-
-    if (!emailToReset) {
-      toast({
-        title: "Email required",
-        description: "Enter the email you use to sign in.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setResetLoading(true);
-
-    try {
-      await resetPassword(emailToReset);
-      toast({
-        title: "Reset link sent",
-        description: "Check your email for instructions to reset your password."
-      });
-      setShowResetDialog(false);
-      setResetEmail('');
-    } catch (error: any) {
-      toast({
-        title: "Unable to send reset link",
-        description: error.message || "Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setResetLoading(false);
     }
   };
 
@@ -121,9 +45,8 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToSignup }) =>
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
-          {/* Google Sign-in - More Prominent */}
-          <Button 
-            onClick={handleGoogleSignIn} 
+          <Button
+            onClick={handleGoogleSignIn}
             disabled={googleLoading}
             variant="outline"
             size="lg"
@@ -137,79 +60,20 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToSignup }) =>
             </svg>
             {googleLoading ? 'Signing in...' : 'Continue with Google'}
           </Button>
-          
+
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
               <span className="bg-background px-2 text-muted-foreground">
-                Or continue with
+                Or sign in with phone
               </span>
             </div>
           </div>
 
-          <Tabs defaultValue="email" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="email" className="flex items-center">
-                <Mail className="h-4 w-4 mr-1" />
-                Email
-              </TabsTrigger>
-              <TabsTrigger value="phone" className="flex items-center">
-                <Phone className="h-4 w-4 mr-1" />
-                Phone
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="email" className="space-y-4">
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="email">Email Address</Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    required
-                  />
-                  <div className="flex justify-end mt-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setResetEmail(formData.email);
-                        setShowResetDialog(true);
-                      }}
-                      className="text-sm text-blue-600 hover:underline"
-                    >
-                      Forgot password?
-                    </button>
-                  </div>
-                </div>
-                
-                <Button type="submit" disabled={loading} className="w-full">
-                  {loading ? 'Signing In...' : 'Sign In'}
-                </Button>
-              </form>
-            </TabsContent>
-            
-            <TabsContent value="phone">
-              <PhoneAuthForm onSuccess={onSuccess} isLogin={true} />
-            </TabsContent>
-          </Tabs>
-          
+          <PhoneAuthForm onSuccess={onSuccess} isLogin={true} noCard={true} />
+
           <div className="text-center text-sm text-gray-600">
             Don't have an account?{' '}
             <button
@@ -222,43 +86,6 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onSwitchToSignup }) =>
           </div>
         </div>
       </CardContent>
-
-      <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reset your password</DialogTitle>
-            <DialogDescription>
-              Enter the email linked to your account and we'll send you a reset link.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleResetPassword} className="space-y-4">
-            <div>
-              <Label htmlFor="reset-email">Email address</Label>
-              <Input
-                id="reset-email"
-                type="email"
-                value={resetEmail}
-                onChange={(e) => setResetEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-              />
-            </div>
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowResetDialog(false)}
-                className="sm:w-auto w-full"
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={resetLoading} className="sm:w-auto w-full">
-                {resetLoading ? 'Sending...' : 'Send reset link'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 };

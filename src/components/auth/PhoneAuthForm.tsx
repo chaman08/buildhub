@@ -9,7 +9,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 import { Phone, User, Building2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { ConfirmationResult, RecaptchaVerifier } from 'firebase/auth';
+import { ConfirmationResult } from 'firebase/auth';
 
 type UserType = 'customer' | 'contractor' | '';
 
@@ -17,12 +17,14 @@ interface PhoneAuthFormProps {
   onSuccess: () => void;
   isLogin?: boolean;
   preSelectedUserType?: UserType;
+  noCard?: boolean;
 }
 
-const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({ 
-  onSuccess, 
+const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
+  onSuccess,
   isLogin = false,
-  preSelectedUserType = '' 
+  preSelectedUserType = '',
+  noCard = false
 }) => {
   const [step, setStep] = useState(1);
   const [countryCode, setCountryCode] = useState('+91');
@@ -38,9 +40,8 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
   });
   const [loading, setLoading] = useState(false);
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
-  const [recaptchaVerifier, setRecaptchaVerifier] = useState<RecaptchaVerifier | null>(null);
-  
-  const { loginWithPhone, signupWithPhone, verifyPhoneOTP, setupRecaptcha } = useAuth();
+
+  const { loginWithPhone, signupWithPhone, verifyPhoneOTP } = useAuth();
   const { toast } = useToast();
 
   const countryCodes = [
@@ -65,23 +66,9 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const initializeRecaptcha = () => {
-    try {
-      if (recaptchaVerifier) {
-        recaptchaVerifier.clear();
-      }
-      const verifier = setupRecaptcha('recaptcha-container-phone');
-      setRecaptchaVerifier(verifier);
-      return verifier;
-    } catch (error) {
-      console.error('Error initializing reCAPTCHA:', error);
-      throw error;
-    }
-  };
-
   const handleSendOTP = async () => {
     const fullPhone = `${countryCode}${phoneNumber}`;
-    
+
     if (!phoneNumber || phoneNumber.length < 10) {
       toast({
         title: "Invalid Phone Number",
@@ -91,11 +78,9 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
       return;
     }
 
-    console.log('Sending OTP for', isLogin ? 'login' : 'signup', 'to:', fullPhone);
     setLoading(true);
-    
+
     try {
-      const verifier = initializeRecaptcha();
       let result: ConfirmationResult;
       
       if (isLogin) {
@@ -168,14 +153,9 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
       
       toast({
         title: isLogin ? "Login Successful" : "Account Created",
-        description: isLogin ? "Welcome back!" : "Please complete your profile in the dashboard"
+        description: isLogin ? "Welcome back!" : "Please complete your profile to continue"
       });
-      
-      // Clean up reCAPTCHA
-      if (recaptchaVerifier) {
-        recaptchaVerifier.clear();
-      }
-      
+
       onSuccess();
     } catch (error: any) {
       console.error('Phone verification error:', error);
@@ -195,6 +175,74 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
 
   // Step 1: Phone number input
   if (step === 1) {
+    const step1Content = (
+      <div className="space-y-4">
+        <div>
+          <Label htmlFor="mobile">Mobile Number</Label>
+          <div className="flex space-x-2">
+            <Select value={countryCode} onValueChange={setCountryCode}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {countryCodes.map((country) => (
+                  <SelectItem key={country.code} value={country.code}>
+                    {country.code} {country.country}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              id="mobile"
+              type="tel"
+              placeholder="Phone Number"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
+              className="flex-1"
+              required
+            />
+          </div>
+        </div>
+
+        {!isLogin && !preSelectedUserType && (
+          <div>
+            <Label>Account Type</Label>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <Button
+                type="button"
+                variant={userType === 'customer' ? 'default' : 'outline'}
+                onClick={() => setUserType('customer')}
+                className="h-auto p-3 flex flex-col"
+              >
+                <User className="h-5 w-5 mb-1" />
+                <span className="text-xs">Customer</span>
+              </Button>
+              <Button
+                type="button"
+                variant={userType === 'contractor' ? 'default' : 'outline'}
+                onClick={() => setUserType('contractor')}
+                className="h-auto p-3 flex flex-col"
+              >
+                <Building2 className="h-5 w-5 mb-1" />
+                <span className="text-xs">Contractor</span>
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <Button
+          onClick={handleSendOTP}
+          disabled={loading || !phoneNumber || phoneNumber.length < 10}
+          className="w-full"
+        >
+          {loading ? 'Sending OTP...' : 'Send OTP'}
+        </Button>
+
+      </div>
+    );
+
+    if (noCard) return step1Content;
+
     return (
       <Card className="w-full max-w-md mx-auto">
         <CardHeader>
@@ -203,121 +251,59 @@ const PhoneAuthForm: React.FC<PhoneAuthFormProps> = ({
             {isLogin ? 'Sign In with Phone' : 'Sign Up with Phone'}
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="mobile">Mobile Number</Label>
-            <div className="flex space-x-2">
-              <Select value={countryCode} onValueChange={setCountryCode}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {countryCodes.map((country) => (
-                    <SelectItem key={country.code} value={country.code}>
-                      {country.code} {country.country}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Input
-                id="mobile"
-                type="tel"
-                placeholder="Phone Number"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
-                className="flex-1"
-                required
-              />
-            </div>
-          </div>
-
-          {!isLogin && !preSelectedUserType && (
-            <div>
-              <Label>Account Type</Label>
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                <Button
-                  type="button"
-                  variant={userType === 'customer' ? 'default' : 'outline'}
-                  onClick={() => setUserType('customer')}
-                  className="h-auto p-3 flex flex-col"
-                >
-                  <User className="h-5 w-5 mb-1" />
-                  <span className="text-xs">Customer</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant={userType === 'contractor' ? 'default' : 'outline'}
-                  onClick={() => setUserType('contractor')}
-                  className="h-auto p-3 flex flex-col"
-                >
-                  <Building2 className="h-5 w-5 mb-1" />
-                  <span className="text-xs">Contractor</span>
-                </Button>
-              </div>
-            </div>
-          )}
-          
-          <Button 
-            onClick={handleSendOTP} 
-            disabled={loading || !phoneNumber || phoneNumber.length < 10}
-            className="w-full"
-          >
-            {loading ? 'Sending OTP...' : 'Send OTP'}
-          </Button>
-          
-          {/* reCAPTCHA container */}
-          <div id="recaptcha-container-phone"></div>
-        </CardContent>
+        <CardContent>{step1Content}</CardContent>
       </Card>
     );
   }
 
   // Step 2: OTP verification
+  const step2Content = (
+    <div className="space-y-4">
+      <p className="text-center text-sm text-gray-600">
+        Enter the 6-digit code sent to {countryCode}{phoneNumber}
+      </p>
+      <div className="flex justify-center">
+        <InputOTP maxLength={6} value={otp} onChange={setOtp}>
+          <InputOTPGroup>
+            <InputOTPSlot index={0} />
+            <InputOTPSlot index={1} />
+            <InputOTPSlot index={2} />
+            <InputOTPSlot index={3} />
+            <InputOTPSlot index={4} />
+            <InputOTPSlot index={5} />
+          </InputOTPGroup>
+        </InputOTP>
+      </div>
+
+      <Button
+        onClick={handleVerifyOTP}
+        disabled={loading || otp.length !== 6}
+        className="w-full"
+      >
+        {loading ? 'Verifying...' : 'Verify & Continue'}
+      </Button>
+
+      <div className="text-center">
+        <Button
+          variant="outline"
+          onClick={handleResendOTP}
+          disabled={loading}
+          className="text-sm"
+        >
+          Resend OTP
+        </Button>
+      </div>
+    </div>
+  );
+
+  if (noCard) return step2Content;
+
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
         <CardTitle className="text-center">Verify Phone Number</CardTitle>
-        <p className="text-center text-sm text-gray-600">
-          Enter the 6-digit code sent to {countryCode}{phoneNumber}
-        </p>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex justify-center">
-          <InputOTP
-            maxLength={6}
-            value={otp}
-            onChange={setOtp}
-          >
-            <InputOTPGroup>
-              <InputOTPSlot index={0} />
-              <InputOTPSlot index={1} />
-              <InputOTPSlot index={2} />
-              <InputOTPSlot index={3} />
-              <InputOTPSlot index={4} />
-              <InputOTPSlot index={5} />
-            </InputOTPGroup>
-          </InputOTP>
-        </div>
-
-        <Button 
-          onClick={handleVerifyOTP} 
-          disabled={loading || otp.length !== 6}
-          className="w-full"
-        >
-          {loading ? 'Verifying...' : 'Verify & Continue'}
-        </Button>
-
-        <div className="text-center">
-          <Button 
-            variant="outline" 
-            onClick={handleResendOTP}
-            disabled={loading}
-            className="text-sm"
-          >
-            Resend OTP
-          </Button>
-        </div>
-      </CardContent>
+      <CardContent>{step2Content}</CardContent>
     </Card>
   );
 };
